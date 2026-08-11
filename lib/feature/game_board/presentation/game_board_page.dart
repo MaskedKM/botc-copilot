@@ -140,8 +140,8 @@ class _GameBoardBody extends ConsumerWidget {
                     Expanded(
                       child: TabBarView(
                         children: [
-                          NightPanel(gameId: gameId, players: players),
-                          DayPanel(gameId: gameId, players: players),
+                          NightPanel(gameId: gameId),
+                          DayPanel(gameId: gameId),
                           const ComingSoonPanel(
                             title: '投票记录',
                             hint: '提名与投票记录功能开发中（issue #15）',

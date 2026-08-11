@@ -94,35 +94,43 @@ class GameBoardNotifier extends StateNotifier<GameBoardState> {
   }
 
   /// 记录夜晚死亡（null = 无人死亡）。
+  ///
+  /// 事务包裹：当日记录与玩家死亡标记必须同生共死。
   Future<void> recordNightDeath(int? playerId) async {
     final dayId = await _ensureDayRecord(state.currentDay);
-    await _db.dayRecordsDao.updateDay(
-      dayId,
-      DayRecordsCompanion(nightDeathPlayerId: Value(playerId)),
-    );
-    if (playerId != null) {
-      await _db.playersDao.markDead(
-        playerId,
-        state.currentDay,
-        DeathCause.nightKill,
+    await _db.transaction(() async {
+      await _db.dayRecordsDao.updateDay(
+        dayId,
+        DayRecordsCompanion(nightDeathPlayerId: Value(playerId)),
       );
-    }
+      if (playerId != null) {
+        await _db.playersDao.markDead(
+          playerId,
+          state.currentDay,
+          DeathCause.nightKill,
+        );
+      }
+    });
   }
 
   /// 记录白天处决（null = 无处决）。
+  ///
+  /// 事务包裹：当日记录与玩家死亡标记必须同生共死。
   Future<void> recordExecution(int? playerId) async {
     final dayId = await _ensureDayRecord(state.currentDay);
-    await _db.dayRecordsDao.updateDay(
-      dayId,
-      DayRecordsCompanion(dayExecutionPlayerId: Value(playerId)),
-    );
-    if (playerId != null) {
-      await _db.playersDao.markDead(
-        playerId,
-        state.currentDay,
-        DeathCause.execution,
+    await _db.transaction(() async {
+      await _db.dayRecordsDao.updateDay(
+        dayId,
+        DayRecordsCompanion(dayExecutionPlayerId: Value(playerId)),
       );
-    }
+      if (playerId != null) {
+        await _db.playersDao.markDead(
+          playerId,
+          state.currentDay,
+          DeathCause.execution,
+        );
+      }
+    });
   }
 
   /// 快速切换死亡/复活（长按快捷操作）。

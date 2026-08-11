@@ -8,13 +8,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 /// 夜晚结果面板：记录今夜死亡。
 class NightPanel extends ConsumerWidget {
   /// 创建面板。
-  const NightPanel({required this.gameId, required this.players, super.key});
+  const NightPanel({required this.gameId, super.key});
 
   /// 对局 id。
   final int gameId;
-
-  /// 玩家列表。
-  final List<Player> players;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -23,6 +20,7 @@ class NightPanel extends ConsumerWidget {
     );
     final dayRecord =
         ref.watch(currentDayRecordProvider((gameId, day))).valueOrNull;
+    final players = ref.watch(gamePlayersProvider(gameId)).valueOrNull ?? [];
     final notifier = ref.read(gameBoardProvider(gameId).notifier);
 
     return ListView(
@@ -68,13 +66,10 @@ class NightPanel extends ConsumerWidget {
 /// 白天面板：记录处决。
 class DayPanel extends ConsumerWidget {
   /// 创建面板。
-  const DayPanel({required this.gameId, required this.players, super.key});
+  const DayPanel({required this.gameId, super.key});
 
   /// 对局 id。
   final int gameId;
-
-  /// 玩家列表。
-  final List<Player> players;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -83,6 +78,7 @@ class DayPanel extends ConsumerWidget {
     );
     final dayRecord =
         ref.watch(currentDayRecordProvider((gameId, day))).valueOrNull;
+    final players = ref.watch(gamePlayersProvider(gameId)).valueOrNull ?? [];
     final notifier = ref.read(gameBoardProvider(gameId).notifier);
 
     return ListView(
