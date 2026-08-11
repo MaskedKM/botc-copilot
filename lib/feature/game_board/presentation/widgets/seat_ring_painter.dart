@@ -175,6 +175,22 @@ class SeatRingPainter extends CustomPainter {
       );
     }
 
+    // 矛盾微标记：琥珀色小三角在节点外侧（issue #38，不改信任度颜色）。
+    if (player.hasContradiction) {
+      final markerPaint = Paint()
+        ..color = gameColors.blood.withValues(alpha: nodeOpacity);
+      final markerCenter = Offset(
+        center.dx,
+        center.dy - _r - 12,
+      );
+      final path = Path()
+        ..moveTo(markerCenter.dx, markerCenter.dy - 4)
+        ..lineTo(markerCenter.dx - 4, markerCenter.dy + 3)
+        ..lineTo(markerCenter.dx + 4, markerCenter.dy + 3)
+        ..close();
+      canvas.drawPath(path, markerPaint);
+    }
+
     // 选中玩家的存活邻座高亮。
     if (selectedPlayerId != null && _isLivingNeighborOfSelected(index)) {
       canvas.drawCircle(

@@ -12,6 +12,7 @@ class SeatRingPlayer {
     this.trustLevel = TrustLevel.unknown,
     this.isMe = false,
     this.isPoisoned = false,
+    this.hasContradiction = false,
   });
 
   /// 数据库玩家 id。
@@ -35,6 +36,9 @@ class SeatRingPlayer {
   /// 当天是否被标记为可能被毒/醉（圆环画紫色微光）。
   final bool isPoisoned;
 
+  /// 是否涉及矛盾标记（圆环画警示微标记，不改变信任度颜色）。
+  final bool hasContradiction;
+
   /// 名字首字符（节点内显示）。
   String get initial => name.isEmpty ? '?' : name.characters.first;
 
@@ -44,6 +48,7 @@ class SeatRingPlayer {
     TrustLevel? trustLevel,
     bool? isMe,
     bool? isPoisoned,
+    bool? hasContradiction,
   }) {
     return SeatRingPlayer(
       id: id,
@@ -53,6 +58,7 @@ class SeatRingPlayer {
       trustLevel: trustLevel ?? this.trustLevel,
       isMe: isMe ?? this.isMe,
       isPoisoned: isPoisoned ?? this.isPoisoned,
+      hasContradiction: hasContradiction ?? this.hasContradiction,
     );
   }
 
@@ -65,9 +71,13 @@ class SeatRingPlayer {
       other.isAlive == isAlive &&
       other.trustLevel == trustLevel &&
       other.isMe == isMe &&
-      other.isPoisoned == isPoisoned;
+      other.isPoisoned == isPoisoned &&
+      other.hasContradiction == hasContradiction;
 
   @override
   int get hashCode =>
-      Object.hash(id, name, seatNumber, isAlive, trustLevel, isMe, isPoisoned);
+      Object.hash(
+      id, name, seatNumber, isAlive, trustLevel, isMe, isPoisoned,
+      hasContradiction,
+    );
 }

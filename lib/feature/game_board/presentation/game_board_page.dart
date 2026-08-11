@@ -14,6 +14,8 @@ import 'package:botc_copilot/feature/game_board/presentation/widgets/my_info_she
 import 'package:botc_copilot/feature/game_board/presentation/widgets/seat_ring.dart';
 import 'package:botc_copilot/feature/game_board/presentation/widgets/voting_panel.dart';
 import 'package:botc_copilot/feature/player_detail/presentation/player_detail_sheet.dart';
+import 'package:botc_copilot/feature/reasoning/data/contradictions_provider.dart';
+import 'package:botc_copilot/feature/reasoning/presentation/contradiction_panel.dart';
 import 'package:botc_copilot/shared/models/enums.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -82,6 +84,10 @@ class _GameBoardBody extends ConsumerWidget {
       for (final p in poisoned)
         if (p.dayNumber == currentDay && p.isActive) p.playerId,
     };
+    final contradictions = ref.watch(contradictionsProvider(gameId));
+    final contradictionPlayerIds = {
+      for (final c in contradictions) ...c.playerIds,
+    };
     final ringPlayers = [
       for (final p in players)
         SeatRingPlayer(
@@ -92,6 +98,7 @@ class _GameBoardBody extends ConsumerWidget {
           trustLevel: trustLevels[p.id] ?? TrustLevel.unknown,
           isMe: p.id == game.myPlayerId,
           isPoisoned: poisonedToday.contains(p.id),
+          hasContradiction: contradictionPlayerIds.contains(p.id),
         ),
     ];
 
@@ -211,10 +218,7 @@ class _GameBoardBody extends ConsumerWidget {
                           NightPanel(gameId: gameId),
                           DayPanel(gameId: gameId),
                           VotingPanel(gameId: gameId),
-                          const ComingSoonPanel(
-                            title: '我的推理',
-                            hint: '信任度与排除法追踪开发中（issue #13）',
-                          ),
+                          ContradictionPanel(gameId: gameId),
                         ],
                       ),
                     ),
