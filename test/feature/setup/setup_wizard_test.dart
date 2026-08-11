@@ -1,6 +1,7 @@
 import 'package:botc_copilot/app.dart';
 import 'package:botc_copilot/core/constants/character.dart';
 import 'package:botc_copilot/core/constants/script.dart';
+import 'package:botc_copilot/core/database/app_database.dart';
 import 'package:botc_copilot/feature/setup/data/setup_repository.dart';
 import 'package:botc_copilot/feature/game_board/presentation/providers/game_board_provider.dart';
 import 'package:botc_copilot/feature/setup/presentation/providers/setup_provider.dart';
@@ -44,12 +45,19 @@ void main() {
   Widget buildApp() => ProviderScope(
         overrides: [
           setupRepositoryProvider.overrideWithValue(repo),
-          // 提交后跳转到对局页，该页会读 game providers；
-          // widget test 不碰真实数据库，用空流占位。
-          currentGameProvider.overrideWith((ref) => Stream.value(null)),
+          // widget test 不碰真实数据库：存档列表/对局页均用空流占位。
+          allGamesProvider.overrideWith((ref) => Stream.value(<Game>[])),
+          gameByIdProvider(1).overrideWith((ref) => Stream.value(null)),
         ],
         child: const BotcApp(),
       );
+
+  /// 从首页进入设置向导。
+  Future<void> enterWizard(WidgetTester tester) async {
+    await tester.tap(find.text('新建对局'));
+    await tester.pumpAndSettle();
+    expect(find.text('选择剧本'), findsOneWidget);
+  }
 
   /// 走完前四步到确认页。
   Future<void> walkToConfirm(WidgetTester tester, {int playerCount = 7}) async {
@@ -71,6 +79,7 @@ void main() {
   testWidgets('非 TB 剧本禁用（角色数据未就绪）', (tester) async {
     await tester.pumpWidget(buildApp());
     await tester.pumpAndSettle();
+    await enterWizard(tester);
 
     // TB 可选，BMR/S&V 禁用（卡片标题是组合文本 “名字 · 缩写”）
     expect(find.textContaining('血月升起'), findsOneWidget);
@@ -90,6 +99,7 @@ void main() {
   testWidgets('完整设置流程：五步走到确认页', (tester) async {
     await tester.pumpWidget(buildApp());
     await tester.pumpAndSettle();
+    await enterWizard(tester);
 
     // Step 1 剧本
     expect(find.text('选择剧本'), findsOneWidget);
@@ -115,6 +125,7 @@ void main() {
   testWidgets('开始对局 → 调用仓库并跳转对局页', (tester) async {
     await tester.pumpWidget(buildApp());
     await tester.pumpAndSettle();
+    await enterWizard(tester);
 
     await walkToConfirm(tester);
     await tester.tap(find.text('共情者'));
@@ -124,8 +135,8 @@ void main() {
     await tester.tap(find.text('开始对局'));
     await tester.pumpAndSettle();
 
-    // 跳转对局主界面（无进行中对局时显示引导页）
-    expect(find.textContaining('没有进行中的对局'), findsOneWidget);
+    // 跳转对局主界面（game id=1 被 override 为 null → 显示提示）
+    expect(find.textContaining('对局不存在或已删除'), findsOneWidget);
 
     // 仓库收到正确参数
     expect(repo.lastScript, Script.troubleBrewing);

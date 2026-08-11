@@ -20,6 +20,10 @@ class GamesDao extends DatabaseAccessor<AppDatabase> with _$GamesDaoMixin {
   Future<Game?> getById(int id) =>
       (select(games)..where((g) => g.id.equals(id))).getSingleOrNull();
 
+  /// 按 id 监听单局（只监听该行变化）。
+  Stream<Game?> watchById(int id) =>
+      (select(games)..where((g) => g.id.equals(id))).watchSingleOrNull();
+
   /// 新建对局。
   Future<int> insertGame(GamesCompanion entry) => into(games).insert(entry);
 

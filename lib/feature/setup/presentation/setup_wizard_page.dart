@@ -45,8 +45,10 @@ class _SetupWizardPageState extends ConsumerState<SetupWizardPage> {
     final messenger = ScaffoldMessenger.of(context);
     final router = GoRouter.of(context);
     try {
-      await notifier.submit();
-      router.go(AppRoutes.gameBoard);
+      final gameId = await notifier.submit();
+      // pushReplacement：栈变为 [首页, 对局页]——
+      // 对局页可返回首页，且不会回到一次性的设置向导。
+      router.pushReplacement(AppRoutes.gameBoard(gameId));
     } on Exception {
       messenger.showSnackBar(const SnackBar(content: Text('创建对局失败，请重试')));
     }
