@@ -27,32 +27,28 @@
 ```
 lib/
 ├── main.dart
-├── app.dart                    # MaterialApp + 主题 + 路由
+├── app.dart                    # MaterialApp.router + 主题（路由实例由 State 持有）
 ├── core/                       # 跨 feature 共享
-│   ├── constants/              # 剧本配置、角色定义
-│   ├── theme/                  # 暗色哥特主题
-│   ├── utils/                  # 工具函数
-│   └── database/               # Drift database 实例 + shared DAO
+│   ├── constants/              # 剧本/角色/配置表/输入模板类型
+│   ├── theme/                  # 暗色哥特主题（colors/text_styles/game_colors/motion）
+│   ├── router.dart             # go_router（createAppRouter 工厂函数）
+│   └── database/               # Drift AppDatabase + tables + daos/
 ├── feature/
+│   ├── home/                   # 首页：对局存档列表
 │   ├── setup/                  # 开局设置（选剧本/人数/座位/角色）
-│   │   ├── data/
-│   │   ├── domain/
-│   │   └── presentation/
 │   ├── game_board/             # 对局主界面（座位圆环 + 当日面板）
-│   │   ├── data/
-│   │   ├── domain/
 │   │   └── presentation/
 │   │       ├── widgets/
-│   │       │   ├── seat_ring.dart       # 座位圆环 CustomPainter
-│   │       │   ├── player_card.dart     # 玩家信息卡
-│   │       │   └── day_panel.dart       # 当日信息面板
+│   │       │   ├── seat_ring.dart         # 座位圆环 widget（手势+动画）
+│   │       │   ├── seat_ring_painter.dart # CustomPainter 绘制
+│   │       │   └── day_panels.dart        # 夜晚/白天面板
 │   │       └── providers/
-│   ├── player_detail/          # 玩家详情（角色声明/信息/信任度）
+│   ├── player_detail/          # 玩家详情（角色声明/信息录入/信任度）
 │   ├── timeline/               # 每日事件流
 │   └── reasoning/              # 推理引擎（Phase 2）
 ├── shared/
 │   ├── widgets/                # 通用 UI 组件
-│   └── models/                 # 跨 feature 的数据模型
+│   └── models/                 # 跨 feature 的领域枚举
 └── l10n/                       # 国际化（中文优先）
 ```
 
@@ -70,8 +66,8 @@ lib/
 | 10     | 7    | 0      | 2    | 1    | 3        |
 | 11     | 7    | 1      | 2    | 1    | 3        |
 | 12     | 7    | 2      | 2    | 1    | 3        |
-| 13     | 9    | 0      | 2    | 1    | 3        |
-| 14     | 9    | 1      | 2    | 1    | 3        |
+| 13     | 9    | 0      | 3    | 1    | 4        |
+| 14     | 9    | 1      | 3    | 1    | 4        |
 | 15     | 9    | 2      | 3    | 1    | 4        |
 
 > Baron 在场时：+2 外来者、-2 镇民。App 需在 setup 时展示基础配置，推理阶段提示 Baron 可能性。
@@ -99,6 +95,7 @@ lib/
 | Washerwoman | 选 1 镇民角色 + 选 2 人 | 角色选择 + 双人选择器 |
 | Librarian | 选 1 外来者角色 + 选 2 人(或"无") | 角色选择 + 双人选择器 |
 | Undertaker | 选 1 角色名（被处决者身份） | 角色选择 |
+| Ravenkeeper | 选 1 人 + 选 1 角色名 | 玩家选择 + 角色选择 |
 | 其他 | 自由文本 | TextField |
 
 ### 五大推理公理（Phase 2 推理引擎的规则基础）
@@ -145,12 +142,14 @@ final gameBoardPlayersProvider = StateNotifierProvider<...>();
 
 ### 测试策略
 
-| 层 | 测试类型 | 工具 |
-|----|----------|------|
-| Domain | Unit test | `flutter_test` |
-| Data/DAO | Integration test | Drift 内存数据库 |
-| Presentation | Widget test | `flutter_test` + Riverpod `ProviderScope` |
-| 推理引擎 | Property-based test | 覆盖五大公理的边界场景 |
+| 层 | 测试类型 | 数据库 | 工具 |
+|----|----------|--------|------|
+| Domain / Notifier | Unit test | 真实内存 DB（`NativeDatabase.memory()`） | `flutter_test` |
+| Data/DAO | Integration test | 真实内存 DB | `flutter_test` |
+| Presentation | Widget test | **不碰真实 DB**，FakeRepository / provider override | `flutter_test` + Riverpod `ProviderScope` |
+| 推理引擎 | Property-based test | — | 覆盖五大公理的边界场景 |
+
+**关键规则**（踩坑记录，drift#3323/#2297）：widget test 跑在 FakeAsync 区域，真实数据库 IO 会导致 `pumpAndSettle` 假死 / `db.close()` 死锁。因此 **widget test 一律用 Fake 仓库或 provider override**，DB 正确性由集成测试覆盖。输入框聚焦时禁止 `pumpAndSettle`（光标闪烁是无限动画），用 `pump()`。
 
 **核心测试覆盖目标**：
 - 座位圆环：死亡后邻座重算逻辑
@@ -176,15 +175,24 @@ scope: setup | game-board | player-detail | timeline | reasoning | database | co
 4. **防误触**：标记死亡/处决等关键操作需确认
 5. **自动保存**：每次操作立即持久化，不需要手动保存按钮
 
+> **视觉权威**：完整视觉规范见 [`docs/UI-STYLE.md`](docs/UI-STYLE.md)（色板/字阶/组件/动效 token）。所有 hex 只允许出现在 `lib/core/theme/`，组件一律引用 token。
+
+### CI
+
+GitHub Actions（`.github/workflows/build.yml`）：
+- **check**：push / PR 自动跑 `flutter analyze` + `flutter test`（质量门禁）
+- **apk**：仅手动触发（Actions → build → Run workflow），产物上传 Artifact（30 天）
+- Flutter 版本固定 3.41.2（与本地一致；升级时同步改 workflow）
+
 ## 开发阶段
 
-### Phase 1 — MVP（~9 天）
-- 开局设置流程
-- 座位圆环 CustomPainter
-- 每日信息记录（角色自适应输入）
-- 每日事件流时间线
-- 多局存档
-- 暗色主题
+### Phase 1 — MVP ✅ 已完成（2026-08-12）
+- ✅ 开局设置向导（选剧本 → 人数 → 拖拽排座位 → 选角色 → 确认）
+- ✅ 座位圆环 CustomPainter（完整钟面布局 + 信任度色环 + 死亡动画）
+- ✅ 每日信息记录（10 种角色自适应输入模板）
+- ✅ 每日事件流时间线
+- ✅ 多局存档（首页列表 + 滑动删除）
+- ✅ 暗色哥特主题（字体打包 + App 图标 + Splash）
 
 ### Phase 2 — 推理引擎
 - 自动矛盾检测（角色重复/外来者数量/Empath vs 声明）
