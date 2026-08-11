@@ -2,6 +2,7 @@ import 'package:botc_copilot/app.dart';
 import 'package:botc_copilot/core/constants/character.dart';
 import 'package:botc_copilot/core/constants/script.dart';
 import 'package:botc_copilot/feature/setup/data/setup_repository.dart';
+import 'package:botc_copilot/feature/game_board/presentation/providers/game_board_provider.dart';
 import 'package:botc_copilot/feature/setup/presentation/providers/setup_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -41,7 +42,12 @@ void main() {
   });
 
   Widget buildApp() => ProviderScope(
-        overrides: [setupRepositoryProvider.overrideWithValue(repo)],
+        overrides: [
+          setupRepositoryProvider.overrideWithValue(repo),
+          // 提交后跳转到对局页，该页会读 game providers；
+          // widget test 不碰真实数据库，用空流占位。
+          currentGameProvider.overrideWith((ref) => Stream.value(null)),
+        ],
         child: const BotcApp(),
       );
 
@@ -118,8 +124,8 @@ void main() {
     await tester.tap(find.text('开始对局'));
     await tester.pumpAndSettle();
 
-    // 跳转对局主界面
-    expect(find.text('对局'), findsWidgets);
+    // 跳转对局主界面（无进行中对局时显示引导页）
+    expect(find.textContaining('没有进行中的对局'), findsOneWidget);
 
     // 仓库收到正确参数
     expect(repo.lastScript, Script.troubleBrewing);
