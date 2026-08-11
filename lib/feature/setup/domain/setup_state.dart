@@ -11,6 +11,7 @@ class SetupState {
     int playerCount = 7,
     List<String>? playerNames,
     this.myRole,
+    this.demonBluffs = const [],
     this.submitting = false,
   })  : playerCount = playerCount,
         playerNames = playerNames ?? List.filled(playerCount, '');
@@ -29,6 +30,9 @@ class SetupState {
 
   /// 我的角色。
   final Character? myRole;
+
+  /// 恶魔 Bluff 角色（仅当 myRole 是恶魔时录入，最多 3 个）。
+  final List<Character> demonBluffs;
 
   /// 是否正在提交（防重复点击）。
   final bool submitting;
@@ -56,6 +60,7 @@ class SetupState {
     int? playerCount,
     List<String>? playerNames,
     Character? myRole,
+    List<Character>? demonBluffs,
     bool? submitting,
   }) {
     return SetupState(
@@ -64,6 +69,7 @@ class SetupState {
       playerCount: playerCount ?? this.playerCount,
       playerNames: playerNames ?? this.playerNames,
       myRole: myRole ?? this.myRole,
+      demonBluffs: demonBluffs ?? this.demonBluffs,
       submitting: submitting ?? this.submitting,
     );
   }

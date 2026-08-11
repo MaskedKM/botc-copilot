@@ -1,5 +1,6 @@
 import 'package:botc_copilot/core/constants/character.dart';
 import 'package:botc_copilot/core/constants/script.dart';
+import 'package:botc_copilot/core/constants/team.dart';
 import 'package:botc_copilot/core/database/database_provider.dart';
 import 'package:botc_copilot/feature/setup/data/setup_repository.dart';
 import 'package:botc_copilot/feature/setup/domain/setup_state.dart';
@@ -56,7 +57,22 @@ class SetupNotifier extends StateNotifier<SetupState> {
 
   /// 选择我的角色。
   void selectRole(Character role) {
-    state = state.copyWith(myRole: role);
+    // 换了角色则清空 Bluff（防止非恶魔角色残留 Bluff 数据）
+    state = state.copyWith(
+      myRole: role,
+      demonBluffs: role.team == Team.demon ? state.demonBluffs : const [],
+    );
+  }
+
+  /// 切换 Bluff 角色选中态（最多 3 个）。
+  void toggleBluff(Character role) {
+    final bluffs = List<Character>.of(state.demonBluffs);
+    if (bluffs.contains(role)) {
+      bluffs.remove(role);
+    } else if (bluffs.length < 3) {
+      bluffs.add(role);
+    }
+    state = state.copyWith(demonBluffs: bluffs);
   }
 
   /// 下一步。
@@ -86,6 +102,7 @@ class SetupNotifier extends StateNotifier<SetupState> {
             script: state.script,
             names: state.playerNames,
             myRole: state.myRole!,
+            demonBluffs: state.demonBluffs,
           );
       // 异步间隙中页面可能已跳转、notifier 已 dispose，需 mounted 守卫。
       if (mounted) state = SetupState();

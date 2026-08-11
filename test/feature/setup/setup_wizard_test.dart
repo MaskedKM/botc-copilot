@@ -20,6 +20,7 @@ class FakeSetupRepository implements SetupRepository {
   Script? lastScript;
   List<String>? lastNames;
   Character? lastMyRole;
+  List<Character>? lastDemonBluffs;
   var nextGameId = 1;
 
   @override
@@ -27,10 +28,12 @@ class FakeSetupRepository implements SetupRepository {
     required Script script,
     required List<String> names,
     required Character myRole,
+    List<Character> demonBluffs = const [],
   }) async {
     lastScript = script;
     lastNames = names;
     lastMyRole = myRole;
+    lastDemonBluffs = demonBluffs;
     return nextGameId;
   }
 }

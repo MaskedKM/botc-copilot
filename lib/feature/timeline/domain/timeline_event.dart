@@ -104,8 +104,9 @@ abstract final class TimelineBuilder {
             ))
               TimelineEvent(
                 type: TimelineEventType.infoDeclaration,
-                summary:
-                    '${nameOf(decl.playerId)} 报 ${InfoPayloadFormatter.summarize(decl)}',
+                summary: decl.isMine
+                    ? '我（${nameOf(decl.playerId)}）获得 ${InfoPayloadFormatter.summarize(decl)}'
+                    : '${nameOf(decl.playerId)} 报 ${InfoPayloadFormatter.summarize(decl)}',
                 playerId: decl.playerId,
               ),
             // 处决

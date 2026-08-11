@@ -11,6 +11,7 @@ InfoDeclaration decl(Character c, String payload) => InfoDeclaration(
       characterType: c,
       payloadJson: payload,
       reliability: Reliability.unverified,
+      isMine: false,
     );
 
 void main() {
