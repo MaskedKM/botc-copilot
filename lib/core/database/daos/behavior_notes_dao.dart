@@ -32,6 +32,15 @@ class BehaviorNotesDao extends DatabaseAccessor<AppDatabase>
         .watch();
   }
 
+  /// 监听某玩家当天的备注。
+  Stream<List<BehaviorNote>> watchByPlayerAndDay(int playerId, int dayNumber) {
+    return (select(behaviorNotes)
+          ..where((n) => n.playerId.equals(playerId))
+          ..where((n) => n.dayNumber.equals(dayNumber))
+          ..orderBy([(n) => OrderingTerm.asc(n.createdAt)]))
+        .watch();
+  }
+
   /// 插入备注。
   Future<int> insertNote(BehaviorNotesCompanion entry) {
     return into(behaviorNotes).insert(entry);

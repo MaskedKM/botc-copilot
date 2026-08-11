@@ -411,11 +411,10 @@ class _BehaviorNoteSectionState
 
   @override
   Widget build(BuildContext context) {
-    final notes =
-        ref.watch(playerBehaviorNotesProvider(widget.player.id)).valueOrNull ??
-            [];
-    final todayNotes =
-        notes.where((n) => n.dayNumber == widget.day).toList();
+    final todayNotes = ref
+            .watch(playerDayNotesProvider((widget.player.id, widget.day)))
+            .valueOrNull ??
+        [];
     final gameColors = context.gameColors;
 
     return Column(
@@ -460,18 +459,14 @@ class _BehaviorNoteSectionState
                   Expanded(
                     child: Text(n.note, style: AppTextStyles.body),
                   ),
-                  InkWell(
-                    onTap: () => ref
+                  IconButton(
+                    tooltip: '删除备注',
+                    iconSize: 16,
+                    visualDensity: VisualDensity.compact,
+                    icon: Icon(Icons.close, color: gameColors.inkViolet),
+                    onPressed: () => ref
                         .read(behaviorNoteRepositoryProvider)
                         .deleteNote(n.id),
-                    child: Padding(
-                      padding: const EdgeInsets.all(4),
-                      child: Icon(
-                        Icons.close,
-                        size: 14,
-                        color: gameColors.inkViolet,
-                      ),
-                    ),
                   ),
                 ],
               ),
