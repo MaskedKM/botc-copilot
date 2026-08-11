@@ -2,6 +2,7 @@ import 'package:botc_copilot/core/constants/character.dart';
 import 'package:botc_copilot/core/constants/script.dart';
 import 'package:botc_copilot/core/database/app_database.dart';
 import 'package:botc_copilot/core/database/database_provider.dart';
+import 'package:botc_copilot/feature/game_board/data/poison_repository.dart';
 import 'package:botc_copilot/feature/game_board/presentation/providers/game_board_provider.dart';
 import 'package:botc_copilot/shared/models/enums.dart';
 import 'package:drift/drift.dart' hide isNotNull, isNull;
@@ -135,6 +136,44 @@ void main() {
     await notifier().advanceDay();
     final days = await db.dayRecordsDao.watchByGame(gameId).first;
     expect(days.map((d) => d.dayNumber), [2, 3]);
+  });
+
+  // issue #67 BUG-3 回归保护：advanceDay 不清除毒的 isActive——毒跨天过期
+  // 由 dayNumber 过滤保证。直接清 isActive 会破坏 timeline 的历史回看
+  // （过去天数会被错误地显示为「未中毒」）。
+  test('advanceDay 不清除毒标记：跨天过期由 dayNumber 过滤保证', () async {
+    final poisonRepo = PoisonRepository(db);
+    await poisonRepo.toggleStatus(
+      gameId: gameId,
+      playerId: players[0].id,
+      dayNumber: 1,
+    );
+
+    await notifier().advanceDay(); // → 第 2 天
+
+    // day 1 的毒记录 isActive 保持不变：timeline 历史回看仍正确
+    final statuses = await db.poisonStatusesDao.watchByGame(gameId).first;
+    expect(statuses.length, 1);
+    expect(statuses.single.isActive, isTrue);
+
+    // 历史 day 1 仍判为中毒
+    expect(
+      await poisonRepo.isTainted(
+        gameId: gameId,
+        playerId: players[0].id,
+        dayNumber: 1,
+      ),
+      isTrue,
+    );
+    // 新 day 2 自然不中毒（无 day 2 的记录，dayNumber 过滤兜底）
+    expect(
+      await poisonRepo.isTainted(
+        gameId: gameId,
+        playerId: players[0].id,
+        dayNumber: 2,
+      ),
+      isFalse,
+    );
   });
 
   test('selectPlayer：再次点同一玩家取消选中', () {
