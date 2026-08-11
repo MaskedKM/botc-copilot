@@ -110,7 +110,7 @@ class PlayerDetailSheet extends ConsumerWidget {
                     .copyWith(color: context.gameColors.inkViolet),
               ),
             const SizedBox(height: 16),
-            _RecordedInfoSection(player: player),
+            _RecordedInfoSection(player: player, currentRole: declared),
             const SizedBox(height: 16),
             _PoisonSection(gameId: gameId, player: player, day: day),
             const SizedBox(height: 16),
@@ -231,11 +231,18 @@ class _InfoInputSection extends ConsumerWidget {
   }
 }
 
-/// 已录入信息回显区（最近 5 条，最新在前）。
+/// 已录入信息回显区（issue #68：按当前声明角色分组）。
+///
+/// 当前声明角色的信息列在「已录入信息」；换声明后旧角色的信息归入
+/// 「改口历史」，弱化显示但不丢失——既避免新旧角色信息混在一起，
+/// 又保留改口轨迹供复盘。
 class _RecordedInfoSection extends ConsumerWidget {
-  const _RecordedInfoSection({required this.player});
+  const _RecordedInfoSection({required this.player, required this.currentRole});
 
   final Player player;
+
+  /// 当前声明角色（claims.last）；null = 尚未声明，回退为显示全部。
+  final Character? currentRole;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -243,34 +250,77 @@ class _RecordedInfoSection extends ConsumerWidget {
         ref.watch(playerDeclarationsProvider(player.id)).valueOrNull ?? [];
     if (declarations.isEmpty) return const SizedBox.shrink();
 
-    final recent = declarations.reversed.take(5).toList();
+    final current = currentRole == null
+        ? declarations
+        : declarations.where((d) => d.characterType == currentRole).toList();
+    final history = currentRole == null
+        ? const <InfoDeclaration>[]
+        : declarations.where((d) => d.characterType != currentRole).toList();
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text('已录入信息', style: AppTextStyles.headline),
         const SizedBox(height: 8),
-        for (final decl in recent)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 2),
-            child: Row(
-              children: [
-                Icon(
-                  Icons.circle,
-                  size: 6,
-                  color: context.gameColors
-                      .ofReliability(decl.reliability),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    InfoPayloadFormatter.summarize(decl),
-                    style: AppTextStyles.body,
-                  ),
-                ),
-              ],
+        if (current.isEmpty)
+          Text(
+            currentRole == null ? '暂无' : '尚无 ${currentRole!.nameCn} 的信息',
+            style: AppTextStyles.caption
+                .copyWith(color: context.gameColors.inkViolet),
+          )
+        else
+          for (final decl in current.reversed.take(5))
+            _InfoRow(decl: decl),
+        if (history.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          Text(
+            '改口历史（其他角色）',
+            style: AppTextStyles.caption
+                .copyWith(color: context.gameColors.inkViolet),
+          ),
+          const SizedBox(height: 4),
+          for (final decl in history.reversed.take(5))
+            _InfoRow(decl: decl, dimmed: true),
+        ],
+      ],
+    );
+  }
+}
+
+/// 单条已录入信息行。
+class _InfoRow extends StatelessWidget {
+  const _InfoRow({required this.decl, this.dimmed = false});
+
+  final InfoDeclaration decl;
+
+  /// 弱化显示（改口历史）：删除线 + 灰色。
+  final bool dimmed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        children: [
+          Icon(
+            Icons.circle,
+            size: 6,
+            color: context.gameColors.ofReliability(decl.reliability),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              InfoPayloadFormatter.summarize(decl),
+              style: dimmed
+                  ? AppTextStyles.body.copyWith(
+                      color: context.gameColors.inkViolet,
+                      decoration: TextDecoration.lineThrough,
+                    )
+                  : AppTextStyles.body,
             ),
           ),
-      ],
+        ],
+      ),
     );
   }
 }
