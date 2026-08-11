@@ -45,6 +45,7 @@ class PlayerDetailRepository {
     required int dayRecordId,
     required Character character,
     required Map<String, Object?> payload,
+    bool isMine = false,
   }) {
     return _db.infoDeclarationsDao.insertDeclaration(
       InfoDeclarationsCompanion(
@@ -53,6 +54,7 @@ class PlayerDetailRepository {
         characterType: Value(character),
         payloadJson: Value(jsonEncode(payload)),
         reliability: const Value(Reliability.unverified),
+        isMine: Value(isMine),
       ),
     );
   }

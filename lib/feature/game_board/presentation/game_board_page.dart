@@ -1,4 +1,5 @@
 import 'package:botc_copilot/core/router.dart';
+import 'package:botc_copilot/core/database/app_database.dart';
 import 'package:go_router/go_router.dart';
 import 'package:botc_copilot/core/theme/app_colors.dart';
 import 'package:botc_copilot/core/theme/app_text_styles.dart';
@@ -6,6 +7,7 @@ import 'package:botc_copilot/core/theme/game_colors.dart';
 import 'package:botc_copilot/feature/game_board/domain/seat_ring_player.dart';
 import 'package:botc_copilot/feature/game_board/presentation/providers/game_board_provider.dart';
 import 'package:botc_copilot/feature/game_board/presentation/widgets/day_panels.dart';
+import 'package:botc_copilot/feature/game_board/presentation/widgets/my_info_sheet.dart';
 import 'package:botc_copilot/feature/game_board/presentation/widgets/seat_ring.dart';
 import 'package:botc_copilot/feature/game_board/presentation/widgets/voting_panel.dart';
 import 'package:botc_copilot/feature/player_detail/presentation/player_detail_sheet.dart';
@@ -39,17 +41,18 @@ class GameBoardPage extends ConsumerWidget {
             body: Center(child: Text('对局不存在或已删除')),
           );
         }
-        return _GameBoardBody(gameId: game.id, scriptName: game.script.nameCn);
+        return _GameBoardBody(game: game);
       },
     );
   }
 }
 
 class _GameBoardBody extends ConsumerWidget {
-  const _GameBoardBody({required this.gameId, required this.scriptName});
+  const _GameBoardBody({required this.game});
 
-  final int gameId;
-  final String scriptName;
+  final Game game;
+
+  int get gameId => game.id;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -75,6 +78,7 @@ class _GameBoardBody extends ConsumerWidget {
           seatNumber: p.seatNumber,
           isAlive: p.isAlive,
           trustLevel: trustLevels[p.id] ?? TrustLevel.unknown,
+          isMe: p.id == game.myPlayerId,
         ),
     ];
 
@@ -86,12 +90,17 @@ class _GameBoardBody extends ConsumerWidget {
           child: Padding(
             padding: const EdgeInsets.only(bottom: 6),
             child: Text(
-              '$scriptName · 存活 $aliveCount/${players.length} 人',
+              '${game.script.nameCn} · 存活 $aliveCount/${players.length} 人',
               style: AppTextStyles.caption,
             ),
           ),
         ),
         actions: [
+          IconButton(
+            tooltip: '我的信息',
+            icon: const Icon(Icons.person_outline),
+            onPressed: () => MyInfoSheet.show(context, game: game),
+          ),
           IconButton(
             tooltip: '事件时间线',
             icon: const Icon(Icons.timeline),

@@ -1,3 +1,5 @@
+import 'package:botc_copilot/core/constants/character.dart';
+import 'package:botc_copilot/core/constants/team.dart';
 import 'package:botc_copilot/core/theme/app_text_styles.dart';
 import 'package:botc_copilot/core/theme/game_colors.dart';
 import 'package:botc_copilot/feature/setup/presentation/providers/setup_provider.dart';
@@ -43,6 +45,54 @@ class ConfirmStep extends ConsumerWidget {
           ),
         ),
         const SizedBox(height: 12),
+        // 恶魔 Bluff 录入（仅当我是恶魔时）
+        if (state.myRole != null &&
+            state.myRole!.team == Team.demon) ...[
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '恶魔 Bluff（选 3 个）',
+                    style: AppTextStyles.headline
+                        .copyWith(color: gameColors.blood),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '说书人给你的 3 个不在场角色。这是推理的关键约束。',
+                    style: AppTextStyles.caption,
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 4,
+                    children: [
+                      for (final c in Character.values.where(
+                        (c) => c.team != Team.demon,
+                      ))
+                        ChoiceChip(
+                          label: Text(c.nameCn),
+                          selected: state.demonBluffs.contains(c),
+                          onSelected: (_) => ref
+                              .read(setupProvider.notifier)
+                              .toggleBluff(c),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '已选 ${state.demonBluffs.length}/3',
+                    style: AppTextStyles.caption
+                        .copyWith(color: gameColors.goldBright),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+        ],
         Card(
           child: Padding(
             padding: const EdgeInsets.all(16),

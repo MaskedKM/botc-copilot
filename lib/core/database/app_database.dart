@@ -52,7 +52,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -61,6 +61,13 @@ class AppDatabase extends _$AppDatabase {
           // v1 → v2：新增 nominations 表
           if (from < 2) {
             await m.createTable(nominations);
+          }
+          // v2 → v3：games 加 myPlayerId/demonBluffsJson，
+          // info_declarations 加 isMine
+          if (from < 3) {
+            await m.addColumn(games, games.myPlayerId);
+            await m.addColumn(games, games.demonBluffsJson);
+            await m.addColumn(infoDeclarations, infoDeclarations.isMine);
           }
         },
         beforeOpen: (details) async {

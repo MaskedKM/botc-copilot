@@ -70,6 +70,28 @@ class $GamesTable extends Games with TableInfo<$GamesTable, Game> {
         type: DriftSqlType.int,
         requiredDuringInsert: false,
       ).withConverter<Character?>($GamesTable.$convertermyRolen);
+  static const VerificationMeta _myPlayerIdMeta = const VerificationMeta(
+    'myPlayerId',
+  );
+  @override
+  late final GeneratedColumn<int> myPlayerId = GeneratedColumn<int>(
+    'my_player_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _demonBluffsJsonMeta = const VerificationMeta(
+    'demonBluffsJson',
+  );
+  @override
+  late final GeneratedColumn<String> demonBluffsJson = GeneratedColumn<String>(
+    'demon_bluffs_json',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -78,6 +100,8 @@ class $GamesTable extends Games with TableInfo<$GamesTable, Game> {
     status,
     createdAt,
     myRole,
+    myPlayerId,
+    demonBluffsJson,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -112,6 +136,24 @@ class $GamesTable extends Games with TableInfo<$GamesTable, Game> {
       );
     } else if (isInserting) {
       context.missing(_createdAtMeta);
+    }
+    if (data.containsKey('my_player_id')) {
+      context.handle(
+        _myPlayerIdMeta,
+        myPlayerId.isAcceptableOrUnknown(
+          data['my_player_id']!,
+          _myPlayerIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('demon_bluffs_json')) {
+      context.handle(
+        _demonBluffsJsonMeta,
+        demonBluffsJson.isAcceptableOrUnknown(
+          data['demon_bluffs_json']!,
+          _demonBluffsJsonMeta,
+        ),
+      );
     }
     return context;
   }
@@ -152,6 +194,14 @@ class $GamesTable extends Games with TableInfo<$GamesTable, Game> {
           data['${effectivePrefix}my_role'],
         ),
       ),
+      myPlayerId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}my_player_id'],
+      ),
+      demonBluffsJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}demon_bluffs_json'],
+      ),
     );
   }
 
@@ -188,6 +238,16 @@ class Game extends DataClass implements Insertable<Game> {
 
   /// 我的角色（开局设置时可能暂未确定，允许为空）。
   final Character? myRole;
+
+  /// 我的玩家 id（哪个座位是我；首次录入我的信息时确定）。
+  ///
+  /// 注意：故意不用 references()——Games↔Players 互相引用会让 Drift
+  /// 为打破循环而丢弃 Players.gameId 的 CASCADE 外键。
+  /// 该列由应用层维护一致性。
+  final int? myPlayerId;
+
+  /// 恶魔的 3 个 Bluff 角色（JSON 数组，仅当我是恶魔时录入）。
+  final String? demonBluffsJson;
   const Game({
     required this.id,
     required this.script,
@@ -195,6 +255,8 @@ class Game extends DataClass implements Insertable<Game> {
     required this.status,
     required this.createdAt,
     this.myRole,
+    this.myPlayerId,
+    this.demonBluffsJson,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -215,6 +277,12 @@ class Game extends DataClass implements Insertable<Game> {
         $GamesTable.$convertermyRolen.toSql(myRole),
       );
     }
+    if (!nullToAbsent || myPlayerId != null) {
+      map['my_player_id'] = Variable<int>(myPlayerId);
+    }
+    if (!nullToAbsent || demonBluffsJson != null) {
+      map['demon_bluffs_json'] = Variable<String>(demonBluffsJson);
+    }
     return map;
   }
 
@@ -228,6 +296,12 @@ class Game extends DataClass implements Insertable<Game> {
       myRole: myRole == null && nullToAbsent
           ? const Value.absent()
           : Value(myRole),
+      myPlayerId: myPlayerId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(myPlayerId),
+      demonBluffsJson: demonBluffsJson == null && nullToAbsent
+          ? const Value.absent()
+          : Value(demonBluffsJson),
     );
   }
 
@@ -249,6 +323,8 @@ class Game extends DataClass implements Insertable<Game> {
       myRole: $GamesTable.$convertermyRolen.fromJson(
         serializer.fromJson<int?>(json['myRole']),
       ),
+      myPlayerId: serializer.fromJson<int?>(json['myPlayerId']),
+      demonBluffsJson: serializer.fromJson<String?>(json['demonBluffsJson']),
     );
   }
   @override
@@ -267,6 +343,8 @@ class Game extends DataClass implements Insertable<Game> {
       'myRole': serializer.toJson<int?>(
         $GamesTable.$convertermyRolen.toJson(myRole),
       ),
+      'myPlayerId': serializer.toJson<int?>(myPlayerId),
+      'demonBluffsJson': serializer.toJson<String?>(demonBluffsJson),
     };
   }
 
@@ -277,6 +355,8 @@ class Game extends DataClass implements Insertable<Game> {
     GameStatus? status,
     DateTime? createdAt,
     Value<Character?> myRole = const Value.absent(),
+    Value<int?> myPlayerId = const Value.absent(),
+    Value<String?> demonBluffsJson = const Value.absent(),
   }) => Game(
     id: id ?? this.id,
     script: script ?? this.script,
@@ -284,6 +364,10 @@ class Game extends DataClass implements Insertable<Game> {
     status: status ?? this.status,
     createdAt: createdAt ?? this.createdAt,
     myRole: myRole.present ? myRole.value : this.myRole,
+    myPlayerId: myPlayerId.present ? myPlayerId.value : this.myPlayerId,
+    demonBluffsJson: demonBluffsJson.present
+        ? demonBluffsJson.value
+        : this.demonBluffsJson,
   );
   Game copyWithCompanion(GamesCompanion data) {
     return Game(
@@ -295,6 +379,12 @@ class Game extends DataClass implements Insertable<Game> {
       status: data.status.present ? data.status.value : this.status,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       myRole: data.myRole.present ? data.myRole.value : this.myRole,
+      myPlayerId: data.myPlayerId.present
+          ? data.myPlayerId.value
+          : this.myPlayerId,
+      demonBluffsJson: data.demonBluffsJson.present
+          ? data.demonBluffsJson.value
+          : this.demonBluffsJson,
     );
   }
 
@@ -306,14 +396,24 @@ class Game extends DataClass implements Insertable<Game> {
           ..write('playerCount: $playerCount, ')
           ..write('status: $status, ')
           ..write('createdAt: $createdAt, ')
-          ..write('myRole: $myRole')
+          ..write('myRole: $myRole, ')
+          ..write('myPlayerId: $myPlayerId, ')
+          ..write('demonBluffsJson: $demonBluffsJson')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode =>
-      Object.hash(id, script, playerCount, status, createdAt, myRole);
+  int get hashCode => Object.hash(
+    id,
+    script,
+    playerCount,
+    status,
+    createdAt,
+    myRole,
+    myPlayerId,
+    demonBluffsJson,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -323,7 +423,9 @@ class Game extends DataClass implements Insertable<Game> {
           other.playerCount == this.playerCount &&
           other.status == this.status &&
           other.createdAt == this.createdAt &&
-          other.myRole == this.myRole);
+          other.myRole == this.myRole &&
+          other.myPlayerId == this.myPlayerId &&
+          other.demonBluffsJson == this.demonBluffsJson);
 }
 
 class GamesCompanion extends UpdateCompanion<Game> {
@@ -333,6 +435,8 @@ class GamesCompanion extends UpdateCompanion<Game> {
   final Value<GameStatus> status;
   final Value<DateTime> createdAt;
   final Value<Character?> myRole;
+  final Value<int?> myPlayerId;
+  final Value<String?> demonBluffsJson;
   const GamesCompanion({
     this.id = const Value.absent(),
     this.script = const Value.absent(),
@@ -340,6 +444,8 @@ class GamesCompanion extends UpdateCompanion<Game> {
     this.status = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.myRole = const Value.absent(),
+    this.myPlayerId = const Value.absent(),
+    this.demonBluffsJson = const Value.absent(),
   });
   GamesCompanion.insert({
     this.id = const Value.absent(),
@@ -348,6 +454,8 @@ class GamesCompanion extends UpdateCompanion<Game> {
     required GameStatus status,
     required DateTime createdAt,
     this.myRole = const Value.absent(),
+    this.myPlayerId = const Value.absent(),
+    this.demonBluffsJson = const Value.absent(),
   }) : script = Value(script),
        playerCount = Value(playerCount),
        status = Value(status),
@@ -359,6 +467,8 @@ class GamesCompanion extends UpdateCompanion<Game> {
     Expression<String>? status,
     Expression<DateTime>? createdAt,
     Expression<int>? myRole,
+    Expression<int>? myPlayerId,
+    Expression<String>? demonBluffsJson,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -367,6 +477,8 @@ class GamesCompanion extends UpdateCompanion<Game> {
       if (status != null) 'status': status,
       if (createdAt != null) 'created_at': createdAt,
       if (myRole != null) 'my_role': myRole,
+      if (myPlayerId != null) 'my_player_id': myPlayerId,
+      if (demonBluffsJson != null) 'demon_bluffs_json': demonBluffsJson,
     });
   }
 
@@ -377,6 +489,8 @@ class GamesCompanion extends UpdateCompanion<Game> {
     Value<GameStatus>? status,
     Value<DateTime>? createdAt,
     Value<Character?>? myRole,
+    Value<int?>? myPlayerId,
+    Value<String?>? demonBluffsJson,
   }) {
     return GamesCompanion(
       id: id ?? this.id,
@@ -385,6 +499,8 @@ class GamesCompanion extends UpdateCompanion<Game> {
       status: status ?? this.status,
       createdAt: createdAt ?? this.createdAt,
       myRole: myRole ?? this.myRole,
+      myPlayerId: myPlayerId ?? this.myPlayerId,
+      demonBluffsJson: demonBluffsJson ?? this.demonBluffsJson,
     );
   }
 
@@ -415,6 +531,12 @@ class GamesCompanion extends UpdateCompanion<Game> {
         $GamesTable.$convertermyRolen.toSql(myRole.value),
       );
     }
+    if (myPlayerId.present) {
+      map['my_player_id'] = Variable<int>(myPlayerId.value);
+    }
+    if (demonBluffsJson.present) {
+      map['demon_bluffs_json'] = Variable<String>(demonBluffsJson.value);
+    }
     return map;
   }
 
@@ -426,7 +548,9 @@ class GamesCompanion extends UpdateCompanion<Game> {
           ..write('playerCount: $playerCount, ')
           ..write('status: $status, ')
           ..write('createdAt: $createdAt, ')
-          ..write('myRole: $myRole')
+          ..write('myRole: $myRole, ')
+          ..write('myPlayerId: $myPlayerId, ')
+          ..write('demonBluffsJson: $demonBluffsJson')
           ..write(')'))
         .toString();
   }
@@ -1887,6 +2011,19 @@ class $InfoDeclarationsTable extends InfoDeclarations
       ).withConverter<Reliability>(
         $InfoDeclarationsTable.$converterreliability,
       );
+  static const VerificationMeta _isMineMeta = const VerificationMeta('isMine');
+  @override
+  late final GeneratedColumn<bool> isMine = GeneratedColumn<bool>(
+    'is_mine',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_mine" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -1895,6 +2032,7 @@ class $InfoDeclarationsTable extends InfoDeclarations
     characterType,
     payloadJson,
     reliability,
+    isMine,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -1941,6 +2079,12 @@ class $InfoDeclarationsTable extends InfoDeclarations
     } else if (isInserting) {
       context.missing(_payloadJsonMeta);
     }
+    if (data.containsKey('is_mine')) {
+      context.handle(
+        _isMineMeta,
+        isMine.isAcceptableOrUnknown(data['is_mine']!, _isMineMeta),
+      );
+    }
     return context;
   }
 
@@ -1978,6 +2122,10 @@ class $InfoDeclarationsTable extends InfoDeclarations
           data['${effectivePrefix}reliability'],
         )!,
       ),
+      isMine: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_mine'],
+      )!,
     );
   }
 
@@ -2010,6 +2158,9 @@ class InfoDeclaration extends DataClass implements Insertable<InfoDeclaration> {
 
   /// 信息可靠性（醉/毒追踪）。
   final Reliability reliability;
+
+  /// 是否为我的信息（false = 他人公开声明）。
+  final bool isMine;
   const InfoDeclaration({
     required this.id,
     required this.playerId,
@@ -2017,6 +2168,7 @@ class InfoDeclaration extends DataClass implements Insertable<InfoDeclaration> {
     required this.characterType,
     required this.payloadJson,
     required this.reliability,
+    required this.isMine,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -2035,6 +2187,7 @@ class InfoDeclaration extends DataClass implements Insertable<InfoDeclaration> {
         $InfoDeclarationsTable.$converterreliability.toSql(reliability),
       );
     }
+    map['is_mine'] = Variable<bool>(isMine);
     return map;
   }
 
@@ -2046,6 +2199,7 @@ class InfoDeclaration extends DataClass implements Insertable<InfoDeclaration> {
       characterType: Value(characterType),
       payloadJson: Value(payloadJson),
       reliability: Value(reliability),
+      isMine: Value(isMine),
     );
   }
 
@@ -2065,6 +2219,7 @@ class InfoDeclaration extends DataClass implements Insertable<InfoDeclaration> {
       reliability: $InfoDeclarationsTable.$converterreliability.fromJson(
         serializer.fromJson<String>(json['reliability']),
       ),
+      isMine: serializer.fromJson<bool>(json['isMine']),
     );
   }
   @override
@@ -2081,6 +2236,7 @@ class InfoDeclaration extends DataClass implements Insertable<InfoDeclaration> {
       'reliability': serializer.toJson<String>(
         $InfoDeclarationsTable.$converterreliability.toJson(reliability),
       ),
+      'isMine': serializer.toJson<bool>(isMine),
     };
   }
 
@@ -2091,6 +2247,7 @@ class InfoDeclaration extends DataClass implements Insertable<InfoDeclaration> {
     Character? characterType,
     String? payloadJson,
     Reliability? reliability,
+    bool? isMine,
   }) => InfoDeclaration(
     id: id ?? this.id,
     playerId: playerId ?? this.playerId,
@@ -2098,6 +2255,7 @@ class InfoDeclaration extends DataClass implements Insertable<InfoDeclaration> {
     characterType: characterType ?? this.characterType,
     payloadJson: payloadJson ?? this.payloadJson,
     reliability: reliability ?? this.reliability,
+    isMine: isMine ?? this.isMine,
   );
   InfoDeclaration copyWithCompanion(InfoDeclarationsCompanion data) {
     return InfoDeclaration(
@@ -2115,6 +2273,7 @@ class InfoDeclaration extends DataClass implements Insertable<InfoDeclaration> {
       reliability: data.reliability.present
           ? data.reliability.value
           : this.reliability,
+      isMine: data.isMine.present ? data.isMine.value : this.isMine,
     );
   }
 
@@ -2126,7 +2285,8 @@ class InfoDeclaration extends DataClass implements Insertable<InfoDeclaration> {
           ..write('dayRecordId: $dayRecordId, ')
           ..write('characterType: $characterType, ')
           ..write('payloadJson: $payloadJson, ')
-          ..write('reliability: $reliability')
+          ..write('reliability: $reliability, ')
+          ..write('isMine: $isMine')
           ..write(')'))
         .toString();
   }
@@ -2139,6 +2299,7 @@ class InfoDeclaration extends DataClass implements Insertable<InfoDeclaration> {
     characterType,
     payloadJson,
     reliability,
+    isMine,
   );
   @override
   bool operator ==(Object other) =>
@@ -2149,7 +2310,8 @@ class InfoDeclaration extends DataClass implements Insertable<InfoDeclaration> {
           other.dayRecordId == this.dayRecordId &&
           other.characterType == this.characterType &&
           other.payloadJson == this.payloadJson &&
-          other.reliability == this.reliability);
+          other.reliability == this.reliability &&
+          other.isMine == this.isMine);
 }
 
 class InfoDeclarationsCompanion extends UpdateCompanion<InfoDeclaration> {
@@ -2159,6 +2321,7 @@ class InfoDeclarationsCompanion extends UpdateCompanion<InfoDeclaration> {
   final Value<Character> characterType;
   final Value<String> payloadJson;
   final Value<Reliability> reliability;
+  final Value<bool> isMine;
   const InfoDeclarationsCompanion({
     this.id = const Value.absent(),
     this.playerId = const Value.absent(),
@@ -2166,6 +2329,7 @@ class InfoDeclarationsCompanion extends UpdateCompanion<InfoDeclaration> {
     this.characterType = const Value.absent(),
     this.payloadJson = const Value.absent(),
     this.reliability = const Value.absent(),
+    this.isMine = const Value.absent(),
   });
   InfoDeclarationsCompanion.insert({
     this.id = const Value.absent(),
@@ -2174,6 +2338,7 @@ class InfoDeclarationsCompanion extends UpdateCompanion<InfoDeclaration> {
     required Character characterType,
     required String payloadJson,
     required Reliability reliability,
+    this.isMine = const Value.absent(),
   }) : playerId = Value(playerId),
        dayRecordId = Value(dayRecordId),
        characterType = Value(characterType),
@@ -2186,6 +2351,7 @@ class InfoDeclarationsCompanion extends UpdateCompanion<InfoDeclaration> {
     Expression<int>? characterType,
     Expression<String>? payloadJson,
     Expression<String>? reliability,
+    Expression<bool>? isMine,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -2194,6 +2360,7 @@ class InfoDeclarationsCompanion extends UpdateCompanion<InfoDeclaration> {
       if (characterType != null) 'character_type': characterType,
       if (payloadJson != null) 'payload_json': payloadJson,
       if (reliability != null) 'reliability': reliability,
+      if (isMine != null) 'is_mine': isMine,
     });
   }
 
@@ -2204,6 +2371,7 @@ class InfoDeclarationsCompanion extends UpdateCompanion<InfoDeclaration> {
     Value<Character>? characterType,
     Value<String>? payloadJson,
     Value<Reliability>? reliability,
+    Value<bool>? isMine,
   }) {
     return InfoDeclarationsCompanion(
       id: id ?? this.id,
@@ -2212,6 +2380,7 @@ class InfoDeclarationsCompanion extends UpdateCompanion<InfoDeclaration> {
       characterType: characterType ?? this.characterType,
       payloadJson: payloadJson ?? this.payloadJson,
       reliability: reliability ?? this.reliability,
+      isMine: isMine ?? this.isMine,
     );
   }
 
@@ -2242,6 +2411,9 @@ class InfoDeclarationsCompanion extends UpdateCompanion<InfoDeclaration> {
         $InfoDeclarationsTable.$converterreliability.toSql(reliability.value),
       );
     }
+    if (isMine.present) {
+      map['is_mine'] = Variable<bool>(isMine.value);
+    }
     return map;
   }
 
@@ -2253,7 +2425,8 @@ class InfoDeclarationsCompanion extends UpdateCompanion<InfoDeclaration> {
           ..write('dayRecordId: $dayRecordId, ')
           ..write('characterType: $characterType, ')
           ..write('payloadJson: $payloadJson, ')
-          ..write('reliability: $reliability')
+          ..write('reliability: $reliability, ')
+          ..write('isMine: $isMine')
           ..write(')'))
         .toString();
   }
@@ -3248,6 +3421,8 @@ typedef $$GamesTableCreateCompanionBuilder =
       required GameStatus status,
       required DateTime createdAt,
       Value<Character?> myRole,
+      Value<int?> myPlayerId,
+      Value<String?> demonBluffsJson,
     });
 typedef $$GamesTableUpdateCompanionBuilder =
     GamesCompanion Function({
@@ -3257,6 +3432,8 @@ typedef $$GamesTableUpdateCompanionBuilder =
       Value<GameStatus> status,
       Value<DateTime> createdAt,
       Value<Character?> myRole,
+      Value<int?> myPlayerId,
+      Value<String?> demonBluffsJson,
     });
 
 final class $$GamesTableReferences
@@ -3377,6 +3554,16 @@ class $$GamesTableFilterComposer extends Composer<_$AppDatabase, $GamesTable> {
         column: $table.myRole,
         builder: (column) => ColumnWithTypeConverterFilters(column),
       );
+
+  ColumnFilters<int> get myPlayerId => $composableBuilder(
+    column: $table.myPlayerId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get demonBluffsJson => $composableBuilder(
+    column: $table.demonBluffsJson,
+    builder: (column) => ColumnFilters(column),
+  );
 
   Expression<bool> playersRefs(
     Expression<bool> Function($$PlayersTableFilterComposer f) f,
@@ -3517,6 +3704,16 @@ class $$GamesTableOrderingComposer
     column: $table.myRole,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<int> get myPlayerId => $composableBuilder(
+    column: $table.myPlayerId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get demonBluffsJson => $composableBuilder(
+    column: $table.demonBluffsJson,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$GamesTableAnnotationComposer
@@ -3547,6 +3744,16 @@ class $$GamesTableAnnotationComposer
 
   GeneratedColumnWithTypeConverter<Character?, int> get myRole =>
       $composableBuilder(column: $table.myRole, builder: (column) => column);
+
+  GeneratedColumn<int> get myPlayerId => $composableBuilder(
+    column: $table.myPlayerId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get demonBluffsJson => $composableBuilder(
+    column: $table.demonBluffsJson,
+    builder: (column) => column,
+  );
 
   Expression<T> playersRefs<T extends Object>(
     Expression<T> Function($$PlayersTableAnnotationComposer a) f,
@@ -3688,6 +3895,8 @@ class $$GamesTableTableManager
                 Value<GameStatus> status = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<Character?> myRole = const Value.absent(),
+                Value<int?> myPlayerId = const Value.absent(),
+                Value<String?> demonBluffsJson = const Value.absent(),
               }) => GamesCompanion(
                 id: id,
                 script: script,
@@ -3695,6 +3904,8 @@ class $$GamesTableTableManager
                 status: status,
                 createdAt: createdAt,
                 myRole: myRole,
+                myPlayerId: myPlayerId,
+                demonBluffsJson: demonBluffsJson,
               ),
           createCompanionCallback:
               ({
@@ -3704,6 +3915,8 @@ class $$GamesTableTableManager
                 required GameStatus status,
                 required DateTime createdAt,
                 Value<Character?> myRole = const Value.absent(),
+                Value<int?> myPlayerId = const Value.absent(),
+                Value<String?> demonBluffsJson = const Value.absent(),
               }) => GamesCompanion.insert(
                 id: id,
                 script: script,
@@ -3711,6 +3924,8 @@ class $$GamesTableTableManager
                 status: status,
                 createdAt: createdAt,
                 myRole: myRole,
+                myPlayerId: myPlayerId,
+                demonBluffsJson: demonBluffsJson,
               ),
           withReferenceMapper: (p0) => p0
               .map(
@@ -5894,6 +6109,7 @@ typedef $$InfoDeclarationsTableCreateCompanionBuilder =
       required Character characterType,
       required String payloadJson,
       required Reliability reliability,
+      Value<bool> isMine,
     });
 typedef $$InfoDeclarationsTableUpdateCompanionBuilder =
     InfoDeclarationsCompanion Function({
@@ -5903,6 +6119,7 @@ typedef $$InfoDeclarationsTableUpdateCompanionBuilder =
       Value<Character> characterType,
       Value<String> payloadJson,
       Value<Reliability> reliability,
+      Value<bool> isMine,
     });
 
 final class $$InfoDeclarationsTableReferences
@@ -5978,6 +6195,11 @@ class $$InfoDeclarationsTableFilterComposer
   get reliability => $composableBuilder(
     column: $table.reliability,
     builder: (column) => ColumnWithTypeConverterFilters(column),
+  );
+
+  ColumnFilters<bool> get isMine => $composableBuilder(
+    column: $table.isMine,
+    builder: (column) => ColumnFilters(column),
   );
 
   $$PlayersTableFilterComposer get playerId {
@@ -6056,6 +6278,11 @@ class $$InfoDeclarationsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<bool> get isMine => $composableBuilder(
+    column: $table.isMine,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$PlayersTableOrderingComposer get playerId {
     final $$PlayersTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -6131,6 +6358,9 @@ class $$InfoDeclarationsTableAnnotationComposer
         column: $table.reliability,
         builder: (column) => column,
       );
+
+  GeneratedColumn<bool> get isMine =>
+      $composableBuilder(column: $table.isMine, builder: (column) => column);
 
   $$PlayersTableAnnotationComposer get playerId {
     final $$PlayersTableAnnotationComposer composer = $composerBuilder(
@@ -6215,6 +6445,7 @@ class $$InfoDeclarationsTableTableManager
                 Value<Character> characterType = const Value.absent(),
                 Value<String> payloadJson = const Value.absent(),
                 Value<Reliability> reliability = const Value.absent(),
+                Value<bool> isMine = const Value.absent(),
               }) => InfoDeclarationsCompanion(
                 id: id,
                 playerId: playerId,
@@ -6222,6 +6453,7 @@ class $$InfoDeclarationsTableTableManager
                 characterType: characterType,
                 payloadJson: payloadJson,
                 reliability: reliability,
+                isMine: isMine,
               ),
           createCompanionCallback:
               ({
@@ -6231,6 +6463,7 @@ class $$InfoDeclarationsTableTableManager
                 required Character characterType,
                 required String payloadJson,
                 required Reliability reliability,
+                Value<bool> isMine = const Value.absent(),
               }) => InfoDeclarationsCompanion.insert(
                 id: id,
                 playerId: playerId,
@@ -6238,6 +6471,7 @@ class $$InfoDeclarationsTableTableManager
                 characterType: characterType,
                 payloadJson: payloadJson,
                 reliability: reliability,
+                isMine: isMine,
               ),
           withReferenceMapper: (p0) => p0
               .map(

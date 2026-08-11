@@ -22,6 +22,16 @@ class Games extends Table {
 
   /// 我的角色（开局设置时可能暂未确定，允许为空）。
   IntColumn get myRole => intEnum<Character>().nullable()();
+
+  /// 我的玩家 id（哪个座位是我；首次录入我的信息时确定）。
+  ///
+  /// 注意：故意不用 references()——Games↔Players 互相引用会让 Drift
+  /// 为打破循环而丢弃 Players.gameId 的 CASCADE 外键。
+  /// 该列由应用层维护一致性。
+  IntColumn get myPlayerId => integer().nullable()();
+
+  /// 恶魔的 3 个 Bluff 角色（JSON 数组，仅当我是恶魔时录入）。
+  TextColumn get demonBluffsJson => text().nullable()();
 }
 
 /// 玩家表：按座位顺序存储。
@@ -131,6 +141,9 @@ class InfoDeclarations extends Table {
 
   /// 信息可靠性（醉/毒追踪）。
   TextColumn get reliability => textEnum<Reliability>()();
+
+  /// 是否为我的信息（false = 他人公开声明）。
+  BoolColumn get isMine => boolean().withDefault(const Constant(false))();
 }
 
 /// 提名表：一次提名 + 完整投票结果（issue #33）。
