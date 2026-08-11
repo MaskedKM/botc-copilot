@@ -15,7 +15,7 @@ import 'package:botc_copilot/feature/game_board/presentation/widgets/seat_ring.d
 import 'package:botc_copilot/feature/game_board/presentation/widgets/voting_panel.dart';
 import 'package:botc_copilot/feature/player_detail/presentation/player_detail_sheet.dart';
 import 'package:botc_copilot/feature/reasoning/data/contradictions_provider.dart';
-import 'package:botc_copilot/feature/reasoning/presentation/contradiction_panel.dart';
+import 'package:botc_copilot/feature/reasoning/presentation/reasoning_dashboard.dart';
 import 'package:botc_copilot/shared/models/enums.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -218,7 +218,7 @@ class _GameBoardBody extends ConsumerWidget {
                           NightPanel(gameId: gameId),
                           DayPanel(gameId: gameId),
                           VotingPanel(gameId: gameId),
-                          ContradictionPanel(gameId: gameId),
+                          ReasoningDashboard(gameId: gameId),
                         ],
                       ),
                     ),

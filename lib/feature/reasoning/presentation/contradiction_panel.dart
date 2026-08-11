@@ -20,8 +20,10 @@ class ContradictionPanel extends ConsumerWidget {
     final contradictions = ref.watch(contradictionsProvider(gameId));
     final gameColors = context.gameColors;
 
-    return ListView(
-      padding: const EdgeInsets.all(16),
+    // 注意：用 Column 而非 ListView——本面板被 ReasoningDashboard 的
+    // ListView 内嵌，再开一层 ListView 会无界高度。
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
