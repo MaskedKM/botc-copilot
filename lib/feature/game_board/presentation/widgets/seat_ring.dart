@@ -63,8 +63,23 @@ class SeatRingState extends State<SeatRing>
     final changed = _hasPlayerChanges(oldWidget.players, widget.players);
     if (changed) {
       _previousPlayers = {for (final p in oldWidget.players) p.id: p};
+      // 死亡是签名时刻（400ms），其余状态变化用常规 250ms。
+      _controller.duration = _hasDeathChange(oldWidget.players, widget.players)
+          ? AppMotion.death
+          : AppMotion.normal;
       _controller.forward(from: 0);
     }
+  }
+
+  bool _hasDeathChange(
+    List<SeatRingPlayer> oldPlayers,
+    List<SeatRingPlayer> newPlayers,
+  ) {
+    for (final p in newPlayers) {
+      final old = oldPlayers.where((o) => o.id == p.id).firstOrNull;
+      if (old != null && old.isAlive && !p.isAlive) return true;
+    }
+    return false;
   }
 
   bool _hasPlayerChanges(
@@ -92,18 +107,18 @@ class SeatRingState extends State<SeatRing>
         count: widget.players.length,
       );
 
-  void _handleTap(Offset localPosition, Size size) {
+  void _handleTap(Offset localPosition, List<Offset> centers) {
     final index = SeatRingLayout.hitTest(
       position: localPosition,
-      centers: centersForSize(size),
+      centers: centers,
     );
     if (index != null) widget.onPlayerTap?.call(widget.players[index].id);
   }
 
-  void _handleLongPress(Offset localPosition, Size size) {
+  void _handleLongPress(Offset localPosition, List<Offset> centers) {
     final index = SeatRingLayout.hitTest(
       position: localPosition,
-      centers: centersForSize(size),
+      centers: centers,
     );
     if (index != null) {
       widget.onPlayerLongPress?.call(widget.players[index].id);
@@ -118,9 +133,12 @@ class SeatRingState extends State<SeatRing>
       child: LayoutBuilder(
         builder: (context, constraints) {
           final size = Size(constraints.maxWidth, constraints.maxHeight);
+          // centers 每次布局只算一次，手势回调与 painter 共用。
+          final centers = centersForSize(size);
           return GestureDetector(
-            onTapDown: (d) => _handleTap(d.localPosition, size),
-            onLongPressStart: (d) => _handleLongPress(d.localPosition, size),
+            onTapDown: (d) => _handleTap(d.localPosition, centers),
+            onLongPressStart: (d) =>
+                _handleLongPress(d.localPosition, centers),
             child: AnimatedBuilder(
               animation: _controller,
               builder: (context, _) {
@@ -130,7 +148,7 @@ class SeatRingState extends State<SeatRing>
                     players: widget.players,
                     previousPlayers: _previousPlayers,
                     progress: _controller.value,
-                    centers: centersForSize(size),
+                    centers: centers,
                     gameColors: gameColors,
                     selectedPlayerId: widget.selectedPlayerId,
                   ),

@@ -93,7 +93,10 @@ class SeatRingPainter extends CustomPainter {
     while (true) {
       final next = SeatRingLayout.nextAliveClockwise(alive, current);
       if (next == first) {
-        canvas.drawLine(centers[current], centers[first], paint);
+        // 仅 1 人存活时不画（起点即终点，零长度线无意义）。
+        if (current != first) {
+          canvas.drawLine(centers[current], centers[first], paint);
+        }
         break;
       }
       canvas.drawLine(centers[current], centers[next], paint);
