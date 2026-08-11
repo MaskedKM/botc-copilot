@@ -45,8 +45,8 @@ class _SetupWizardPageState extends ConsumerState<SetupWizardPage> {
     final messenger = ScaffoldMessenger.of(context);
     final router = GoRouter.of(context);
     try {
-      await notifier.submit();
-      router.go(AppRoutes.gameBoard);
+      final gameId = await notifier.submit();
+      router.go(AppRoutes.gameBoard(gameId));
     } on Exception {
       messenger.showSnackBar(const SnackBar(content: Text('创建对局失败，请重试')));
     }

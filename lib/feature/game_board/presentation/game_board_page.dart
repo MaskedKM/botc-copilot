@@ -16,11 +16,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 /// （夜晚结果 / 白天处决 / 投票 / 推理 Tab）。
 class GameBoardPage extends ConsumerWidget {
   /// 创建对局主界面。
-  const GameBoardPage({super.key});
+  const GameBoardPage({required this.gameId, super.key});
+
+  /// 对局 id。
+  final int gameId;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final gameAsync = ref.watch(currentGameProvider);
+    final gameAsync = ref.watch(gameByIdProvider(gameId));
 
     return gameAsync.when(
       loading: () => const Scaffold(
@@ -30,7 +33,7 @@ class GameBoardPage extends ConsumerWidget {
       data: (game) {
         if (game == null) {
           return const Scaffold(
-            body: Center(child: Text('没有进行中的对局，请先完成开局设置')),
+            body: Center(child: Text('对局不存在或已删除')),
           );
         }
         return _GameBoardBody(gameId: game.id, scriptName: game.script.nameCn);

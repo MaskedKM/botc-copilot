@@ -37,7 +37,7 @@ void main() {
   Widget buildBoard() {
     return ProviderScope(
       overrides: [
-        currentGameProvider.overrideWith((ref) => Stream.value(game)),
+        gameByIdProvider(1).overrideWith((ref) => Stream.value(game)),
         gamePlayersProvider(1).overrideWith((ref) => Stream.value(players)),
         latestTrustLevelsProvider(1)
             .overrideWith((ref) => Stream.value(const <int, TrustLevel>{})),
@@ -46,7 +46,7 @@ void main() {
       ],
       child: MaterialApp(
         theme: AppTheme.dark,
-        home: const GameBoardPage(),
+        home: const GameBoardPage(gameId: 1),
       ),
     );
   }
@@ -78,19 +78,19 @@ void main() {
     expect(find.text('1号 玩家1'), findsOneWidget);
   });
 
-  testWidgets('无进行中的对局时显示引导', (tester) async {
+  testWidgets('对局不存在时显示提示', (tester) async {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          currentGameProvider.overrideWith((ref) => Stream.value(null)),
+          gameByIdProvider(99).overrideWith((ref) => Stream.value(null)),
         ],
         child: MaterialApp(
           theme: AppTheme.dark,
-          home: const GameBoardPage(),
+          home: const GameBoardPage(gameId: 99),
         ),
       ),
     );
     await tester.pumpAndSettle();
-    expect(find.text('没有进行中的对局，请先完成开局设置'), findsOneWidget);
+    expect(find.text('对局不存在或已删除'), findsOneWidget);
   });
 }
