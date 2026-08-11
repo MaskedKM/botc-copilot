@@ -59,6 +59,14 @@ final latestTrustLevelsProvider =
   });
 });
 
+/// 当前对局的帮助层级（issue #41，默认 normal）。
+final gameHelpLevelProvider = Provider.family<HelpLevel, int>((ref, gameId) {
+  return ref.watch(
+        gameByIdProvider(gameId).select((g) => g.valueOrNull?.helpLevel),
+      ) ??
+      HelpLevel.normal;
+});
+
 /// 对局主界面状态。
 class GameBoardState {
   /// 创建状态。

@@ -141,10 +141,7 @@ class _RoleClaimSection extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final claimed = claims.isEmpty ? null : claims.last.character;
-    final helpLevel = ref.watch(
-          gameByIdProvider(gameId).select((g) => g.valueOrNull?.helpLevel),
-        ) ??
-        HelpLevel.normal;
+    final helpLevel = ref.watch(gameHelpLevelProvider(gameId));
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [

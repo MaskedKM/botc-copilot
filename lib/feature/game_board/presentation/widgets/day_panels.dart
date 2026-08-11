@@ -2,7 +2,6 @@ import 'package:botc_copilot/core/database/app_database.dart';
 import 'package:botc_copilot/core/theme/app_text_styles.dart';
 import 'package:botc_copilot/core/theme/game_colors.dart';
 import 'package:botc_copilot/feature/game_board/domain/game_end.dart';
-import 'package:botc_copilot/shared/models/enums.dart';
 import 'package:botc_copilot/shared/widgets/help_tooltip.dart';
 import 'package:botc_copilot/feature/game_board/presentation/providers/game_board_provider.dart';
 import 'package:botc_copilot/feature/game_board/presentation/widgets/end_game_dialog.dart';
@@ -26,10 +25,7 @@ class NightPanel extends ConsumerWidget {
         ref.watch(currentDayRecordProvider((gameId, day))).valueOrNull;
     final players = ref.watch(gamePlayersProvider(gameId)).valueOrNull ?? [];
     final notifier = ref.read(gameBoardProvider(gameId).notifier);
-    final helpLevel = ref.watch(
-          gameByIdProvider(gameId).select((g) => g.valueOrNull?.helpLevel),
-        ) ??
-        HelpLevel.normal;
+    final helpLevel = ref.watch(gameHelpLevelProvider(gameId));
 
     return ListView(
       padding: const EdgeInsets.all(16),
