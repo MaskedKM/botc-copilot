@@ -1,5 +1,6 @@
 import 'package:botc_copilot/core/router.dart';
 import 'package:botc_copilot/core/database/app_database.dart';
+import 'package:botc_copilot/core/database/database_provider.dart';
 import 'package:go_router/go_router.dart';
 import 'package:botc_copilot/core/theme/app_colors.dart';
 import 'package:botc_copilot/core/theme/app_text_styles.dart';
@@ -134,9 +135,27 @@ class _GameBoardBody extends ConsumerWidget {
           ),
           PopupMenuButton<String>(
             onSelected: (v) => _onMenu(context, ref, v),
-            itemBuilder: (context) => const [
-              PopupMenuItem(value: 'good_win', child: Text('结束：善良获胜')),
-              PopupMenuItem(value: 'evil_win', child: Text('结束：邪恶获胜')),
+            itemBuilder: (context) => [
+              // 帮助层级切换（issue #41）
+              for (final level in HelpLevel.values)
+                PopupMenuItem(
+                  value: 'help_${level.name}',
+                  child: Row(
+                    children: [
+                      Icon(
+                        level == game.helpLevel
+                            ? Icons.radio_button_checked
+                            : Icons.radio_button_off,
+                        size: 16,
+                      ),
+                      const SizedBox(width: 8),
+                      Text('帮助：${level.nameCn}'),
+                    ],
+                  ),
+                ),
+              const PopupMenuDivider(),
+              const PopupMenuItem(value: 'good_win', child: Text('结束：善良获胜')),
+              const PopupMenuItem(value: 'evil_win', child: Text('结束：邪恶获胜')),
             ],
           ),
         ],
@@ -277,6 +296,13 @@ class _GameBoardBody extends ConsumerWidget {
   }
 
   Future<void> _onMenu(BuildContext context, WidgetRef ref, String value) {
+    if (value.startsWith('help_')) {
+      final level = HelpLevel.values.byName(value.substring(5));
+      return ref
+          .read(appDatabaseProvider)
+          .gamesDao
+          .updateHelpLevel(game.id, level);
+    }
     return ref
         .read(gameBoardProvider(gameId).notifier)
         .endGame(goodWin: value == 'good_win');

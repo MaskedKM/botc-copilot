@@ -94,6 +94,23 @@ enum TrustLevel {
   final String nameCn;
 }
 
+/// 帮助层级（issue #41）：控制规则提示的展开程度。
+enum HelpLevel {
+  /// 新手：规则提示默认展开。
+  beginner('新手'),
+
+  /// 普通：规则提示折叠但可点开。
+  normal('普通'),
+
+  /// 老手：零干扰，只显示最核心信息。
+  expert('老手');
+
+  const HelpLevel(this.nameCn);
+
+  /// 中文显示名。
+  final String nameCn;
+}
+
 /// 醉/毒来源。
 enum PoisonSource {
   /// 投毒者。

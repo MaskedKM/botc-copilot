@@ -17,6 +17,7 @@ void main() {
       playerCount: 7,
       status: GameStatus.ongoing,
       createdAt: DateTime(2026, 8, 12, 20, 30),
+      helpLevel: HelpLevel.normal,
       myRole: Character.empath,
     ),
     Game(
@@ -25,6 +26,7 @@ void main() {
       playerCount: 12,
       status: GameStatus.goodWin,
       createdAt: DateTime(2026, 8, 10, 15),
+      helpLevel: HelpLevel.normal,
     ),
   ];
 

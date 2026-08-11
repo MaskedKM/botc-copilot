@@ -32,6 +32,10 @@ class Games extends Table {
 
   /// 恶魔的 3 个 Bluff 角色（JSON 数组，仅当我是恶魔时录入）。
   TextColumn get demonBluffsJson => text().nullable()();
+
+  /// 帮助层级（issue #41）。
+  TextColumn get helpLevel =>
+      textEnum<HelpLevel>().withDefault(const Constant('normal'))();
 }
 
 /// 玩家表：按座位顺序存储。

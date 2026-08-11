@@ -5,6 +5,7 @@ import 'package:botc_copilot/core/theme/game_colors.dart';
 import 'package:botc_copilot/feature/game_board/data/nomination_repository.dart';
 import 'package:botc_copilot/feature/game_board/domain/nomination_rules.dart';
 import 'package:botc_copilot/feature/game_board/presentation/providers/game_board_provider.dart';
+import 'package:botc_copilot/shared/widgets/help_tooltip.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -148,6 +149,13 @@ class _NominationEntrySheetState
                     .copyWith(color: gameColors.goldBright),
               ),
             ],
+            // 新手提示：提名/投票规则（issue #41）
+            HelpTooltip(
+              level: ref.watch(gameHelpLevelProvider(widget.gameId)),
+              text: '提名规则：每人每天最多提名 1 次、被提名 1 次。'
+                  '死亡玩家全程只有 1 张死票（投赞成即消耗）。'
+                  '赞成票达到存活人数一半即上处决台，平票无人处决。',
+            ),
             const SizedBox(height: 16),
 
             FilledButton(
