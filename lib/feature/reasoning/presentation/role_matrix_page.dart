@@ -16,7 +16,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 /// - 哪些角色还没人声明？（可能是 Bluff 或隐藏好人）
 /// - 哪些角色被多人声明？（冲突点）
 /// - 恶魔 Bluff（若已录入）标为「已知不在场」
-class RoleMatrixPage extends ConsumerWidget {
+class RoleMatrixPage extends ConsumerStatefulWidget {
   /// 创建矩阵页。
   const RoleMatrixPage({required this.gameId, super.key});
 
@@ -33,11 +33,20 @@ class RoleMatrixPage extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<RoleMatrixPage> createState() => _RoleMatrixPageState();
+}
+
+class _RoleMatrixPageState extends ConsumerState<RoleMatrixPage> {
+  /// 是否显示全部 22 个角色（默认只显示有声明/Bluff/已确认的列）。
+  bool _showAll = false;
+
+  @override
+  Widget build(BuildContext context) {
     final players =
-        ref.watch(gamePlayersProvider(gameId)).valueOrNull ?? [];
-    final claims = ref.watch(gameClaimsProvider(gameId)).valueOrNull ?? [];
-    final game = ref.watch(gameByIdProvider(gameId)).valueOrNull;
+        ref.watch(gamePlayersProvider(widget.gameId)).valueOrNull ?? [];
+    final claims =
+        ref.watch(gameClaimsProvider(widget.gameId)).valueOrNull ?? [];
+    final game = ref.watch(gameByIdProvider(widget.gameId)).valueOrNull;
     final gameColors = context.gameColors;
 
     final bluffs = <Character>[];
@@ -49,14 +58,40 @@ class RoleMatrixPage extends ConsumerWidget {
       }
     }
 
-    final (columns, rows) = RoleMatrixBuilder.build(
+    final (allColumns, rows) = RoleMatrixBuilder.build(
       players: players,
       claims: claims,
       demonBluffs: bluffs,
     );
+    // 默认精简：只保留有声明 / Bluff / 有确认的列
+    final columns = _showAll
+        ? allColumns
+        : allColumns
+            .where(
+              (c) =>
+                  !c.isUnclaimed ||
+                  c.isBluff ||
+                  players.any(
+                    (p) => rows[p.id]?[c.character] != null,
+                  ),
+            )
+            .toList();
 
     return Scaffold(
-      appBar: AppBar(title: const Text('声明矩阵')),
+      appBar: AppBar(
+        title: const Text('声明矩阵'),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: FilterChip(
+              label: Text('全部 ${allColumns.length} 角色'),
+              selected: _showAll,
+              visualDensity: VisualDensity.compact,
+              onSelected: (v) => setState(() => _showAll = v),
+            ),
+          ),
+        ],
+      ),
       body: SafeArea(
         child: Column(
           children: [
