@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:botc_copilot/core/constants/character.dart';
 import 'package:botc_copilot/core/constants/script.dart';
+import 'package:botc_copilot/core/database/daos/behavior_notes_dao.dart';
 import 'package:botc_copilot/core/database/daos/day_records_dao.dart';
 import 'package:botc_copilot/core/database/daos/games_dao.dart';
 import 'package:botc_copilot/core/database/daos/info_declarations_dao.dart';
@@ -35,6 +36,7 @@ part 'app_database.g.dart';
     TrustLogs,
     Nominations,
     PoisonStatuses,
+    BehaviorNotes,
   ],
   daos: [
     GamesDao,
@@ -45,6 +47,7 @@ part 'app_database.g.dart';
     TrustLogsDao,
     NominationsDao,
     PoisonStatusesDao,
+    BehaviorNotesDao,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -55,7 +58,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -75,6 +78,10 @@ class AppDatabase extends _$AppDatabase {
           // v3 → v4：新增 poison_statuses 表
           if (from < 4) {
             await m.createTable(poisonStatuses);
+          }
+          // v4 → v5：新增 behavior_notes 表
+          if (from < 5) {
+            await m.createTable(behaviorNotes);
           }
         },
         beforeOpen: (details) async {

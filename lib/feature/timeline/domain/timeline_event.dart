@@ -21,6 +21,9 @@ enum TimelineEventType {
 
   /// 醉/毒标记（issue #35）。
   poisonMarked,
+
+  /// 行为备注（issue #36）。
+  behaviorNote,
 }
 
 /// 一条时间线事件。
@@ -64,6 +67,7 @@ abstract final class TimelineBuilder {
     required Map<int, Player> playersById,
     required Map<int, int> dayRecordToDayNumber,
     List<PoisonStatus> poisonStatuses = const [],
+    List<BehaviorNote> behaviorNotes = const [],
   }) {
     String nameOf(int? playerId) {
       if (playerId == null) return '';
@@ -129,6 +133,15 @@ abstract final class TimelineBuilder {
                 summary:
                     '${nameOf(ps.playerId)} 可能被${ps.source.nameCn}（信息可能不可靠）',
                 playerId: ps.playerId,
+              ),
+            // 行为备注（该天的）
+            for (final note in behaviorNotes.where(
+              (n) => n.dayNumber == day.dayNumber,
+            ))
+              TimelineEvent(
+                type: TimelineEventType.behaviorNote,
+                summary: '${nameOf(note.playerId)}：${note.note}',
+                playerId: note.playerId,
               ),
             // 掘墓人信息
             if (day.undertakerResultRole != null)

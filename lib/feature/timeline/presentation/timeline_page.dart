@@ -97,6 +97,8 @@ class _EventTile extends StatelessWidget {
         (Icons.chat_bubble_outline, gameColors.goldBright),
       TimelineEventType.poisonMarked =>
         (Icons.science_outlined, gameColors.inkViolet),
+      TimelineEventType.behaviorNote =>
+        (Icons.edit_note, gameColors.inkViolet),
     };
 
     return Padding(
