@@ -111,7 +111,7 @@ void main() {
   });
 
   test('endGame：更新对局状态后 currentGameProvider 不再返回该局', () async {
-    await notifier().endGame(GameStatus.goodWin);
+    await notifier().endGame(goodWin: true);
     final game = await db.gamesDao.getById(gameId);
     expect(game!.status, GameStatus.goodWin);
 

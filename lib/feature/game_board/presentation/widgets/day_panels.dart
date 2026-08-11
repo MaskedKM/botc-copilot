@@ -1,7 +1,9 @@
 import 'package:botc_copilot/core/database/app_database.dart';
 import 'package:botc_copilot/core/theme/app_text_styles.dart';
 import 'package:botc_copilot/core/theme/game_colors.dart';
+import 'package:botc_copilot/feature/game_board/domain/game_end.dart';
 import 'package:botc_copilot/feature/game_board/presentation/providers/game_board_provider.dart';
+import 'package:botc_copilot/feature/game_board/presentation/widgets/end_game_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -48,6 +50,7 @@ class NightPanel extends ConsumerWidget {
                   player: p,
                   action: () => notifier.recordNightDeath(p.id),
                   verb: '夜晚死亡',
+                  gameId: gameId,
                 ),
               ),
           ],
@@ -106,6 +109,7 @@ class DayPanel extends ConsumerWidget {
                   player: p,
                   action: () => notifier.recordExecution(p.id),
                   verb: '处决',
+                  gameId: gameId,
                 ),
               ),
           ],
@@ -126,8 +130,9 @@ Future<void> _confirmDeath(
   BuildContext context,
   WidgetRef ref, {
   required Player player,
-  required Future<void> Function() action,
+  required Future<GameEndSuggestion?> Function() action,
   required String verb,
+  required int gameId,
 }) async {
   final confirmed = await showDialog<bool>(
     context: context,
@@ -146,7 +151,66 @@ Future<void> _confirmDeath(
       ],
     ),
   );
-  if (confirmed ?? false) await action();
+  if (!(confirmed ?? false)) return;
+  final suggestion = await action();
+  if (suggestion != null && context.mounted) {
+    await _handleEndSuggestion(context, ref, gameId, suggestion);
+  }
+}
+
+/// 处理结束建议：弹 dialog → 用户确认 → 更新状态。
+Future<void> _handleEndSuggestion(
+  BuildContext context,
+  WidgetRef ref,
+  int gameId,
+  GameEndSuggestion suggestion,
+) async {
+  final notifier = ref.read(gameBoardProvider(gameId).notifier);
+  switch (suggestion) {
+    case EvilWinCandidate(:final aliveCount):
+      final confirmed = await EndGameDialog.showEvilCandidate(
+        context,
+        aliveCount: aliveCount,
+      );
+      if (confirmed ?? false) {
+        await notifier.endGame(goodWin: false);
+      }
+    case DemonExecutionCheck(
+        :final executedPlayerId,
+        :final executedName,
+        :final aliveCountAfter,
+      ):
+      final result = await EndGameDialog.showDemonCheck(
+        context,
+        executedName: executedName,
+      );
+      if (result == null || !context.mounted) return;
+      if (result.goodWin ?? false) {
+        // 是恶魔 → 善良获胜（附带可选的死亡揭示）
+        await notifier.endGame(
+          goodWin: true,
+          revealedPlayerId: executedPlayerId,
+          revealedRole: result.revealedRole,
+        );
+      } else if (result.revealedRole != null) {
+        // 不是恶魔但揭示了角色 → 只记死亡揭示
+        await notifier.recordRevealOnly(
+          playerId: executedPlayerId,
+          role: result.revealedRole!,
+        );
+      }
+      if (context.mounted &&
+          !(result.goodWin ?? false) &&
+          GameEndRules.isEvilWinCandidate(aliveCountAfter)) {
+        final confirmed = await EndGameDialog.showEvilCandidate(
+          context,
+          aliveCount: aliveCountAfter,
+        );
+        if (confirmed ?? false) {
+          await notifier.endGame(goodWin: false);
+        }
+      }
+  }
 }
 
 /// 占位面板：投票分析 / 我的推理（后续 issue 实现）。
