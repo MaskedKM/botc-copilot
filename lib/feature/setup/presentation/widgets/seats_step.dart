@@ -28,7 +28,8 @@ class SeatsStep extends ConsumerWidget {
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
           child: Text(
-            '按实际座位顺时针输入名字，上下拖动调整顺序。1 号位在钟面 12 点方向。',
+            '按实际座位顺时针输入名字，上下拖动调整顺序。1 号位在钟面 12 点方向。'
+            '（名字请用常用汉字，生僻字可能显示为系统字体）',
             style: AppTextStyles.caption.copyWith(color: gameColors.inkViolet),
           ),
         ),

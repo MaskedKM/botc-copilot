@@ -8,12 +8,11 @@ import 'package:flutter/material.dart';
 /// 字体文件（Noto Serif SC / Noto Sans SC）打包进 assets 前，
 /// 先以系统 serif/sans-serif 兜底，接入后只需改 family 常量。
 abstract final class AppTextStyles {
-  // TODO(#10): 打包 Noto Serif SC / Noto Sans SC 后替换为具体字体族。
-  /// 展示体（衬线）族名。
-  static const String displayFamily = 'serif';
+  /// 展示体（衬线）族名：思源宋体，可变字重单文件。
+  static const String displayFamily = 'NotoSerifSC';
 
-  /// 正文/操作体（无衬线）族名。
-  static const String bodyFamily = 'sans-serif';
+  /// 正文/操作体（无衬线）族名：思源黑体，可变字重单文件。
+  static const String bodyFamily = 'NotoSansSC';
 
   /// 28/36 Serif Bold —— 页面主标题（每屏至多一处）。
   static const TextStyle display = TextStyle(

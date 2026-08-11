@@ -57,6 +57,8 @@ dev_dependencies:
   build_runner: ^2.15.1
   drift_dev: ^2.34.0
   very_good_analysis: ^10.2.0
+  flutter_launcher_icons: ^0.14.4
+  flutter_native_splash: ^2.4.7
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -68,6 +70,15 @@ flutter:
   # included with your application, so that you can use the icons in
   # the material Icons class.
   uses-material-design: true
+
+  # 字体打包进 assets（纯离线原则，不用联网字体服务）
+  fonts:
+    - family: NotoSerifSC
+      fonts:
+        - asset: assets/fonts/NotoSerifSC.ttf
+    - family: NotoSansSC
+      fonts:
+        - asset: assets/fonts/NotoSansSC.ttf
 
   # To add assets to your application, add an assets section, like this:
   # assets:
@@ -99,3 +110,18 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+
+# App 图标（dart run flutter_launcher_icons 重新生成）
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: assets/icon/app_icon.png
+  adaptive_icon_background: "#0D0B1A"
+  adaptive_icon_foreground: assets/icon/app_icon_fg.png
+
+# 启动屏（dart run flutter_native_splash:create 重新生成）
+flutter_native_splash:
+  color: "#0D0B1A"
+  image: assets/icon/app_icon_fg.png
+  android: true
+  ios: true
