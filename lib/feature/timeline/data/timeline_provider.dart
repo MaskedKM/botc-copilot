@@ -1,6 +1,7 @@
 import 'package:botc_copilot/core/database/app_database.dart';
 import 'package:botc_copilot/core/database/database_provider.dart';
 import 'package:botc_copilot/feature/game_board/presentation/providers/game_board_provider.dart';
+import 'package:botc_copilot/feature/game_board/data/poison_repository.dart';
 import 'package:botc_copilot/feature/timeline/domain/timeline_event.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -57,6 +58,10 @@ final timelineProvider =
         for (final p in players.valueOrNull ?? <Player>[]) p.id: p,
       },
       dayRecordToDayNumber: {for (final d in dayList) d.id: d.dayNumber},
+      poisonStatuses: ref
+              .watch(gamePoisonStatusesProvider(gameId))
+              .valueOrNull ??
+          [],
     ),
   );
 });

@@ -7,6 +7,7 @@ import 'package:botc_copilot/core/database/daos/games_dao.dart';
 import 'package:botc_copilot/core/database/daos/info_declarations_dao.dart';
 import 'package:botc_copilot/core/database/daos/nominations_dao.dart';
 import 'package:botc_copilot/core/database/daos/players_dao.dart';
+import 'package:botc_copilot/core/database/daos/poison_statuses_dao.dart';
 import 'package:botc_copilot/core/database/daos/role_claims_dao.dart';
 import 'package:botc_copilot/core/database/daos/trust_logs_dao.dart';
 import 'package:botc_copilot/core/database/tables.dart';
@@ -33,6 +34,7 @@ part 'app_database.g.dart';
     InfoDeclarations,
     TrustLogs,
     Nominations,
+    PoisonStatuses,
   ],
   daos: [
     GamesDao,
@@ -42,6 +44,7 @@ part 'app_database.g.dart';
     InfoDeclarationsDao,
     TrustLogsDao,
     NominationsDao,
+    PoisonStatusesDao,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -52,7 +55,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -68,6 +71,10 @@ class AppDatabase extends _$AppDatabase {
             await m.addColumn(games, games.myPlayerId);
             await m.addColumn(games, games.demonBluffsJson);
             await m.addColumn(infoDeclarations, infoDeclarations.isMine);
+          }
+          // v3 → v4：新增 poison_statuses 表
+          if (from < 4) {
+            await m.createTable(poisonStatuses);
           }
         },
         beforeOpen: (details) async {

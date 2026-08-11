@@ -11,6 +11,7 @@ class SeatRingPlayer {
     required this.isAlive,
     this.trustLevel = TrustLevel.unknown,
     this.isMe = false,
+    this.isPoisoned = false,
   });
 
   /// 数据库玩家 id。
@@ -31,6 +32,9 @@ class SeatRingPlayer {
   /// 是否是我自己。
   final bool isMe;
 
+  /// 当天是否被标记为可能被毒/醉（圆环画紫色微光）。
+  final bool isPoisoned;
+
   /// 名字首字符（节点内显示）。
   String get initial => name.isEmpty ? '?' : name.characters.first;
 
@@ -39,6 +43,7 @@ class SeatRingPlayer {
     bool? isAlive,
     TrustLevel? trustLevel,
     bool? isMe,
+    bool? isPoisoned,
   }) {
     return SeatRingPlayer(
       id: id,
@@ -47,6 +52,7 @@ class SeatRingPlayer {
       isAlive: isAlive ?? this.isAlive,
       trustLevel: trustLevel ?? this.trustLevel,
       isMe: isMe ?? this.isMe,
+      isPoisoned: isPoisoned ?? this.isPoisoned,
     );
   }
 
@@ -58,9 +64,10 @@ class SeatRingPlayer {
       other.seatNumber == seatNumber &&
       other.isAlive == isAlive &&
       other.trustLevel == trustLevel &&
-      other.isMe == isMe;
+      other.isMe == isMe &&
+      other.isPoisoned == isPoisoned;
 
   @override
   int get hashCode =>
-      Object.hash(id, name, seatNumber, isAlive, trustLevel, isMe);
+      Object.hash(id, name, seatNumber, isAlive, trustLevel, isMe, isPoisoned);
 }

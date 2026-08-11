@@ -18,6 +18,9 @@ enum TimelineEventType {
 
   /// 信息声明。
   infoDeclaration,
+
+  /// 醉/毒标记（issue #35）。
+  poisonMarked,
 }
 
 /// 一条时间线事件。
@@ -60,6 +63,7 @@ abstract final class TimelineBuilder {
     required List<InfoDeclaration> declarations,
     required Map<int, Player> playersById,
     required Map<int, int> dayRecordToDayNumber,
+    List<PoisonStatus> poisonStatuses = const [],
   }) {
     String nameOf(int? playerId) {
       if (playerId == null) return '';
@@ -115,6 +119,16 @@ abstract final class TimelineBuilder {
                 type: TimelineEventType.execution,
                 summary: '${nameOf(day.dayExecutionPlayerId)} 被处决',
                 playerId: day.dayExecutionPlayerId,
+              ),
+            // 醉/毒标记（该天的）
+            for (final ps in poisonStatuses.where(
+              (p) => p.dayNumber == day.dayNumber && p.isActive,
+            ))
+              TimelineEvent(
+                type: TimelineEventType.poisonMarked,
+                summary:
+                    '${nameOf(ps.playerId)} 可能被${ps.source.nameCn}（信息可能不可靠）',
+                playerId: ps.playerId,
               ),
             // 掘墓人信息
             if (day.undertakerResultRole != null)

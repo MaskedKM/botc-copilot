@@ -156,6 +156,25 @@ class SeatRingPainter extends CustomPainter {
       );
     }
 
+    // 醉/毒标记：紫色微光（issue #35）。
+    if (player.isPoisoned) {
+      canvas.drawCircle(
+        center,
+        _r + 6,
+        Paint()
+          ..color = AppColors.inkViolet.withValues(alpha: 0.45 * nodeOpacity)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8),
+      );
+      canvas.drawCircle(
+        center,
+        _r + 6,
+        Paint()
+          ..color = AppColors.inkViolet.withValues(alpha: 0.8 * nodeOpacity)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.5,
+      );
+    }
+
     // 选中玩家的存活邻座高亮。
     if (selectedPlayerId != null && _isLivingNeighborOfSelected(index)) {
       canvas.drawCircle(

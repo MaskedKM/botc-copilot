@@ -172,6 +172,30 @@ class Nominations extends Table {
   TextColumn get voteResultJson => text()();
 }
 
+/// 醉/毒状态表（issue #35）：某天某玩家被标记为可能被毒/醉。
+@DataClassName('PoisonStatus')
+class PoisonStatuses extends Table {
+  /// 自增主键。
+  IntColumn get id => integer().autoIncrement()();
+
+  /// 所属对局。
+  IntColumn get gameId =>
+      integer().references(Games, #id, onDelete: KeyAction.cascade)();
+
+  /// 玩家。
+  IntColumn get playerId =>
+      integer().references(Players, #id, onDelete: KeyAction.cascade)();
+
+  /// 生效天数。
+  IntColumn get dayNumber => integer()();
+
+  /// 污染来源。
+  TextColumn get source => textEnum<PoisonSource>()();
+
+  /// 当前是否生效（毒只在当夜+次日生效，可解除）。
+  BoolColumn get isActive => boolean().withDefault(const Constant(true))();
+}
+
 /// 信任度变更日志：按天记录对每个玩家的信任度判断。
 class TrustLogs extends Table {
   /// 自增主键。

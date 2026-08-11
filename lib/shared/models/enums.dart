@@ -93,3 +93,20 @@ enum TrustLevel {
   /// 中文显示名。
   final String nameCn;
 }
+
+/// 醉/毒来源。
+enum PoisonSource {
+  /// 投毒者。
+  poisoner('投毒'),
+
+  /// 醉汉（本局酒鬼能力导致）。
+  drunk('醉酒'),
+
+  /// 其他来源。
+  other('其他');
+
+  const PoisonSource(this.nameCn);
+
+  /// 中文显示名。
+  final String nameCn;
+}
