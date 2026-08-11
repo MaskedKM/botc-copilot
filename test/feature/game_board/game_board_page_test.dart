@@ -17,6 +17,7 @@ void main() {
     playerCount: 7,
     status: GameStatus.ongoing,
     createdAt: DateTime(2026, 8, 12),
+    helpLevel: HelpLevel.normal,
     myRole: Character.empath,
   );
 

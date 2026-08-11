@@ -2,6 +2,8 @@ import 'package:botc_copilot/core/database/app_database.dart';
 import 'package:botc_copilot/core/theme/app_text_styles.dart';
 import 'package:botc_copilot/core/theme/game_colors.dart';
 import 'package:botc_copilot/feature/game_board/domain/game_end.dart';
+import 'package:botc_copilot/shared/models/enums.dart';
+import 'package:botc_copilot/shared/widgets/help_tooltip.dart';
 import 'package:botc_copilot/feature/game_board/presentation/providers/game_board_provider.dart';
 import 'package:botc_copilot/feature/game_board/presentation/widgets/end_game_dialog.dart';
 import 'package:flutter/material.dart';
@@ -24,6 +26,10 @@ class NightPanel extends ConsumerWidget {
         ref.watch(currentDayRecordProvider((gameId, day))).valueOrNull;
     final players = ref.watch(gamePlayersProvider(gameId)).valueOrNull ?? [];
     final notifier = ref.read(gameBoardProvider(gameId).notifier);
+    final helpLevel = ref.watch(
+          gameByIdProvider(gameId).select((g) => g.valueOrNull?.helpLevel),
+        ) ??
+        HelpLevel.normal;
 
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -55,11 +61,10 @@ class NightPanel extends ConsumerWidget {
               ),
           ],
         ),
-        const SizedBox(height: 8),
-        Text(
-          '无人死亡可能意味着：Monk 保护成功 / Soldier 能力 / 恶魔自杀传位。',
-          style: AppTextStyles.caption
-              .copyWith(color: context.gameColors.inkViolet),
+        HelpTooltip(
+          level: helpLevel,
+          text: '无人死亡可能意味着：Monk 保护成功 / Soldier 能力 / '
+              '恶魔自杀传位 / 恶魔被毒。',
         ),
       ],
     );

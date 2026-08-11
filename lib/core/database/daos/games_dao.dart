@@ -42,6 +42,11 @@ class GamesDao extends DatabaseAccessor<AppDatabase> with _$GamesDaoMixin {
       (update(games)..where((g) => g.id.equals(id)))
           .write(GamesCompanion(myPlayerId: Value(playerId)));
 
+  /// 设置帮助层级。
+  Future<int> updateHelpLevel(int id, HelpLevel level) =>
+      (update(games)..where((g) => g.id.equals(id)))
+          .write(GamesCompanion(helpLevel: Value(level)));
+
   /// 设置恶魔 Bluff（JSON 字符串）。
   Future<int> updateDemonBluffs(int id, String bluffsJson) =>
       (update(games)..where((g) => g.id.equals(id)))

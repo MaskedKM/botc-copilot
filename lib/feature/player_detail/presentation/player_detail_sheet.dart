@@ -5,6 +5,7 @@ import 'package:botc_copilot/core/theme/app_text_styles.dart';
 import 'package:botc_copilot/core/theme/game_colors.dart';
 import 'package:botc_copilot/feature/game_board/data/poison_repository.dart';
 import 'package:botc_copilot/feature/player_detail/data/behavior_note_repository.dart';
+import 'package:botc_copilot/shared/widgets/help_tooltip.dart';
 import 'package:botc_copilot/feature/game_board/presentation/providers/game_board_provider.dart';
 import 'package:botc_copilot/feature/player_detail/data/player_detail_repository.dart';
 import 'package:botc_copilot/feature/player_detail/domain/info_payload_formatter.dart';
@@ -140,6 +141,10 @@ class _RoleClaimSection extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final claimed = claims.isEmpty ? null : claims.last.character;
+    final helpLevel = ref.watch(
+          gameByIdProvider(gameId).select((g) => g.valueOrNull?.helpLevel),
+        ) ??
+        HelpLevel.normal;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -168,6 +173,13 @@ class _RoleClaimSection extends ConsumerWidget {
               ),
           ],
         ),
+        // 新手模式：显示当前声明角色的能力描述（issue #41）
+        if (claimed != null)
+          HelpTooltip(
+            level: helpLevel,
+            icon: Icons.auto_stories_outlined,
+            text: '${claimed.nameCn}：${claimed.ability}',
+          ),
       ],
     );
   }
