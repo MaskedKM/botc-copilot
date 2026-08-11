@@ -5,6 +5,8 @@ import 'package:botc_copilot/core/theme/app_colors.dart';
 import 'package:botc_copilot/core/theme/app_text_styles.dart';
 import 'package:botc_copilot/core/theme/game_colors.dart';
 import 'package:botc_copilot/feature/game_board/data/poison_repository.dart';
+import 'package:botc_copilot/feature/game_board/domain/game_end.dart';
+import 'package:botc_copilot/feature/game_board/presentation/widgets/end_game_dialog.dart';
 import 'package:botc_copilot/feature/game_board/domain/seat_ring_player.dart';
 import 'package:botc_copilot/feature/game_board/presentation/providers/game_board_provider.dart';
 import 'package:botc_copilot/feature/game_board/presentation/widgets/day_panels.dart';
@@ -70,6 +72,7 @@ class _GameBoardBody extends ConsumerWidget {
       );
     }
     final aliveCount = players.where((p) => p.isAlive).length;
+    final gameColors = context.gameColors;
 
     final currentDay =
         ref.watch(gameBoardProvider(gameId).select((s) => s.currentDay));
@@ -134,6 +137,25 @@ class _GameBoardBody extends ConsumerWidget {
       body: SafeArea(
         child: Column(
           children: [
+            // 对局已结束：横幅 + 圆环定格（禁交互）
+            if (game.status != GameStatus.ongoing)
+              Container(
+                width: double.infinity,
+                color: game.status == GameStatus.goodWin
+                    ? gameColors.trustConfirmedGood
+                        .withValues(alpha: 0.15)
+                    : gameColors.blood.withValues(alpha: 0.15),
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Text(
+                  '对局已结束 · ${game.status.nameCn}',
+                  textAlign: TextAlign.center,
+                  style: AppTextStyles.headline.copyWith(
+                    color: game.status == GameStatus.goodWin
+                        ? gameColors.trustConfirmedGood
+                        : gameColors.blood,
+                  ),
+                ),
+              ),
             // 钟面座位圆环（签名组件，直径 ≈ 屏宽 85%）
             Expanded(
               flex: 5,
@@ -143,23 +165,26 @@ class _GameBoardBody extends ConsumerWidget {
                   child: SeatRing(
                     players: ringPlayers,
                     selectedPlayerId: boardState.selectedPlayerId,
-                    onPlayerTap: (id) {
-                      ref
-                          .read(gameBoardProvider(gameId).notifier)
-                          .selectPlayer(id);
-                      final player = players
-                          .where((p) => p.id == id)
-                          .firstOrNull;
-                      if (player != null) {
-                        PlayerDetailSheet.show(
-                          context,
-                          gameId: gameId,
-                          player: player,
-                        );
-                      }
-                    },
-                    onPlayerLongPress: (id) =>
-                        _quickToggleDead(context, ref, id),
+                    onPlayerTap: game.status != GameStatus.ongoing
+                        ? null
+                        : (id) {
+                            ref
+                                .read(gameBoardProvider(gameId).notifier)
+                                .selectPlayer(id);
+                            final player = players
+                                .where((p) => p.id == id)
+                                .firstOrNull;
+                            if (player != null) {
+                              PlayerDetailSheet.show(
+                                context,
+                                gameId: gameId,
+                                player: player,
+                              );
+                            }
+                          },
+                    onPlayerLongPress: game.status != GameStatus.ongoing
+                        ? null
+                        : (id) => _quickToggleDead(context, ref, id),
                     centerChild: _DayBadge(day: boardState.currentDay),
                   ),
                 ),
@@ -230,15 +255,27 @@ class _GameBoardBody extends ConsumerWidget {
       ),
     );
     if (confirmed ?? false) {
-      await ref
+      final suggestion = await ref
           .read(gameBoardProvider(gameId).notifier)
           .quickToggleDead(player);
+      if (suggestion is EvilWinCandidate && context.mounted) {
+        final evil = await EndGameDialog.showEvilCandidate(
+          context,
+          aliveCount: suggestion.aliveCount,
+        );
+        if (evil ?? false) {
+          await ref
+              .read(gameBoardProvider(gameId).notifier)
+              .endGame(goodWin: false);
+        }
+      }
     }
   }
 
   Future<void> _onMenu(BuildContext context, WidgetRef ref, String value) {
-    final status = value == 'good_win' ? GameStatus.goodWin : GameStatus.evilWin;
-    return ref.read(gameBoardProvider(gameId).notifier).endGame(status);
+    return ref
+        .read(gameBoardProvider(gameId).notifier)
+        .endGame(goodWin: value == 'good_win');
   }
 }
 

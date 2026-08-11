@@ -1,6 +1,8 @@
 import 'package:botc_copilot/core/theme/app_text_styles.dart';
 import 'package:botc_copilot/core/theme/game_colors.dart';
+import 'package:botc_copilot/feature/game_board/presentation/providers/game_board_provider.dart';
 import 'package:botc_copilot/feature/timeline/data/timeline_provider.dart';
+import 'package:botc_copilot/shared/models/enums.dart';
 import 'package:botc_copilot/feature/timeline/domain/timeline_event.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -18,6 +20,7 @@ class TimelinePage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final timelineAsync = ref.watch(timelineProvider(gameId));
+    final game = ref.watch(gameByIdProvider(gameId)).valueOrNull;
 
     return Scaffold(
       appBar: AppBar(title: const Text('事件时间线')),
@@ -35,10 +38,41 @@ class TimelinePage extends ConsumerWidget {
               ),
             );
           }
+          final ended = game != null && game.status != GameStatus.ongoing;
           return ListView.builder(
             padding: const EdgeInsets.all(16),
-            itemCount: days.length,
-            itemBuilder: (context, index) => _DaySection(day: days[index]),
+            itemCount: days.length + (ended ? 1 : 0),
+            itemBuilder: (context, index) {
+              if (ended && index == days.length) {
+                // 对局结束标记
+                final gameColors = context.gameColors;
+                final goodWin = game.status == GameStatus.goodWin;
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.flag,
+                        size: 18,
+                        color: goodWin
+                            ? gameColors.trustConfirmedGood
+                            : gameColors.blood,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        '对局结束 · ${game.status.nameCn}',
+                        style: AppTextStyles.headline.copyWith(
+                          color: goodWin
+                              ? gameColors.trustConfirmedGood
+                              : gameColors.blood,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }
+              return _DaySection(day: days[index]);
+            },
           );
         },
       ),

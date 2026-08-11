@@ -1,5 +1,7 @@
+import 'package:botc_copilot/core/constants/character.dart';
 import 'package:botc_copilot/core/database/app_database.dart';
 import 'package:botc_copilot/core/database/database_provider.dart';
+import 'package:botc_copilot/feature/game_board/domain/game_end.dart';
 import 'package:botc_copilot/shared/models/enums.dart';
 import 'package:drift/drift.dart' hide Column;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -112,7 +114,8 @@ class GameBoardNotifier extends StateNotifier<GameBoardState> {
   /// 记录夜晚死亡（null = 无人死亡）。
   ///
   /// 事务包裹：当日记录与玩家死亡标记必须同生共死。
-  Future<void> recordNightDeath(int? playerId) async {
+  /// 返回结束建议：存活 ≤ 2 时为 [EvilWinCandidate]。
+  Future<GameEndSuggestion?> recordNightDeath(int? playerId) async {
     final dayId = await _ensureDayRecord(state.currentDay);
     await _db.transaction(() async {
       await _db.dayRecordsDao.updateDay(
@@ -127,12 +130,15 @@ class GameBoardNotifier extends StateNotifier<GameBoardState> {
         );
       }
     });
+    if (playerId == null) return null;
+    return _evilWinCheck();
   }
 
   /// 记录白天处决（null = 无处决）。
   ///
   /// 事务包裹：当日记录与玩家死亡标记必须同生共死。
-  Future<void> recordExecution(int? playerId) async {
+  /// 返回 [DemonExecutionCheck] 让 UI 确认被处决者是否是恶魔。
+  Future<GameEndSuggestion?> recordExecution(int? playerId) async {
     final dayId = await _ensureDayRecord(state.currentDay);
     await _db.transaction(() async {
       await _db.dayRecordsDao.updateDay(
@@ -147,18 +153,82 @@ class GameBoardNotifier extends StateNotifier<GameBoardState> {
         );
       }
     });
+    if (playerId == null) return null;
+    final players = await _db.playersDao.watchByGame(_gameId).first;
+    final executed = players.where((p) => p.id == playerId).firstOrNull;
+    final alive = players.where((p) => p.isAlive).length;
+    return DemonExecutionCheck(
+      executedPlayerId: playerId,
+      executedName: executed != null
+          ? '${executed.seatNumber}号 ${executed.name}'
+          : '?',
+      aliveCountAfter: alive,
+    );
+  }
+
+  /// 存活 ≤ 2 时返回邪恶获胜候选。
+  Future<GameEndSuggestion?> _evilWinCheck() async {
+    final players = await _db.playersDao.watchByGame(_gameId).first;
+    final alive = players.where((p) => p.isAlive).length;
+    if (GameEndRules.isEvilWinCandidate(alive)) {
+      return EvilWinCandidate(alive);
+    }
+    return null;
+  }
+
+  /// 结束对局：更新状态 + 可选记录被处决者的死亡揭示声明。
+  Future<void> endGame({
+    required bool goodWin,
+    int? revealedPlayerId,
+    Character? revealedRole,
+  }) async {
+    await _db.transaction(() async {
+      await _db.gamesDao.updateStatus(
+        _gameId,
+        goodWin ? GameStatus.goodWin : GameStatus.evilWin,
+      );
+      if (revealedPlayerId != null && revealedRole != null) {
+        final dayId = await _ensureDayRecord(state.currentDay);
+        await _db.roleClaimsDao.insertClaim(
+          RoleClaimsCompanion(
+            playerId: Value(revealedPlayerId),
+            dayRecordId: Value(dayId),
+            character: Value(revealedRole),
+            claimType: const Value(ClaimType.revealedOnDeath),
+          ),
+        );
+      }
+    });
+  }
+
+  /// 只记录死亡揭示（不结束对局）。
+  Future<void> recordRevealOnly({
+    required int playerId,
+    required Character role,
+  }) async {
+    final dayId = await _ensureDayRecord(state.currentDay);
+    await _db.roleClaimsDao.insertClaim(
+      RoleClaimsCompanion(
+        playerId: Value(playerId),
+        dayRecordId: Value(dayId),
+        character: Value(role),
+        claimType: const Value(ClaimType.revealedOnDeath),
+      ),
+    );
   }
 
   /// 快速切换死亡/复活（长按快捷操作）。
-  Future<void> quickToggleDead(Player player) async {
+  Future<GameEndSuggestion?> quickToggleDead(Player player) async {
     if (player.isAlive) {
       await _db.playersDao.markDead(
         player.id,
         state.currentDay,
         DeathCause.other,
       );
+      return _evilWinCheck();
     } else {
       await _db.playersDao.revive(player.id);
+      return null;
     }
   }
 
@@ -167,11 +237,6 @@ class GameBoardNotifier extends StateNotifier<GameBoardState> {
     final nextDay = state.currentDay + 1;
     await _ensureDayRecord(nextDay);
     state = state.copyWith(currentDay: nextDay, selectedPlayerId: () => null);
-  }
-
-  /// 结束对局。
-  Future<void> endGame(GameStatus result) async {
-    await _db.gamesDao.updateStatus(_gameId, result);
   }
 }
 
