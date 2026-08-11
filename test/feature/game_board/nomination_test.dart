@@ -1,0 +1,200 @@
+import 'package:botc_copilot/core/constants/script.dart';
+import 'package:botc_copilot/core/database/app_database.dart';
+import 'package:botc_copilot/core/database/database_provider.dart';
+import 'package:botc_copilot/feature/game_board/data/nomination_repository.dart';
+import 'package:botc_copilot/feature/game_board/domain/nomination_rules.dart';
+import 'package:botc_copilot/shared/models/enums.dart';
+import 'package:drift/drift.dart' hide Column, isNull, isNotNull;
+import 'package:drift/native.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+void main() {
+  late AppDatabase db;
+  late ProviderContainer container;
+  late NominationRepository repo;
+  late int gameId;
+  late int dayRecordId;
+  late List<Player> players;
+
+  setUp(() async {
+    db = AppDatabase.forTesting(NativeDatabase.memory());
+    container = ProviderContainer(
+      overrides: [appDatabaseProvider.overrideWithValue(db)],
+    );
+    repo = NominationRepository(db);
+    gameId = await db.gamesDao.insertGame(
+      GamesCompanion(
+        script: const Value(Script.troubleBrewing),
+        playerCount: const Value(7),
+        status: const Value(GameStatus.ongoing),
+        createdAt: Value(DateTime(2026, 8, 12)),
+      ),
+    );
+    await db.playersDao.insertAll([
+      for (var i = 1; i <= 7; i++)
+        PlayersCompanion(
+          gameId: Value(gameId),
+          name: Value('玩家$i'),
+          seatNumber: Value(i),
+        ),
+    ]);
+    players = await db.playersDao.watchByGame(gameId).first;
+    // 7 号死亡（有死票）
+    await db.playersDao.markDead(players[6].id, 1, DeathCause.nightKill);
+    players = await db.playersDao.watchByGame(gameId).first;
+    dayRecordId = await db.dayRecordsDao.insertDay(
+      DayRecordsCompanion(gameId: Value(gameId), dayNumber: const Value(1)),
+    );
+  });
+
+  tearDown(() async {
+    container.dispose();
+    await db.close();
+  });
+
+  List<VoteEntry> votesFor(List<int> forIds) => [
+        for (final p in players)
+          VoteEntry(
+            playerId: p.id,
+            vote: forIds.contains(p.id) ? Vote.forVote : Vote.against,
+            isDeadVote: !p.isAlive && forIds.contains(p.id),
+          ),
+      ];
+
+  group('NominationRules', () {
+    test('处决阈值：存活人数一半向上取整', () {
+      expect(NominationRules.threshold(7), 4);
+      expect(NominationRules.threshold(6), 3);
+      expect(NominationRules.threshold(5), 3);
+    });
+
+    test('isPassed：达到阈值才通过', () {
+      // 存活 6 人，阈值 3
+      expect(NominationRules.isPassed(votesFor([1, 2, 3]), 6), isTrue);
+      expect(NominationRules.isPassed(votesFor([1, 2]), 6), isFalse);
+    });
+  });
+
+  group('addNomination', () {
+    test('正常提名写入 + passed 正确计算', () async {
+      final error = await repo.addNomination(
+        gameId: gameId,
+        dayRecordId: dayRecordId,
+        nominatorId: players[0].id,
+        nomineeId: players[1].id,
+        votes: votesFor([1, 2, 3]), // 3 票赞成 ≥ 阈值 3 → 通过
+        players: players,
+        todayNominations: [],
+        allNominations: [],
+      );
+
+      expect(error, isNull);
+      final noms = await db.nominationsDao.watchByGame(gameId).first;
+      expect(noms, hasLength(1));
+      expect(noms.single.passed, isTrue);
+    });
+
+    test('每人每天只能提名一次', () async {
+      await repo.addNomination(
+        gameId: gameId,
+        dayRecordId: dayRecordId,
+        nominatorId: players[0].id,
+        nomineeId: players[1].id,
+        votes: votesFor([1]),
+        players: players,
+        todayNominations: [],
+        allNominations: [],
+      );
+
+      final existing = await db.nominationsDao.watchByDay(dayRecordId).first;
+      final error = await repo.addNomination(
+        gameId: gameId,
+        dayRecordId: dayRecordId,
+        nominatorId: players[0].id, // 同一提名者
+        nomineeId: players[2].id,
+        votes: votesFor([1]),
+        players: players,
+        todayNominations: existing,
+        allNominations: existing,
+      );
+      expect(error, '该玩家今天已提名过');
+    });
+
+    test('每人每天只能被提名一次', () async {
+      await repo.addNomination(
+        gameId: gameId,
+        dayRecordId: dayRecordId,
+        nominatorId: players[0].id,
+        nomineeId: players[1].id,
+        votes: votesFor([1]),
+        players: players,
+        todayNominations: [],
+        allNominations: [],
+      );
+
+      final existing = await db.nominationsDao.watchByDay(dayRecordId).first;
+      final error = await repo.addNomination(
+        gameId: gameId,
+        dayRecordId: dayRecordId,
+        nominatorId: players[2].id,
+        nomineeId: players[1].id, // 同一被提名者
+        votes: votesFor([1]),
+        players: players,
+        todayNominations: existing,
+        allNominations: existing,
+      );
+      expect(error, '该玩家今天已被提名过');
+    });
+
+    test('死票用过后不可再用', () async {
+      // 第一次：7 号用死票
+      await repo.addNomination(
+        gameId: gameId,
+        dayRecordId: dayRecordId,
+        nominatorId: players[0].id,
+        nomineeId: players[1].id,
+        votes: votesFor([1, 7]), // 7 号赞成 = 死票
+        players: players,
+        todayNominations: [],
+        allNominations: [],
+      );
+
+      // 第二天：7 号再投赞成 → 报错
+      final day2 = await db.dayRecordsDao.insertDay(
+        DayRecordsCompanion(
+          gameId: Value(gameId),
+          dayNumber: const Value(2),
+        ),
+      );
+      final all = await db.nominationsDao.watchByGame(gameId).first;
+      final error = await repo.addNomination(
+        gameId: gameId,
+        dayRecordId: day2,
+        nominatorId: players[2].id,
+        nomineeId: players[3].id,
+        votes: votesFor([2, 7]),
+        players: players,
+        todayNominations: [],
+        allNominations: all,
+      );
+      expect(error, '该玩家的死票已用过');
+    });
+
+    test('平票/不足阈值：不通过（无人处决）', () async {
+      final error = await repo.addNomination(
+        gameId: gameId,
+        dayRecordId: dayRecordId,
+        nominatorId: players[0].id,
+        nomineeId: players[1].id,
+        votes: votesFor([1, 2]), // 2 票 < 阈值 3
+        players: players,
+        todayNominations: [],
+        allNominations: [],
+      );
+      expect(error, isNull);
+      final noms = await db.nominationsDao.watchByGame(gameId).first;
+      expect(noms.single.passed, isFalse);
+    });
+  });
+}
