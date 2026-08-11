@@ -13,13 +13,11 @@ final currentGameProvider = StreamProvider<Game?>((ref) {
       );
 });
 
-/// 按 id 监听单局。
+/// 按 id 监听单局（只监听该行变化）。
 final gameByIdProvider =
     StreamProvider.family<Game?, int>((ref, gameId) {
   final db = ref.watch(appDatabaseProvider);
-  return db.gamesDao.watchAll().map(
-        (games) => games.where((g) => g.id == gameId).firstOrNull,
-      );
+  return db.gamesDao.watchById(gameId);
 });
 
 /// 全部对局（存档列表用）。

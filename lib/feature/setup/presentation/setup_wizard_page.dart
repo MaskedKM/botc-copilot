@@ -46,7 +46,9 @@ class _SetupWizardPageState extends ConsumerState<SetupWizardPage> {
     final router = GoRouter.of(context);
     try {
       final gameId = await notifier.submit();
-      router.go(AppRoutes.gameBoard(gameId));
+      // pushReplacement：栈变为 [首页, 对局页]——
+      // 对局页可返回首页，且不会回到一次性的设置向导。
+      router.pushReplacement(AppRoutes.gameBoard(gameId));
     } on Exception {
       messenger.showSnackBar(const SnackBar(content: Text('创建对局失败，请重试')));
     }
