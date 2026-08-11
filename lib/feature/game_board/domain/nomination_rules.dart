@@ -90,4 +90,66 @@ abstract final class NominationRules {
     final list = (jsonDecode(json) as List).cast<Map<String, dynamic>>();
     return list.map(VoteEntry.fromJson).toList();
   }
+
+  /// 计算当天「即将死亡」者（官方最高票累计机制，issue #53）。
+  ///
+  /// 处决不是每次提名独立判断，而是当天累计最高票：
+  /// - 仅考虑达到处决阈值（[threshold]）的提名。
+  /// - 在通过的提名中取最高赞成票：
+  ///   - 唯一最高 → 该被提名者即将死亡（[PendingExecution]），
+  ///     后续出现更高票会**替换**为新的即将死亡者。
+  ///   - 最高票并列 → [PendingTie]：无人即将死亡，后续须**超过**此票数。
+  /// - 无通过提名 → [PendingNone]。
+  ///
+  /// 注：[NominationRules.hasBeenNominatedToday] 保证同一被提名者每天
+  /// 至多出现一次，故并列即不同人平票。
+  static PendingExecutionResult pendingExecution(
+    List<Nomination> todayNominations,
+    int aliveCount,
+  ) {
+    final thresh = threshold(aliveCount);
+    final passed = <(int nomineeId, int forCount)>[];
+    for (final n in todayNominations) {
+      final forCount = countFor(decodeVotes(n.voteResultJson));
+      if (forCount >= thresh) {
+        passed.add((n.nomineePlayerId, forCount));
+      }
+    }
+    if (passed.isEmpty) return const PendingNone();
+    final top = passed.map((p) => p.$2).reduce((a, b) => a > b ? a : b);
+    final topNominees = passed.where((p) => p.$2 == top).toList();
+    if (topNominees.length == 1) {
+      return PendingExecution(topNominees.single.$1, top);
+    }
+    return PendingTie(top);
+  }
+}
+
+/// 当天「即将死亡」判定结果（issue #53）。
+sealed class PendingExecutionResult {
+  const PendingExecutionResult();
+}
+
+/// 唯一最高票 → 该被提名者即将死亡。
+class PendingExecution extends PendingExecutionResult {
+  const PendingExecution(this.nomineeId, this.forCount);
+
+  /// 即将死亡的被提名者 id。
+  final int nomineeId;
+
+  /// 其获得的赞成票数。
+  final int forCount;
+}
+
+/// 最高票平票 → 无人即将死亡，后续须超过 [forCount]。
+class PendingTie extends PendingExecutionResult {
+  const PendingTie(this.forCount);
+
+  /// 并列的最高票数。
+  final int forCount;
+}
+
+/// 无人达到处决阈值。
+class PendingNone extends PendingExecutionResult {
+  const PendingNone();
 }

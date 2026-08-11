@@ -58,7 +58,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 6;
+  int get schemaVersion => 7;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -85,6 +85,10 @@ class AppDatabase extends _$AppDatabase {
           // v5 → v6：games 加 helpLevel
           if (from < 6) {
             await m.addColumn(games, games.helpLevel);
+          }
+          // v6 → v7：nominations 加 defenseText（被提名者辩护，issue #56）
+          if (from < 7) {
+            await m.addColumn(nominations, nominations.defenseText);
           }
         },
         beforeOpen: (details) async {

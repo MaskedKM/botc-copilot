@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:botc_copilot/core/constants/script.dart';
 import 'package:botc_copilot/core/database/app_database.dart';
 import 'package:botc_copilot/core/database/database_provider.dart';
@@ -62,6 +64,30 @@ void main() {
           ),
       ];
 
+  /// 构造一条提名（前 [forCount] 个玩家赞成，其余反对）。存活 6 人 → 阈值 3。
+  Nomination nominationWithVotes({
+    required int nominatorIndex,
+    required int nomineeIndex,
+    required int forCount,
+  }) {
+    final votes = [
+      for (var i = 0; i < players.length; i++)
+        VoteEntry(
+          playerId: players[i].id,
+          vote: i < forCount ? Vote.forVote : Vote.against,
+        ),
+    ];
+    return Nomination(
+      id: 0,
+      gameId: gameId,
+      dayRecordId: dayRecordId,
+      nominatorPlayerId: players[nominatorIndex].id,
+      nomineePlayerId: players[nomineeIndex].id,
+      passed: forCount >= 3,
+      voteResultJson: jsonEncode(votes.map((v) => v.toJson()).toList()),
+    );
+  }
+
   group('NominationRules', () {
     test('处决阈值：存活人数一半向上取整', () {
       expect(NominationRules.threshold(7), 4);
@@ -73,6 +99,47 @@ void main() {
       // 存活 6 人，阈值 3
       expect(NominationRules.isPassed(votesFor([1, 2, 3]), 6), isTrue);
       expect(NominationRules.isPassed(votesFor([1, 2]), 6), isFalse);
+    });
+  });
+
+  group('pendingExecution（最高票替换 + 平票，issue #53）', () {
+    test('唯一最高票 → 该被提名者即将死亡', () {
+      final noms = [
+        nominationWithVotes(nominatorIndex: 0, nomineeIndex: 1, forCount: 5),
+      ];
+      final result = NominationRules.pendingExecution(noms, 6);
+      expect(result, isA<PendingExecution>());
+      expect((result as PendingExecution).nomineeId, players[1].id);
+      expect(result.forCount, 5);
+    });
+
+    test('更高票出现 → 替换为新的即将死亡者', () {
+      final noms = [
+        nominationWithVotes(nominatorIndex: 0, nomineeIndex: 1, forCount: 5),
+        nominationWithVotes(nominatorIndex: 2, nomineeIndex: 3, forCount: 6),
+      ];
+      final result = NominationRules.pendingExecution(noms, 6);
+      expect(result, isA<PendingExecution>());
+      expect((result as PendingExecution).nomineeId, players[3].id);
+      expect(result.forCount, 6);
+    });
+
+    test('最高票并列 → 平票，无人即将死亡', () {
+      final noms = [
+        nominationWithVotes(nominatorIndex: 0, nomineeIndex: 1, forCount: 4),
+        nominationWithVotes(nominatorIndex: 2, nomineeIndex: 3, forCount: 4),
+      ];
+      final result = NominationRules.pendingExecution(noms, 6);
+      expect(result, isA<PendingTie>());
+      expect((result as PendingTie).forCount, 4);
+    });
+
+    test('无人达到阈值 → PendingNone', () {
+      final noms = [
+        nominationWithVotes(nominatorIndex: 0, nomineeIndex: 1, forCount: 2),
+      ];
+      final result = NominationRules.pendingExecution(noms, 6);
+      expect(result, isA<PendingNone>());
     });
   });
 
@@ -195,6 +262,37 @@ void main() {
       expect(error, isNull);
       final noms = await db.nominationsDao.watchByGame(gameId).first;
       expect(noms.single.passed, isFalse);
+    });
+
+    test('辩护记录持久化（issue #56）', () async {
+      await repo.addNomination(
+        gameId: gameId,
+        dayRecordId: dayRecordId,
+        nominatorId: players[0].id,
+        nomineeId: players[1].id,
+        votes: votesFor([1, 2, 3]),
+        players: players,
+        todayNominations: [],
+        allNominations: [],
+        defenseText: '  我不是恶魔，X 号更可疑  ',
+      );
+      var noms = await db.nominationsDao.watchByGame(gameId).first;
+      expect(noms.single.defenseText, '我不是恶魔，X 号更可疑'); // 已 trim
+
+      // 不传或空 → null
+      await repo.addNomination(
+        gameId: gameId,
+        dayRecordId: dayRecordId,
+        nominatorId: players[2].id,
+        nomineeId: players[3].id,
+        votes: votesFor([1]),
+        players: players,
+        todayNominations: noms,
+        allNominations: noms,
+        defenseText: '   ',
+      );
+      noms = await db.nominationsDao.watchByGame(gameId).first;
+      expect(noms.last.defenseText, isNull);
     });
   });
 }

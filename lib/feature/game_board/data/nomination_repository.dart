@@ -37,6 +37,7 @@ class NominationRepository {
   /// 录入一次提名 + 投票结果。
   ///
   /// 自动计算 passed（赞成票 ≥ 存活人数一半）。
+  /// [defenseText] 为被提名者的辩护记录（可选，issue #56）。
   /// 返回错误消息（校验失败时），成功返回 null。
   Future<String?> addNomination({
     required int gameId,
@@ -47,6 +48,7 @@ class NominationRepository {
     required List<Player> players,
     required List<Nomination> todayNominations,
     required List<Nomination> allNominations,
+    String? defenseText,
   }) async {
     // 规则校验
     if (NominationRules.hasNominatedToday(todayNominations, nominatorId)) {
@@ -65,6 +67,8 @@ class NominationRepository {
 
     final aliveCount = players.where((p) => p.isAlive).length;
     final passed = NominationRules.isPassed(votes, aliveCount);
+    final defense = defenseText?.trim();
+    final hasDefense = defense != null && defense.isNotEmpty;
 
     await _db.nominationsDao.insertNomination(
       NominationsCompanion(
@@ -76,6 +80,7 @@ class NominationRepository {
         voteResultJson: Value(
           jsonEncode(votes.map((v) => v.toJson()).toList()),
         ),
+        defenseText: hasDefense ? Value(defense) : const Value.absent(),
       ),
     );
     return null;

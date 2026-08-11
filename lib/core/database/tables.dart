@@ -174,6 +174,9 @@ class Nominations extends Table {
 
   /// 投票结果 JSON：[{playerId, vote: for/against/abstain, isDeadVote}]。
   TextColumn get voteResultJson => text()();
+
+  /// 被提名者辩护记录（可选，issue #56）。
+  TextColumn get defenseText => text().nullable()();
 }
 
 /// 醉/毒状态表（issue #35）：某天某玩家被标记为可能被毒/醉。
