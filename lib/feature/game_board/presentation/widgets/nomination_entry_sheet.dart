@@ -181,7 +181,7 @@ class _NominationEntrySheetState
         .read(gameBoardProvider(widget.gameId).notifier)
         .ensureCurrentDayRecord();
 
-    // 死票标记：死亡玩家投赞成 = 死票
+    // 死票标记：死亡玩家投赞成 = 消耗死票（反对/弃权不消耗）
     final votes = _votes.entries.map((e) {
       final player = players.firstWhere((p) => p.id == e.key);
       return VoteEntry(
