@@ -4,7 +4,6 @@ analyzer:
   exclude:
     - "**/*.g.dart"
     - "**/*.freezed.dart"
-    - "lib/core/database/**.dart"
 linter:
   rules:
     # 显式保持启用：AGENTS.md 要求每个公共类/方法必须有 dartdoc。
