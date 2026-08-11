@@ -23,6 +23,7 @@ class RoleStep extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final selected = ref.watch(setupProvider.select((s) => s.myRole));
     final notifier = ref.read(setupProvider.notifier);
+    final gameColors = context.gameColors;
 
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -44,6 +45,24 @@ class RoleStep extends ConsumerWidget {
                 ),
             ],
           ),
+          // 选中角色时显示能力描述
+          if (selected != null && selected.team == team) ...[
+            const SizedBox(height: 8),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: team.isGood
+                    ? gameColors.goldBright.withValues(alpha: 0.1)
+                    : gameColors.blood.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                selected.ability,
+                style: AppTextStyles.body,
+              ),
+            ),
+          ],
           const SizedBox(height: 16),
         ],
       ],

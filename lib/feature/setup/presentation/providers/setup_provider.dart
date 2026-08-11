@@ -27,13 +27,15 @@ class SetupNotifier extends StateNotifier<SetupState> {
     state = state.copyWith(script: script);
   }
 
-  /// 调整玩家数（保留已输入的名字，多余截断、不足补空）。
+  /// 调整玩家数（保留已输入的名字，多余截断、不足补字母）。
   void setPlayerCount(int count) {
     final names = List<String>.of(state.playerNames);
     if (names.length > count) {
       names.removeRange(count, names.length);
     } else {
-      names.addAll(List.filled(count - names.length, ''));
+      for (var i = names.length; i < count; i++) {
+        names.add(String.fromCharCode(65 + i));
+      }
     }
     state = state.copyWith(playerCount: count, playerNames: names);
   }
