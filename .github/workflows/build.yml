@@ -21,6 +21,7 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
+          flutter-version: 3.41.2
           cache: true
 
       - name: 安装依赖
@@ -51,6 +52,7 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
+          flutter-version: 3.41.2
           cache: true
 
       - run: flutter pub get
