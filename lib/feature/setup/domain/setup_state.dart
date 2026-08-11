@@ -14,6 +14,7 @@ class SetupState {
     List<String>? playerNames,
     this.myRole,
     this.demonBluffs = const [],
+    this.mySeat,
     this.submitting = false,
   })  : playerCount = playerCount,
         playerNames =
@@ -36,6 +37,11 @@ class SetupState {
 
   /// 恶魔 Bluff 角色（仅当 myRole 是恶魔时录入，最多 3 个）。
   final List<Character> demonBluffs;
+
+  /// 我的座位号（1-based，null = 未选择）。
+  ///
+  /// 用于开局即写入 games.myPlayerId，使圆环立刻显示金色描边。
+  final int? mySeat;
 
   /// 是否正在提交（防重复点击）。
   final bool submitting;
@@ -64,6 +70,7 @@ class SetupState {
     List<String>? playerNames,
     Character? myRole,
     List<Character>? demonBluffs,
+    int? mySeat,
     bool? submitting,
   }) {
     return SetupState(
@@ -73,6 +80,7 @@ class SetupState {
       playerNames: playerNames ?? this.playerNames,
       myRole: myRole ?? this.myRole,
       demonBluffs: demonBluffs ?? this.demonBluffs,
+      mySeat: mySeat ?? this.mySeat,
       submitting: submitting ?? this.submitting,
     );
   }

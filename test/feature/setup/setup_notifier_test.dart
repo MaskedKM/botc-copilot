@@ -80,4 +80,29 @@ void main() {
     expect(players.map((p) => p.seatNumber), [1, 2, 3, 4, 5, 6, 7]);
     expect(players.map((p) => p.name), ['A', 'B', 'C', 'D', 'E', 'F', 'G']);
   });
+
+  test('selectMySeat 记录座位号', () {
+    notifier().selectMySeat(5);
+    expect(state().mySeat, 5);
+  });
+
+  // issue #70：开局选座位 → 立即写 myPlayerId，圆环直接显示金色描边。
+  test('submit 选了座位 → 写入 myPlayerId（圆环可显示金色描边）', () async {
+    notifier().selectRole(Character.empath);
+    notifier().selectMySeat(3);
+
+    final gameId = await notifier().submit();
+
+    final game = await db.gamesDao.getById(gameId);
+    final players = await db.playersDao.watchByGame(gameId).first;
+    final seat3 = players.firstWhere((p) => p.seatNumber == 3);
+    expect(game!.myPlayerId, seat3.id);
+  });
+
+  test('submit 未选座位 → myPlayerId 保持 null（由 MyInfoSheet 兜底）', () async {
+    notifier().selectRole(Character.empath);
+    final gameId = await notifier().submit();
+    final game = await db.gamesDao.getById(gameId);
+    expect(game!.myPlayerId, isNull);
+  });
 }

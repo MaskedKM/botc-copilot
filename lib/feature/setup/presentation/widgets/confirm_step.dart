@@ -40,6 +40,45 @@ class ConfirmStep extends ConsumerWidget {
                   value: state.myRole?.nameCn ?? '未选择',
                   valueColor: gameColors.goldBright,
                 ),
+                const SizedBox(height: 8),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    SizedBox(
+                      width: 72,
+                      child: Text('我的座位', style: AppTextStyles.caption),
+                    ),
+                    Expanded(
+                      child: DropdownButton<int>(
+                        // 范围外的残留值（如改了人数）回退为 null，避免越界。
+                        value: (state.mySeat != null &&
+                                state.mySeat! >= 1 &&
+                                state.mySeat! <= state.playerCount)
+                            ? state.mySeat
+                            : null,
+                        hint: const Text('选择你的座位'),
+                        isExpanded: true,
+                        items: [
+                          for (var i = 1; i <= state.playerCount; i++)
+                            DropdownMenuItem(
+                              value: i,
+                              child: Text(
+                                '$i 号 · ${state.playerNames[i - 1]}',
+                                style: AppTextStyles.body,
+                              ),
+                            ),
+                        ],
+                        onChanged: (seat) {
+                          if (seat != null) {
+                            ref
+                                .read(setupProvider.notifier)
+                                .selectMySeat(seat);
+                          }
+                        },
+                      ),
+                    ),
+                  ],
+                ),
               ],
             ),
           ),

@@ -16,11 +16,14 @@ class SetupRepository {
   ///
   /// 返回新对局 id。玩家座位号按 [names] 顺序从 1 开始。
   /// [demonBluffs] 仅当我是恶魔时传入（最多 3 个不在场角色）。
+  /// [mySeat] 我的座位号（1-based，可选）：在范围内时写入 games.myPlayerId，
+  /// 开局即可在圆环上显示金色描边，无需等 MyInfoSheet 首次设置。
   Future<int> createGame({
     required Script script,
     required List<String> names,
     required Character myRole,
     List<Character> demonBluffs = const [],
+    int? mySeat,
   }) {
     return _db.transaction(() async {
       final gameId = await _db.gamesDao.insertGame(
@@ -45,6 +48,14 @@ class SetupRepository {
             seatNumber: Value(i + 1),
           ),
       ]);
+      // 写入「我的座位」（issue #70）：开局即点亮圆环金色描边。
+      if (mySeat != null && mySeat >= 1 && mySeat <= names.length) {
+        final players = await _db.playersDao.watchByGame(gameId).first;
+        final me = players.where((p) => p.seatNumber == mySeat).firstOrNull;
+        if (me != null) {
+          await _db.gamesDao.updateMyPlayerId(gameId, me.id);
+        }
+      }
       return gameId;
     });
   }
