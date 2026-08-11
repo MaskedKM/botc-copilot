@@ -28,6 +28,13 @@ class RoleClaimsDao extends DatabaseAccessor<AppDatabase>
         );
   }
 
+  /// 监听某玩家的全部角色声明（按时间顺序）。
+  Stream<List<RoleClaim>> watchByPlayer(int playerId) =>
+      (select(roleClaims)
+            ..where((c) => c.playerId.equals(playerId))
+            ..orderBy([(c) => OrderingTerm.asc(c.id)]))
+          .watch();
+
   /// 新建角色声明。
   Future<int> insertClaim(RoleClaimsCompanion entry) =>
       into(roleClaims).insert(entry);
