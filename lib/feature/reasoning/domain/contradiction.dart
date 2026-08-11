@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:botc_copilot/core/constants/character.dart';
 import 'package:botc_copilot/core/constants/team.dart';
 import 'package:botc_copilot/core/database/app_database.dart';
@@ -244,10 +246,12 @@ abstract final class ContradictionDetector {
   }
 
   /// 规则 5：无人死亡夜晚 → 列出可能性（仅提示，不涉及具体玩家）。
+  ///
+  /// 第 1 天跳过：官方规则恶魔首夜不杀人，无夜死是常态。
   static List<Contradiction> _noDeathNights(List<DayRecord> days) {
     return [
       for (final d in days)
-        if (d.nightDeathPlayerId == null)
+        if (d.nightDeathPlayerId == null && d.dayNumber > 1)
           Contradiction(
             type: ContradictionType.noDeathNight,
             playerIds: const [],
@@ -272,8 +276,14 @@ abstract final class ContradictionDetector {
   }
 
   static int? _payloadValue(String payloadJson) {
-    // {"value": n}
-    final match = RegExp('"value"\\s*:\\s*(\\d+)').firstMatch(payloadJson);
-    return match == null ? null : int.tryParse(match.group(1)!);
+    try {
+      final decoded = jsonDecode(payloadJson);
+      if (decoded is Map && decoded['value'] is int) {
+        return decoded['value'] as int;
+      }
+      return null;
+    } on FormatException {
+      return null;
+    }
   }
 }

@@ -217,6 +217,28 @@ void main() {
     expect(result[0].description, contains('Monk'));
   });
 
+  test('规则5：第 1 天无人死亡不报警（恶魔首夜不杀人）', () {
+    final result = ContradictionDetector.detect(
+      claims: [],
+      declarations: [],
+      days: [
+        DayRecord(
+          id: 1,
+          gameId: 1,
+          dayNumber: 1,
+          nightDeathPlayerId: null,
+          dayExecutionPlayerId: null,
+          undertakerResultRole: null,
+          notes: '',
+        ),
+      ],
+      playersById: players,
+      dayRecordToDayNumber: {1: 1},
+      expectedOutsiders: 0,
+    );
+    expect(result, isEmpty);
+  });
+
   test('组合：多条规则同时触发', () {
     final result = ContradictionDetector.detect(
       claims: [_claim(1, Character.chef), _claim(2, Character.chef)],
