@@ -71,6 +71,13 @@ class MyInfoSheet extends ConsumerWidget {
                           .read(appDatabaseProvider)
                           .gamesDao
                           .updateMyPlayerId(game.id, p.id);
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('已设为 ${p.seatNumber}号 ${p.name}'),
+                          ),
+                        );
+                      }
                     },
                   ),
               ],
