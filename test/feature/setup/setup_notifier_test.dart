@@ -26,10 +26,11 @@ void main() {
   SetupNotifier notifier() => container.read(setupProvider.notifier);
   dynamic state() => container.read(setupProvider);
 
-  test('默认状态：TB / 7 人 / 7 个空名字 / 第 0 步', () {
+  test('默认状态：TB / 7 人 / 默认 A~G / 第 0 步', () {
     expect(state().script, Script.troubleBrewing);
     expect(state().playerCount, 7);
     expect(state().playerNames.length, 7);
+    expect(state().playerNames, ['A', 'B', 'C', 'D', 'E', 'F', 'G']);
     expect(state().step, 0);
   });
 
@@ -37,33 +38,27 @@ void main() {
     notifier().setPlayerName(0, 'Alice');
     notifier().setPlayerName(1, 'Bob');
     notifier().setPlayerCount(5);
-    expect(state().playerNames, ['Alice', 'Bob', '', '', '']);
+    expect(state().playerNames, ['Alice', 'Bob', 'C', 'D', 'E']);
 
     notifier().setPlayerCount(8);
     expect(state().playerNames.length, 8);
     expect(state().playerNames[0], 'Alice');
+    // 新增位置用字母补全
+    expect(state().playerNames[6], 'G');
+    expect(state().playerNames[7], 'H');
   });
 
   test('reorderSeat 拖拽换座', () {
-    notifier()
-      ..setPlayerName(0, 'A')
-      ..setPlayerName(1, 'B')
-      ..setPlayerName(2, 'C');
-    // 把 0 号位拖到下标 2（ReorderableListView 语义：newIndex=3）
     notifier().reorderSeat(0, 3);
     expect(state().playerNames.sublist(0, 3), ['B', 'C', 'A']);
   });
 
-  test('canProceed 门控：名字未填完 / 未选角色不可前进', () {
+  test('canProceed 门控：名字步骤默认可过 / 未选角色不可前进', () {
     notifier()
       ..nextStep() // → 1 人数
       ..nextStep(); // → 2 座位
     expect(state().step, 2);
-    expect(state().canProceed, isFalse);
-
-    for (var i = 0; i < 7; i++) {
-      notifier().setPlayerName(i, 'P$i');
-    }
+    // 默认 A~G，可以直接继续
     expect(state().canProceed, isTrue);
 
     notifier().nextStep(); // → 3 角色
@@ -73,9 +68,6 @@ void main() {
   });
 
   test('submit 写入 Game + 7 个玩家，座位号 1-7', () async {
-    for (var i = 0; i < 7; i++) {
-      notifier().setPlayerName(i, '玩家$i');
-    }
     notifier().selectRole(Character.fortuneTeller);
 
     final gameId = await notifier().submit();
@@ -86,6 +78,6 @@ void main() {
 
     final players = await db.playersDao.watchByGame(gameId).first;
     expect(players.map((p) => p.seatNumber), [1, 2, 3, 4, 5, 6, 7]);
-    expect(players.map((p) => p.name), containsAll(['玩家0', '玩家6']));
+    expect(players.map((p) => p.name), ['A', 'B', 'C', 'D', 'E', 'F', 'G']);
   });
 }

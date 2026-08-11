@@ -127,6 +127,7 @@ class DayPanel extends ConsumerWidget {
 }
 
 /// 破坏性操作二次确认（防误触原则）。
+/// 撤销/改选由 provider 处理：重选「无人死亡」或改选他人会自动复活前者。
 Future<void> _confirmDeath(
   BuildContext context,
   WidgetRef ref, {
@@ -139,7 +140,7 @@ Future<void> _confirmDeath(
     context: context,
     builder: (context) => AlertDialog(
       title: Text('确认$verb'),
-      content: Text('将 ${player.seatNumber} 号 ${player.name} 标记为$verb？'),
+      content: Text('${player.seatNumber}号 ${player.name} $verb？'),
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context, false),
@@ -147,7 +148,7 @@ Future<void> _confirmDeath(
         ),
         FilledButton(
           onPressed: () => Navigator.pop(context, true),
-          child: Text('确认$verb'),
+          child: const Text('确认'),
         ),
       ],
     ),

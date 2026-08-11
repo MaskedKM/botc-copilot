@@ -5,6 +5,8 @@ import 'package:botc_copilot/core/constants/script.dart';
 /// 开局设置向导状态。
 class SetupState {
   /// 创建设置状态（默认：TB 剧本、7 人局）。
+  ///
+  /// 玩家名默认 A~Z 字母（省去逐个输入），用户可按需修改。
   SetupState({
     this.step = 0,
     this.script = Script.troubleBrewing,
@@ -14,7 +16,8 @@ class SetupState {
     this.demonBluffs = const [],
     this.submitting = false,
   })  : playerCount = playerCount,
-        playerNames = playerNames ?? List.filled(playerCount, '');
+        playerNames =
+            playerNames ?? [for (var i = 0; i < playerCount; i++) String.fromCharCode(65 + i)];
 
   /// 当前步骤（0-4）。
   final int step;
@@ -47,7 +50,7 @@ class SetupState {
   bool get canProceed => switch (step) {
         0 => true, // 剧本必有默认选中
         1 => true, // 人数必有默认值
-        2 => playerNames.every((n) => n.trim().isNotEmpty),
+        2 => true, // 名字有默认值（A~Z），空名也可继续
         3 => myRole != null,
         4 => !submitting,
         _ => false,

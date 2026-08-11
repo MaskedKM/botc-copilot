@@ -69,6 +69,50 @@ void main() {
     expect(updated.every((p) => p.isAlive), isTrue);
   });
 
+  test('recordNightDeath：撤销（改选无人死亡）复活已标死的玩家', () async {
+    await notifier().recordNightDeath(players[2].id);
+    await notifier().recordNightDeath(null);
+
+    final day = await db.dayRecordsDao.getByGameAndDay(gameId, 1);
+    expect(day!.nightDeathPlayerId, isNull);
+    final updated = await db.playersDao.watchByGame(gameId).first;
+    expect(updated[2].isAlive, isTrue);
+    expect(updated[2].deathDay, isNull);
+    expect(updated[2].deathCause, isNull);
+  });
+
+  test('recordNightDeath：改选他人时复活上一个夜晚死亡者', () async {
+    await notifier().recordNightDeath(players[1].id);
+    await notifier().recordNightDeath(players[3].id);
+
+    final updated = await db.playersDao.watchByGame(gameId).first;
+    expect(updated[1].isAlive, isTrue);
+    expect(updated[3].isAlive, isFalse);
+    expect(updated[3].deathCause, DeathCause.nightKill);
+    final day = await db.dayRecordsDao.getByGameAndDay(gameId, 1);
+    expect(day!.nightDeathPlayerId, players[3].id);
+  });
+
+  test('recordExecution：撤销（置 null）复活被处决者', () async {
+    await notifier().recordExecution(players[4].id);
+    await notifier().recordExecution(null);
+
+    final day = await db.dayRecordsDao.getByGameAndDay(gameId, 1);
+    expect(day!.dayExecutionPlayerId, isNull);
+    final updated = await db.playersDao.watchByGame(gameId).first;
+    expect(updated[4].isAlive, isTrue);
+  });
+
+  test('revivePlayer：复活误标死亡的玩家', () async {
+    await notifier().quickToggleDead(players[1]);
+    await notifier().revivePlayer(players[1].id);
+
+    final updated = await db.playersDao.watchByGame(gameId).first;
+    expect(updated[1].isAlive, isTrue);
+    expect(updated[1].deathDay, isNull);
+    expect(updated[1].deathCause, isNull);
+  });
+
   test('recordExecution：处决标记死亡', () async {
     await notifier().recordExecution(players[4].id);
     final updated = await db.playersDao.watchByGame(gameId).first;

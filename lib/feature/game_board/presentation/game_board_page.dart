@@ -76,6 +76,7 @@ class _GameBoardBody extends ConsumerWidget {
     }
     final aliveCount = players.where((p) => p.isAlive).length;
     final gameColors = context.gameColors;
+    final helpLevel = ref.watch(gameHelpLevelProvider(gameId));
 
     final currentDay =
         ref.watch(gameBoardProvider(gameId).select((s) => s.currentDay));
@@ -182,6 +183,10 @@ class _GameBoardBody extends ConsumerWidget {
                   ),
                 ),
               ),
+            // 新手引导卡片（仅 beginner/normal 模式显示）
+            if (game.status == GameStatus.ongoing &&
+                helpLevel != HelpLevel.expert)
+              _ContextHint(day: currentDay),
             // 钟面座位圆环（签名组件，直径 ≈ 屏宽 85%）
             Expanded(
               flex: 5,
@@ -278,9 +283,30 @@ class _GameBoardBody extends ConsumerWidget {
       ),
     );
     if (confirmed ?? false) {
+      final wasAlive = player.isAlive;
       final suggestion = await ref
           .read(gameBoardProvider(gameId).notifier)
           .quickToggleDead(player);
+      // 标死后提供 SnackBar 撤销（issue #65）
+      if (wasAlive && context.mounted) {
+        // 只捕获 id：player 对象是标死前的快照（isAlive 仍为 true），
+        // 若再传给 quickToggleDead 会误判为「再标死一次」而非复活。
+        final playerId = player.id;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${player.seatNumber}号 ${player.name} 已标记死亡'),
+            action: SnackBarAction(
+              label: '撤销',
+              onPressed: () {
+                ref
+                    .read(gameBoardProvider(gameId).notifier)
+                    .revivePlayer(playerId);
+              },
+            ),
+            duration: const Duration(seconds: 10),
+          ),
+        );
+      }
       if (suggestion is EvilWinCandidate && context.mounted) {
         final evil = await EndGameDialog.showEvilCandidate(
           context,
@@ -332,6 +358,41 @@ class _DayBadge extends StatelessWidget {
           style: TextStyle(color: AppColors.lineGold, fontSize: 10),
         ),
       ],
+    );
+  }
+}
+
+/// 新手引导卡片：根据当前天数提示下一步操作（issue #64）。
+class _ContextHint extends StatelessWidget {
+  const _ContextHint({required this.day});
+
+  final int day;
+
+  @override
+  Widget build(BuildContext context) {
+    final gameColors = context.gameColors;
+    final hint = day == 1
+        ? '首夜信息已发放。点击圆环上的玩家，记录他们声明的角色和信息。'
+        : '夜晚结束。在「夜晚」面板记录死亡，然后点击玩家记录角色声明和信息。'
+            '白天讨论后到「投票」面板记录提名。';
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      color: gameColors.goldBright.withValues(alpha: 0.08),
+      child: Row(
+        children: [
+          Icon(Icons.lightbulb_outline, size: 14, color: gameColors.goldBright),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              hint,
+              style: AppTextStyles.caption
+                  .copyWith(color: gameColors.goldBright),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
