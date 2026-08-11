@@ -67,8 +67,11 @@ abstract final class TimelineBuilder {
       return p != null ? '${p.seatNumber}号 ${p.name}' : '?';
     }
 
+    final sortedDays = [...days]..sort(
+        (a, b) => a.dayNumber.compareTo(b.dayNumber),
+      );
     return [
-      for (final day in days..sort((a, b) => a.dayNumber.compareTo(b.dayNumber)))
+      for (final day in sortedDays)
         TimelineDay(
           dayNumber: day.dayNumber,
           events: [

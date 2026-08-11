@@ -55,6 +55,16 @@ void main() {
     await db.close();
   });
 
+  /// 等待组合流首次产出数据（底层 4 个 Drift 流需各 emit 一次）。
+  Future<List<TimelineDay>> readTimeline() async {
+    for (var i = 0; i < 50; i++) {
+      final value = container.read(timelineProvider(gameId)).valueOrNull;
+      if (value != null) return value;
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+    }
+    throw StateError('timeline 未产出数据');
+  }
+
   test('时间线按天分组 + 事件类型齐全', () async {
     await db.roleClaimsDao.insertClaim(
       RoleClaimsCompanion(
@@ -74,7 +84,7 @@ void main() {
       ),
     );
 
-    final timeline = await container.read(timelineProvider(gameId).future);
+    final timeline = await readTimeline();
 
     expect(timeline, hasLength(1));
     final events = timeline.single.events;
@@ -100,10 +110,44 @@ void main() {
     await db.dayRecordsDao.insertDay(
       DayRecordsCompanion(gameId: Value(gameId), dayNumber: const Value(2)),
     );
-    final timeline = await container.read(timelineProvider(gameId).future);
+    final timeline = await readTimeline();
 
     expect(timeline.map((d) => d.dayNumber), [1, 2]);
     expect(timeline[1].events.single.summary, '夜晚无人死亡');
+  });
+
+  test('响应式：录入新声明后时间线自动刷新（PR #29 review 回归）', () async {
+    // 先读到初始时间线（无声明事件）
+    final before = await readTimeline();
+    expect(
+      before.single.events
+          .where((e) => e.type == TimelineEventType.roleClaim),
+      isEmpty,
+    );
+
+    // 录入一条角色声明（不改 day_records）
+    await db.roleClaimsDao.insertClaim(
+      RoleClaimsCompanion(
+        playerId: Value(players[5].id),
+        dayRecordId: Value(day1Id),
+        character: const Value(Character.empath),
+        claimType: const Value(ClaimType.firstClaim),
+      ),
+    );
+
+    // 不换页、不手动刷新——流驱动自动重建
+    for (var i = 0; i < 50; i++) {
+      final timeline = container.read(timelineProvider(gameId)).valueOrNull;
+      final hasClaim = timeline?.single.events.any(
+            (e) =>
+                e.type == TimelineEventType.roleClaim &&
+                e.summary.contains('6号 玩家6'),
+          ) ??
+          false;
+      if (hasClaim) return;
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+    }
+    fail('时间线未自动刷新新增的角色声明');
   });
 
   test('改口声明带标记', () async {
@@ -115,7 +159,7 @@ void main() {
         claimType: const Value(ClaimType.changed),
       ),
     );
-    final timeline = await container.read(timelineProvider(gameId).future);
+    final timeline = await readTimeline();
     expect(
       timeline.single.events.map((e) => e.summary).join(),
       contains('2号 玩家2 声明 共情者（改口）'),

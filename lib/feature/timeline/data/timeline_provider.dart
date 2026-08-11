@@ -1,26 +1,62 @@
+import 'package:botc_copilot/core/database/app_database.dart';
 import 'package:botc_copilot/core/database/database_provider.dart';
+import 'package:botc_copilot/feature/game_board/presentation/providers/game_board_provider.dart';
 import 'package:botc_copilot/feature/timeline/domain/timeline_event.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-/// 某局的时间线数据（按天分组）。
-final timelineProvider =
-    StreamProvider.family<List<TimelineDay>, int>((ref, gameId) async* {
+/// 某局的全部每日记录。
+final _daysProvider =
+    StreamProvider.family<List<DayRecord>, int>((ref, gameId) {
   final db = ref.watch(appDatabaseProvider);
+  return db.dayRecordsDao.watchByGame(gameId);
+});
 
-  // 三个流任一变化都重建时间线（数据量小，直接全量重算）。
-  final daysStream = db.dayRecordsDao.watchByGame(gameId);
-  await for (final days in daysStream) {
-    final players = await db.playersDao.watchByGame(gameId).first;
-    final claims = await db.roleClaimsDao.watchByGame(gameId).first;
-    final declarations =
-        await db.infoDeclarationsDao.watchByGame(gameId).first;
+/// 某局的全部角色声明。
+final _claimsProvider =
+    StreamProvider.family<List<RoleClaim>, int>((ref, gameId) {
+  final db = ref.watch(appDatabaseProvider);
+  return db.roleClaimsDao.watchByGame(gameId);
+});
 
-    yield TimelineBuilder.build(
-      days: days,
-      claims: claims,
-      declarations: declarations,
-      playersById: {for (final p in players) p.id: p},
-      dayRecordToDayNumber: {for (final d in days) d.id: d.dayNumber},
-    );
+/// 某局的全部信息声明。
+final _declarationsProvider =
+    StreamProvider.family<List<InfoDeclaration>, int>((ref, gameId) {
+  final db = ref.watch(appDatabaseProvider);
+  return db.infoDeclarationsDao.watchByGame(gameId);
+});
+
+/// 某局的时间线数据（按天分组）。
+///
+/// 组合四个流：任一变化都触发重建（声明/信息录入后时间线立即刷新），
+/// 数据源均为小数据量，全量重算开销可忽略。
+final timelineProvider =
+    Provider.family<AsyncValue<List<TimelineDay>>, int>((ref, gameId) {
+  final days = ref.watch(_daysProvider(gameId));
+  final players = ref.watch(gamePlayersProvider(gameId));
+  final claims = ref.watch(_claimsProvider(gameId));
+  final declarations = ref.watch(_declarationsProvider(gameId));
+
+  // 任一在加载/出错 → 整体跟随
+  if (days.isLoading || players.isLoading) {
+    return const AsyncValue.loading();
   }
+  final error = [days, players, claims, declarations]
+      .where((a) => a.hasError)
+      .firstOrNull;
+  if (error != null) {
+    return AsyncValue.error(error.error!, error.stackTrace!);
+  }
+
+  final dayList = days.valueOrNull ?? [];
+  return AsyncValue.data(
+    TimelineBuilder.build(
+      days: dayList,
+      claims: claims.valueOrNull ?? [],
+      declarations: declarations.valueOrNull ?? [],
+      playersById: {
+        for (final p in players.valueOrNull ?? <Player>[]) p.id: p,
+      },
+      dayRecordToDayNumber: {for (final d in dayList) d.id: d.dayNumber},
+    ),
+  );
 });

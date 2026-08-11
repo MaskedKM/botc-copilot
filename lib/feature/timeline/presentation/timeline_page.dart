@@ -86,14 +86,15 @@ class _EventTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final gameColors = context.gameColors;
     final (icon, color) = switch (event.type) {
-      TimelineEventType.nightDeath => (Icons.nights_stay, gameColors.inkViolet),
+      TimelineEventType.nightDeath =>
+        (Icons.nights_stay, gameColors.inkViolet),
       TimelineEventType.execution => (Icons.gavel, gameColors.blood),
       TimelineEventType.undertakerResult =>
         (Icons.badge, gameColors.goldBright),
       TimelineEventType.roleClaim =>
-        (Icons.record_voice_over, gameColors.inkViolet),
+        (Icons.record_voice_over, gameColors.trustLikelyGood),
       TimelineEventType.infoDeclaration =>
-        (Icons.chat_bubble_outline, gameColors.inkViolet),
+        (Icons.chat_bubble_outline, gameColors.goldBright),
     };
 
     return Padding(
