@@ -46,14 +46,14 @@ void main() {
       );
 
   /// 走完前四步到确认页。
-  Future<void> walkToConfirm(WidgetTester tester) async {
+  Future<void> walkToConfirm(WidgetTester tester, {int playerCount = 7}) async {
     await tester.tap(find.text('下一步')); // 剧本 → 人数
     await tester.pumpAndSettle();
     await tester.tap(find.text('下一步')); // 人数 → 座位
     await tester.pumpAndSettle();
-    for (var i = 0; i < 7; i++) {
+    for (var i = 0; i < playerCount; i++) {
       await tester.enterText(
-        find.byType(TextFormField).at(i),
+        find.byType(TextField).at(i),
         '玩家${i + 1}',
       );
     }
@@ -61,6 +61,25 @@ void main() {
     await tester.tap(find.text('下一步')); // 座位 → 角色
     await tester.pumpAndSettle();
   }
+
+  testWidgets('非 TB 剧本禁用（角色数据未就绪）', (tester) async {
+    await tester.pumpWidget(buildApp());
+    await tester.pumpAndSettle();
+
+    // TB 可选，BMR/S&V 禁用
+    expect(find.text('血月升起'), findsOneWidget);
+    expect(find.textContaining('即将支持'), findsNWidgets(2));
+
+    // 点 BMR 不会切换选中态（ subtitle 含“即将支持”）
+    await tester.tap(find.text('血月升起'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('下一步'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('下一步'));
+    await tester.pumpAndSettle();
+    // 座位页出现 = 流程仍按 TB 走，未被 BMR 干扰
+    expect(find.text('排座位'), findsOneWidget);
+  });
 
   testWidgets('完整设置流程：五步走到确认页', (tester) async {
     await tester.pumpWidget(buildApp());

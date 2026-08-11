@@ -24,6 +24,9 @@ class ScriptStep extends ConsumerWidget {
             child: _ScriptCard(
               script: script,
               selected: script == selected,
+              // MVP 只内置 TB 角色池；BMR/S&V 角色数据未就绪前禁用，
+              // 防止"选了 BMR 却只能选 TB 角色"的数据不一致。
+              enabled: script == Script.troubleBrewing,
               onTap: () =>
                   ref.read(setupProvider.notifier).selectScript(script),
             ),
@@ -37,11 +40,13 @@ class _ScriptCard extends StatelessWidget {
   const _ScriptCard({
     required this.script,
     required this.selected,
+    required this.enabled,
     required this.onTap,
   });
 
   final Script script;
   final bool selected;
+  final bool enabled;
   final VoidCallback onTap;
 
   @override
@@ -57,12 +62,13 @@ class _ScriptCard extends StatelessWidget {
       ),
       child: ListTile(
         minTileHeight: 64,
+        enabled: enabled,
         title: Text('${script.nameCn} · ${script.abbr}'),
-        subtitle: Text(script.nameEn),
+        subtitle: Text(enabled ? script.nameEn : '${script.nameEn}（即将支持）'),
         trailing: selected
             ? Icon(Icons.check_circle, color: colorScheme.primary)
             : null,
-        onTap: onTap,
+        onTap: enabled ? onTap : null,
       ),
     );
   }

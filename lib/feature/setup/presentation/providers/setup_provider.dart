@@ -74,19 +74,26 @@ class SetupNotifier extends StateNotifier<SetupState> {
   }
 
   /// 提交：创建对局 + 玩家，返回新对局 id。
+  ///
+  /// 成功后重置向导状态，避免下次进入 setup 看到上一局残留。
   Future<int> submit() async {
     if (!state.canProceed || state.myRole == null) {
       throw StateError('设置未完成，无法提交');
     }
     state = state.copyWith(submitting: true);
     try {
-      return await _ref.read(setupRepositoryProvider).createGame(
+      final gameId = await _ref.read(setupRepositoryProvider).createGame(
             script: state.script,
             names: state.playerNames,
             myRole: state.myRole!,
           );
+      // 异步间隙中页面可能已跳转、notifier 已 dispose，需 mounted 守卫。
+      if (mounted) state = SetupState();
+      return gameId;
     } finally {
-      state = state.copyWith(submitting: false);
+      if (mounted) {
+        state = state.copyWith(submitting: false);
+      }
     }
   }
 }
