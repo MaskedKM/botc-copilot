@@ -196,6 +196,29 @@ class PoisonStatuses extends Table {
   BoolColumn get isActive => boolean().withDefault(const Constant(true))();
 }
 
+/// 行为备注表（issue #36）：某玩家当天的自由文本备注。
+class BehaviorNotes extends Table {
+  /// 自增主键。
+  IntColumn get id => integer().autoIncrement()();
+
+  /// 所属对局。
+  IntColumn get gameId =>
+      integer().references(Games, #id, onDelete: KeyAction.cascade)();
+
+  /// 玩家。
+  IntColumn get playerId =>
+      integer().references(Players, #id, onDelete: KeyAction.cascade)();
+
+  /// 天数。
+  IntColumn get dayNumber => integer()();
+
+  /// 备注内容。
+  TextColumn get note => text()();
+
+  /// 记录时间。
+  DateTimeColumn get createdAt => dateTime()();
+}
+
 /// 信任度变更日志：按天记录对每个玩家的信任度判断。
 class TrustLogs extends Table {
   /// 自增主键。

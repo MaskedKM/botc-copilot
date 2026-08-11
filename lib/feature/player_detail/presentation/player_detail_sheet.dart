@@ -4,6 +4,7 @@ import 'package:botc_copilot/core/theme/app_colors.dart';
 import 'package:botc_copilot/core/theme/app_text_styles.dart';
 import 'package:botc_copilot/core/theme/game_colors.dart';
 import 'package:botc_copilot/feature/game_board/data/poison_repository.dart';
+import 'package:botc_copilot/feature/player_detail/data/behavior_note_repository.dart';
 import 'package:botc_copilot/feature/game_board/presentation/providers/game_board_provider.dart';
 import 'package:botc_copilot/feature/player_detail/data/player_detail_repository.dart';
 import 'package:botc_copilot/feature/player_detail/domain/info_payload_formatter.dart';
@@ -111,6 +112,8 @@ class PlayerDetailSheet extends ConsumerWidget {
             _RecordedInfoSection(player: player),
             const SizedBox(height: 16),
             _PoisonSection(gameId: gameId, player: player, day: day),
+            const SizedBox(height: 16),
+            _BehaviorNoteSection(gameId: gameId, player: player, day: day),
             const SizedBox(height: 16),
             _TrustSection(gameId: gameId, player: player, day: day),
           ],
@@ -362,6 +365,113 @@ class _PoisonSection extends ConsumerWidget {
                 );
           },
         ),
+      ],
+    );
+  }
+}
+
+/// 行为备注区（issue #36）。
+class _BehaviorNoteSection extends ConsumerStatefulWidget {
+  const _BehaviorNoteSection({
+    required this.gameId,
+    required this.player,
+    required this.day,
+  });
+
+  final int gameId;
+  final Player player;
+  final int day;
+
+  @override
+  ConsumerState<_BehaviorNoteSection> createState() =>
+      _BehaviorNoteSectionState();
+}
+
+class _BehaviorNoteSectionState
+    extends ConsumerState<_BehaviorNoteSection> {
+  final _controller = TextEditingController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    final note = _controller.text.trim();
+    if (note.isEmpty) return;
+    await ref.read(behaviorNoteRepositoryProvider).addNote(
+          gameId: widget.gameId,
+          playerId: widget.player.id,
+          dayNumber: widget.day,
+          note: note,
+        );
+    _controller.clear();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final todayNotes = ref
+            .watch(playerDayNotesProvider((widget.player.id, widget.day)))
+            .valueOrNull ??
+        [];
+    final gameColors = context.gameColors;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('行为备注（第 ${widget.day} 天）', style: AppTextStyles.headline),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _controller,
+                decoration: const InputDecoration(
+                  hintText: '如：投票时犹豫 / 主动带票冲 X号',
+                  isDense: true,
+                ),
+                onSubmitted: (_) => _submit(),
+              ),
+            ),
+            IconButton(
+              tooltip: '添加备注',
+              icon: const Icon(Icons.add),
+              onPressed: _submit,
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        if (todayNotes.isEmpty)
+          Text(
+            '暂无备注',
+            style: AppTextStyles.caption
+                .copyWith(color: gameColors.inkViolet),
+          )
+        else
+          ...todayNotes.map(
+            (n) => Padding(
+              padding: const EdgeInsets.symmetric(vertical: 2),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('· ', style: AppTextStyles.body),
+                  Expanded(
+                    child: Text(n.note, style: AppTextStyles.body),
+                  ),
+                  IconButton(
+                    tooltip: '删除备注',
+                    iconSize: 16,
+                    visualDensity: VisualDensity.compact,
+                    icon: Icon(Icons.close, color: gameColors.inkViolet),
+                    onPressed: () => ref
+                        .read(behaviorNoteRepositoryProvider)
+                        .deleteNote(n.id),
+                  ),
+                ],
+              ),
+            ),
+          ),
       ],
     );
   }
