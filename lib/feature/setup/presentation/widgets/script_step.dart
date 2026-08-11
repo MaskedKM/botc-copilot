@@ -1,0 +1,69 @@
+import 'package:botc_copilot/core/constants/script.dart';
+import 'package:botc_copilot/core/theme/app_text_styles.dart';
+import 'package:botc_copilot/feature/setup/presentation/providers/setup_provider.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+/// Step 1：选择剧本。
+class ScriptStep extends ConsumerWidget {
+  /// 创建步骤页。
+  const ScriptStep({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final selected = ref.watch(setupProvider.select((s) => s.script));
+
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        const Text('选择剧本', style: AppTextStyles.title),
+        const SizedBox(height: 16),
+        for (final script in Script.values)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: _ScriptCard(
+              script: script,
+              selected: script == selected,
+              onTap: () =>
+                  ref.read(setupProvider.notifier).selectScript(script),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _ScriptCard extends StatelessWidget {
+  const _ScriptCard({
+    required this.script,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final Script script;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Card(
+      shape: RoundedRectangleBorder(
+        borderRadius: const BorderRadius.all(Radius.circular(12)),
+        side: BorderSide(
+          color: selected ? colorScheme.primary : colorScheme.outline,
+          width: selected ? 1.5 : 0.5,
+        ),
+      ),
+      child: ListTile(
+        minTileHeight: 64,
+        title: Text('${script.nameCn} · ${script.abbr}'),
+        subtitle: Text(script.nameEn),
+        trailing: selected
+            ? Icon(Icons.check_circle, color: colorScheme.primary)
+            : null,
+        onTap: onTap,
+      ),
+    );
+  }
+}
