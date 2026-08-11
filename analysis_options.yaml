@@ -1,0 +1,11 @@
+include: package:very_good_analysis/analysis_options.yaml
+
+analyzer:
+  exclude:
+    - "**/*.g.dart"
+    - "**/*.freezed.dart"
+    - "lib/core/database/**.dart"
+linter:
+  rules:
+    # Drift 生成代码与 DAO 模式需要放宽
+    public_member_api_docs:
