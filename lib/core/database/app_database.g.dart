@@ -3303,7 +3303,7 @@ class NominationsCompanion extends UpdateCompanion<Nomination> {
 }
 
 class $PoisonStatusesTable extends PoisonStatuses
-    with TableInfo<$PoisonStatusesTable, PoisonStatuse> {
+    with TableInfo<$PoisonStatusesTable, PoisonStatus> {
   @override
   final GeneratedDatabase attachedDatabase;
   final String? _alias;
@@ -3398,7 +3398,7 @@ class $PoisonStatusesTable extends PoisonStatuses
   static const String $name = 'poison_statuses';
   @override
   VerificationContext validateIntegrity(
-    Insertable<PoisonStatuse> instance, {
+    Insertable<PoisonStatus> instance, {
     bool isInserting = false,
   }) {
     final context = VerificationContext();
@@ -3442,9 +3442,9 @@ class $PoisonStatusesTable extends PoisonStatuses
   @override
   Set<GeneratedColumn> get $primaryKey => {id};
   @override
-  PoisonStatuse map(Map<String, dynamic> data, {String? tablePrefix}) {
+  PoisonStatus map(Map<String, dynamic> data, {String? tablePrefix}) {
     final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
-    return PoisonStatuse(
+    return PoisonStatus(
       id: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}id'],
@@ -3483,7 +3483,7 @@ class $PoisonStatusesTable extends PoisonStatuses
       const EnumNameConverter<PoisonSource>(PoisonSource.values);
 }
 
-class PoisonStatuse extends DataClass implements Insertable<PoisonStatuse> {
+class PoisonStatus extends DataClass implements Insertable<PoisonStatus> {
   /// 自增主键。
   final int id;
 
@@ -3501,7 +3501,7 @@ class PoisonStatuse extends DataClass implements Insertable<PoisonStatuse> {
 
   /// 当前是否生效（毒只在当夜+次日生效，可解除）。
   final bool isActive;
-  const PoisonStatuse({
+  const PoisonStatus({
     required this.id,
     required this.gameId,
     required this.playerId,
@@ -3536,12 +3536,12 @@ class PoisonStatuse extends DataClass implements Insertable<PoisonStatuse> {
     );
   }
 
-  factory PoisonStatuse.fromJson(
+  factory PoisonStatus.fromJson(
     Map<String, dynamic> json, {
     ValueSerializer? serializer,
   }) {
     serializer ??= driftRuntimeOptions.defaultSerializer;
-    return PoisonStatuse(
+    return PoisonStatus(
       id: serializer.fromJson<int>(json['id']),
       gameId: serializer.fromJson<int>(json['gameId']),
       playerId: serializer.fromJson<int>(json['playerId']),
@@ -3567,14 +3567,14 @@ class PoisonStatuse extends DataClass implements Insertable<PoisonStatuse> {
     };
   }
 
-  PoisonStatuse copyWith({
+  PoisonStatus copyWith({
     int? id,
     int? gameId,
     int? playerId,
     int? dayNumber,
     PoisonSource? source,
     bool? isActive,
-  }) => PoisonStatuse(
+  }) => PoisonStatus(
     id: id ?? this.id,
     gameId: gameId ?? this.gameId,
     playerId: playerId ?? this.playerId,
@@ -3582,8 +3582,8 @@ class PoisonStatuse extends DataClass implements Insertable<PoisonStatuse> {
     source: source ?? this.source,
     isActive: isActive ?? this.isActive,
   );
-  PoisonStatuse copyWithCompanion(PoisonStatusesCompanion data) {
-    return PoisonStatuse(
+  PoisonStatus copyWithCompanion(PoisonStatusesCompanion data) {
+    return PoisonStatus(
       id: data.id.present ? data.id.value : this.id,
       gameId: data.gameId.present ? data.gameId.value : this.gameId,
       playerId: data.playerId.present ? data.playerId.value : this.playerId,
@@ -3595,7 +3595,7 @@ class PoisonStatuse extends DataClass implements Insertable<PoisonStatuse> {
 
   @override
   String toString() {
-    return (StringBuffer('PoisonStatuse(')
+    return (StringBuffer('PoisonStatus(')
           ..write('id: $id, ')
           ..write('gameId: $gameId, ')
           ..write('playerId: $playerId, ')
@@ -3612,7 +3612,7 @@ class PoisonStatuse extends DataClass implements Insertable<PoisonStatuse> {
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      (other is PoisonStatuse &&
+      (other is PoisonStatus &&
           other.id == this.id &&
           other.gameId == this.gameId &&
           other.playerId == this.playerId &&
@@ -3621,7 +3621,7 @@ class PoisonStatuse extends DataClass implements Insertable<PoisonStatuse> {
           other.isActive == this.isActive);
 }
 
-class PoisonStatusesCompanion extends UpdateCompanion<PoisonStatuse> {
+class PoisonStatusesCompanion extends UpdateCompanion<PoisonStatus> {
   final Value<int> id;
   final Value<int> gameId;
   final Value<int> playerId;
@@ -3647,7 +3647,7 @@ class PoisonStatusesCompanion extends UpdateCompanion<PoisonStatuse> {
        playerId = Value(playerId),
        dayNumber = Value(dayNumber),
        source = Value(source);
-  static Insertable<PoisonStatuse> custom({
+  static Insertable<PoisonStatus> custom({
     Expression<int>? id,
     Expression<int>? gameId,
     Expression<int>? playerId,
@@ -3953,7 +3953,7 @@ final class $$GamesTableReferences
     );
   }
 
-  static MultiTypedResultKey<$PoisonStatusesTable, List<PoisonStatuse>>
+  static MultiTypedResultKey<$PoisonStatusesTable, List<PoisonStatus>>
   _poisonStatusesRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
     db.poisonStatuses,
     aliasName: 'games__id__poison_statuses__game_id',
@@ -4534,7 +4534,7 @@ class $$GamesTableTableManager
                         await $_getPrefetchedData<
                           Game,
                           $GamesTable,
-                          PoisonStatuse
+                          PoisonStatus
                         >(
                           currentTable: table,
                           referencedTable: $$GamesTableReferences
@@ -4711,7 +4711,7 @@ final class $$PlayersTableReferences
     );
   }
 
-  static MultiTypedResultKey<$PoisonStatusesTable, List<PoisonStatuse>>
+  static MultiTypedResultKey<$PoisonStatusesTable, List<PoisonStatus>>
   _poisonStatusesRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
     db.poisonStatuses,
     aliasName: 'players__id__poison_statuses__player_id',
@@ -5454,7 +5454,7 @@ class $$PlayersTableTableManager
                         await $_getPrefetchedData<
                           Player,
                           $PlayersTable,
-                          PoisonStatuse
+                          PoisonStatus
                         >(
                           currentTable: table,
                           referencedTable: $$PlayersTableReferences
@@ -8237,7 +8237,7 @@ typedef $$PoisonStatusesTableUpdateCompanionBuilder =
     });
 
 final class $$PoisonStatusesTableReferences
-    extends BaseReferences<_$AppDatabase, $PoisonStatusesTable, PoisonStatuse> {
+    extends BaseReferences<_$AppDatabase, $PoisonStatusesTable, PoisonStatus> {
   $$PoisonStatusesTableReferences(
     super.$_db,
     super.$_table,
@@ -8505,14 +8505,14 @@ class $$PoisonStatusesTableTableManager
         RootTableManager<
           _$AppDatabase,
           $PoisonStatusesTable,
-          PoisonStatuse,
+          PoisonStatus,
           $$PoisonStatusesTableFilterComposer,
           $$PoisonStatusesTableOrderingComposer,
           $$PoisonStatusesTableAnnotationComposer,
           $$PoisonStatusesTableCreateCompanionBuilder,
           $$PoisonStatusesTableUpdateCompanionBuilder,
-          (PoisonStatuse, $$PoisonStatusesTableReferences),
-          PoisonStatuse,
+          (PoisonStatus, $$PoisonStatusesTableReferences),
+          PoisonStatus,
           PrefetchHooks Function({bool gameId, bool playerId})
         > {
   $$PoisonStatusesTableTableManager(
@@ -8632,14 +8632,14 @@ typedef $$PoisonStatusesTableProcessedTableManager =
     ProcessedTableManager<
       _$AppDatabase,
       $PoisonStatusesTable,
-      PoisonStatuse,
+      PoisonStatus,
       $$PoisonStatusesTableFilterComposer,
       $$PoisonStatusesTableOrderingComposer,
       $$PoisonStatusesTableAnnotationComposer,
       $$PoisonStatusesTableCreateCompanionBuilder,
       $$PoisonStatusesTableUpdateCompanionBuilder,
-      (PoisonStatuse, $$PoisonStatusesTableReferences),
-      PoisonStatuse,
+      (PoisonStatus, $$PoisonStatusesTableReferences),
+      PoisonStatus,
       PrefetchHooks Function({bool gameId, bool playerId})
     >;
 

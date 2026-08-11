@@ -6,7 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// 某对局的醉/毒状态流。
 final gamePoisonStatusesProvider =
-    StreamProvider.family<List<PoisonStatuse>, int>((ref, gameId) {
+    StreamProvider.family<List<PoisonStatus>, int>((ref, gameId) {
   return ref.watch(appDatabaseProvider).poisonStatusesDao.watchByGame(gameId);
 });
 
@@ -24,10 +24,8 @@ class PoisonRepository {
     required int dayNumber,
     PoisonSource source = PoisonSource.poisoner,
   }) async {
-    final existing = await _db.poisonStatusesDao.watchByGame(gameId).first;
-    final hit = existing
-        .where((p) => p.playerId == playerId && p.dayNumber == dayNumber)
-        .firstOrNull;
+    final hit =
+        await _db.poisonStatusesDao.findByPlayerAndDay(playerId, dayNumber);
     if (hit != null) {
       await _db.poisonStatusesDao.deleteStatus(hit.id);
     } else {

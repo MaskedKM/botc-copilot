@@ -112,6 +112,10 @@ class MyInfoSheet extends ConsumerWidget {
                               character: myRole,
                               payload: payload,
                               isMine: true,
+                              gameId: game.id,
+                              dayNumber: ref
+                                  .read(gameBoardProvider(game.id))
+                                  .currentDay,
                             );
                         if (context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(

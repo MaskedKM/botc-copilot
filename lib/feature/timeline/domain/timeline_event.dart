@@ -63,7 +63,7 @@ abstract final class TimelineBuilder {
     required List<InfoDeclaration> declarations,
     required Map<int, Player> playersById,
     required Map<int, int> dayRecordToDayNumber,
-    List<PoisonStatuse> poisonStatuses = const [],
+    List<PoisonStatus> poisonStatuses = const [],
   }) {
     String nameOf(int? playerId) {
       if (playerId == null) return '';

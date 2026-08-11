@@ -173,6 +173,7 @@ class Nominations extends Table {
 }
 
 /// 醉/毒状态表（issue #35）：某天某玩家被标记为可能被毒/醉。
+@DataClassName('PoisonStatus')
 class PoisonStatuses extends Table {
   /// 自增主键。
   IntColumn get id => integer().autoIncrement()();

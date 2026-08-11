@@ -11,9 +11,17 @@ class PoisonStatusesDao extends DatabaseAccessor<AppDatabase>
   PoisonStatusesDao(super.db);
 
   /// 监听某对局的全部醉/毒状态。
-  Stream<List<PoisonStatuse>> watchByGame(int gameId) {
+  Stream<List<PoisonStatus>> watchByGame(int gameId) {
     return (select(poisonStatuses)..where((p) => p.gameId.equals(gameId)))
         .watch();
+  }
+
+  /// 查询某玩家当天的醉/毒标记。
+  Future<PoisonStatus?> findByPlayerAndDay(int playerId, int dayNumber) {
+    return (select(poisonStatuses)
+          ..where((p) => p.playerId.equals(playerId))
+          ..where((p) => p.dayNumber.equals(dayNumber)))
+        .getSingleOrNull();
   }
 
   /// 插入醉/毒标记。
