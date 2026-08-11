@@ -5,6 +5,7 @@ import 'package:botc_copilot/core/constants/script.dart';
 import 'package:botc_copilot/core/database/daos/day_records_dao.dart';
 import 'package:botc_copilot/core/database/daos/games_dao.dart';
 import 'package:botc_copilot/core/database/daos/info_declarations_dao.dart';
+import 'package:botc_copilot/core/database/daos/nominations_dao.dart';
 import 'package:botc_copilot/core/database/daos/players_dao.dart';
 import 'package:botc_copilot/core/database/daos/role_claims_dao.dart';
 import 'package:botc_copilot/core/database/daos/trust_logs_dao.dart';
@@ -31,6 +32,7 @@ part 'app_database.g.dart';
     RoleClaims,
     InfoDeclarations,
     TrustLogs,
+    Nominations,
   ],
   daos: [
     GamesDao,
@@ -39,6 +41,7 @@ part 'app_database.g.dart';
     RoleClaimsDao,
     InfoDeclarationsDao,
     TrustLogsDao,
+    NominationsDao,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -49,13 +52,16 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
         onCreate: (m) => m.createAll(),
         onUpgrade: (m, from, to) async {
-          // 后续 schema 变更在此逐级迁移（v1 → v2 → ...）。
+          // v1 → v2：新增 nominations 表
+          if (from < 2) {
+            await m.createTable(nominations);
+          }
         },
         beforeOpen: (details) async {
           // 启用外键约束（SQLite 默认关闭，级联删除依赖它）。

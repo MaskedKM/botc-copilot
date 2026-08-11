@@ -2631,6 +2631,504 @@ class TrustLogsCompanion extends UpdateCompanion<TrustLog> {
   }
 }
 
+class $NominationsTable extends Nominations
+    with TableInfo<$NominationsTable, Nomination> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $NominationsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _gameIdMeta = const VerificationMeta('gameId');
+  @override
+  late final GeneratedColumn<int> gameId = GeneratedColumn<int>(
+    'game_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES games (id) ON DELETE CASCADE',
+    ),
+  );
+  static const VerificationMeta _dayRecordIdMeta = const VerificationMeta(
+    'dayRecordId',
+  );
+  @override
+  late final GeneratedColumn<int> dayRecordId = GeneratedColumn<int>(
+    'day_record_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES day_records (id) ON DELETE CASCADE',
+    ),
+  );
+  static const VerificationMeta _nominatorPlayerIdMeta = const VerificationMeta(
+    'nominatorPlayerId',
+  );
+  @override
+  late final GeneratedColumn<int> nominatorPlayerId = GeneratedColumn<int>(
+    'nominator_player_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES players (id)',
+    ),
+  );
+  static const VerificationMeta _nomineePlayerIdMeta = const VerificationMeta(
+    'nomineePlayerId',
+  );
+  @override
+  late final GeneratedColumn<int> nomineePlayerId = GeneratedColumn<int>(
+    'nominee_player_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES players (id)',
+    ),
+  );
+  static const VerificationMeta _passedMeta = const VerificationMeta('passed');
+  @override
+  late final GeneratedColumn<bool> passed = GeneratedColumn<bool>(
+    'passed',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("passed" IN (0, 1))',
+    ),
+  );
+  static const VerificationMeta _voteResultJsonMeta = const VerificationMeta(
+    'voteResultJson',
+  );
+  @override
+  late final GeneratedColumn<String> voteResultJson = GeneratedColumn<String>(
+    'vote_result_json',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    gameId,
+    dayRecordId,
+    nominatorPlayerId,
+    nomineePlayerId,
+    passed,
+    voteResultJson,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'nominations';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<Nomination> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('game_id')) {
+      context.handle(
+        _gameIdMeta,
+        gameId.isAcceptableOrUnknown(data['game_id']!, _gameIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_gameIdMeta);
+    }
+    if (data.containsKey('day_record_id')) {
+      context.handle(
+        _dayRecordIdMeta,
+        dayRecordId.isAcceptableOrUnknown(
+          data['day_record_id']!,
+          _dayRecordIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_dayRecordIdMeta);
+    }
+    if (data.containsKey('nominator_player_id')) {
+      context.handle(
+        _nominatorPlayerIdMeta,
+        nominatorPlayerId.isAcceptableOrUnknown(
+          data['nominator_player_id']!,
+          _nominatorPlayerIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_nominatorPlayerIdMeta);
+    }
+    if (data.containsKey('nominee_player_id')) {
+      context.handle(
+        _nomineePlayerIdMeta,
+        nomineePlayerId.isAcceptableOrUnknown(
+          data['nominee_player_id']!,
+          _nomineePlayerIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_nomineePlayerIdMeta);
+    }
+    if (data.containsKey('passed')) {
+      context.handle(
+        _passedMeta,
+        passed.isAcceptableOrUnknown(data['passed']!, _passedMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_passedMeta);
+    }
+    if (data.containsKey('vote_result_json')) {
+      context.handle(
+        _voteResultJsonMeta,
+        voteResultJson.isAcceptableOrUnknown(
+          data['vote_result_json']!,
+          _voteResultJsonMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_voteResultJsonMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  Nomination map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return Nomination(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      gameId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}game_id'],
+      )!,
+      dayRecordId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}day_record_id'],
+      )!,
+      nominatorPlayerId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}nominator_player_id'],
+      )!,
+      nomineePlayerId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}nominee_player_id'],
+      )!,
+      passed: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}passed'],
+      )!,
+      voteResultJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}vote_result_json'],
+      )!,
+    );
+  }
+
+  @override
+  $NominationsTable createAlias(String alias) {
+    return $NominationsTable(attachedDatabase, alias);
+  }
+}
+
+class Nomination extends DataClass implements Insertable<Nomination> {
+  /// 自增主键。
+  final int id;
+
+  /// 所属对局。
+  final int gameId;
+
+  /// 提名发生的当天。
+  final int dayRecordId;
+
+  /// 提名者。
+  final int nominatorPlayerId;
+
+  /// 被提名者。
+  final int nomineePlayerId;
+
+  /// 是否达到处决阈值（赞成票 >= 存活人数一半）。
+  final bool passed;
+
+  /// 投票结果 JSON：[{playerId, vote: for/against/abstain, isDeadVote}]。
+  final String voteResultJson;
+  const Nomination({
+    required this.id,
+    required this.gameId,
+    required this.dayRecordId,
+    required this.nominatorPlayerId,
+    required this.nomineePlayerId,
+    required this.passed,
+    required this.voteResultJson,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['game_id'] = Variable<int>(gameId);
+    map['day_record_id'] = Variable<int>(dayRecordId);
+    map['nominator_player_id'] = Variable<int>(nominatorPlayerId);
+    map['nominee_player_id'] = Variable<int>(nomineePlayerId);
+    map['passed'] = Variable<bool>(passed);
+    map['vote_result_json'] = Variable<String>(voteResultJson);
+    return map;
+  }
+
+  NominationsCompanion toCompanion(bool nullToAbsent) {
+    return NominationsCompanion(
+      id: Value(id),
+      gameId: Value(gameId),
+      dayRecordId: Value(dayRecordId),
+      nominatorPlayerId: Value(nominatorPlayerId),
+      nomineePlayerId: Value(nomineePlayerId),
+      passed: Value(passed),
+      voteResultJson: Value(voteResultJson),
+    );
+  }
+
+  factory Nomination.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return Nomination(
+      id: serializer.fromJson<int>(json['id']),
+      gameId: serializer.fromJson<int>(json['gameId']),
+      dayRecordId: serializer.fromJson<int>(json['dayRecordId']),
+      nominatorPlayerId: serializer.fromJson<int>(json['nominatorPlayerId']),
+      nomineePlayerId: serializer.fromJson<int>(json['nomineePlayerId']),
+      passed: serializer.fromJson<bool>(json['passed']),
+      voteResultJson: serializer.fromJson<String>(json['voteResultJson']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'gameId': serializer.toJson<int>(gameId),
+      'dayRecordId': serializer.toJson<int>(dayRecordId),
+      'nominatorPlayerId': serializer.toJson<int>(nominatorPlayerId),
+      'nomineePlayerId': serializer.toJson<int>(nomineePlayerId),
+      'passed': serializer.toJson<bool>(passed),
+      'voteResultJson': serializer.toJson<String>(voteResultJson),
+    };
+  }
+
+  Nomination copyWith({
+    int? id,
+    int? gameId,
+    int? dayRecordId,
+    int? nominatorPlayerId,
+    int? nomineePlayerId,
+    bool? passed,
+    String? voteResultJson,
+  }) => Nomination(
+    id: id ?? this.id,
+    gameId: gameId ?? this.gameId,
+    dayRecordId: dayRecordId ?? this.dayRecordId,
+    nominatorPlayerId: nominatorPlayerId ?? this.nominatorPlayerId,
+    nomineePlayerId: nomineePlayerId ?? this.nomineePlayerId,
+    passed: passed ?? this.passed,
+    voteResultJson: voteResultJson ?? this.voteResultJson,
+  );
+  Nomination copyWithCompanion(NominationsCompanion data) {
+    return Nomination(
+      id: data.id.present ? data.id.value : this.id,
+      gameId: data.gameId.present ? data.gameId.value : this.gameId,
+      dayRecordId: data.dayRecordId.present
+          ? data.dayRecordId.value
+          : this.dayRecordId,
+      nominatorPlayerId: data.nominatorPlayerId.present
+          ? data.nominatorPlayerId.value
+          : this.nominatorPlayerId,
+      nomineePlayerId: data.nomineePlayerId.present
+          ? data.nomineePlayerId.value
+          : this.nomineePlayerId,
+      passed: data.passed.present ? data.passed.value : this.passed,
+      voteResultJson: data.voteResultJson.present
+          ? data.voteResultJson.value
+          : this.voteResultJson,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('Nomination(')
+          ..write('id: $id, ')
+          ..write('gameId: $gameId, ')
+          ..write('dayRecordId: $dayRecordId, ')
+          ..write('nominatorPlayerId: $nominatorPlayerId, ')
+          ..write('nomineePlayerId: $nomineePlayerId, ')
+          ..write('passed: $passed, ')
+          ..write('voteResultJson: $voteResultJson')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    gameId,
+    dayRecordId,
+    nominatorPlayerId,
+    nomineePlayerId,
+    passed,
+    voteResultJson,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is Nomination &&
+          other.id == this.id &&
+          other.gameId == this.gameId &&
+          other.dayRecordId == this.dayRecordId &&
+          other.nominatorPlayerId == this.nominatorPlayerId &&
+          other.nomineePlayerId == this.nomineePlayerId &&
+          other.passed == this.passed &&
+          other.voteResultJson == this.voteResultJson);
+}
+
+class NominationsCompanion extends UpdateCompanion<Nomination> {
+  final Value<int> id;
+  final Value<int> gameId;
+  final Value<int> dayRecordId;
+  final Value<int> nominatorPlayerId;
+  final Value<int> nomineePlayerId;
+  final Value<bool> passed;
+  final Value<String> voteResultJson;
+  const NominationsCompanion({
+    this.id = const Value.absent(),
+    this.gameId = const Value.absent(),
+    this.dayRecordId = const Value.absent(),
+    this.nominatorPlayerId = const Value.absent(),
+    this.nomineePlayerId = const Value.absent(),
+    this.passed = const Value.absent(),
+    this.voteResultJson = const Value.absent(),
+  });
+  NominationsCompanion.insert({
+    this.id = const Value.absent(),
+    required int gameId,
+    required int dayRecordId,
+    required int nominatorPlayerId,
+    required int nomineePlayerId,
+    required bool passed,
+    required String voteResultJson,
+  }) : gameId = Value(gameId),
+       dayRecordId = Value(dayRecordId),
+       nominatorPlayerId = Value(nominatorPlayerId),
+       nomineePlayerId = Value(nomineePlayerId),
+       passed = Value(passed),
+       voteResultJson = Value(voteResultJson);
+  static Insertable<Nomination> custom({
+    Expression<int>? id,
+    Expression<int>? gameId,
+    Expression<int>? dayRecordId,
+    Expression<int>? nominatorPlayerId,
+    Expression<int>? nomineePlayerId,
+    Expression<bool>? passed,
+    Expression<String>? voteResultJson,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (gameId != null) 'game_id': gameId,
+      if (dayRecordId != null) 'day_record_id': dayRecordId,
+      if (nominatorPlayerId != null) 'nominator_player_id': nominatorPlayerId,
+      if (nomineePlayerId != null) 'nominee_player_id': nomineePlayerId,
+      if (passed != null) 'passed': passed,
+      if (voteResultJson != null) 'vote_result_json': voteResultJson,
+    });
+  }
+
+  NominationsCompanion copyWith({
+    Value<int>? id,
+    Value<int>? gameId,
+    Value<int>? dayRecordId,
+    Value<int>? nominatorPlayerId,
+    Value<int>? nomineePlayerId,
+    Value<bool>? passed,
+    Value<String>? voteResultJson,
+  }) {
+    return NominationsCompanion(
+      id: id ?? this.id,
+      gameId: gameId ?? this.gameId,
+      dayRecordId: dayRecordId ?? this.dayRecordId,
+      nominatorPlayerId: nominatorPlayerId ?? this.nominatorPlayerId,
+      nomineePlayerId: nomineePlayerId ?? this.nomineePlayerId,
+      passed: passed ?? this.passed,
+      voteResultJson: voteResultJson ?? this.voteResultJson,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (gameId.present) {
+      map['game_id'] = Variable<int>(gameId.value);
+    }
+    if (dayRecordId.present) {
+      map['day_record_id'] = Variable<int>(dayRecordId.value);
+    }
+    if (nominatorPlayerId.present) {
+      map['nominator_player_id'] = Variable<int>(nominatorPlayerId.value);
+    }
+    if (nomineePlayerId.present) {
+      map['nominee_player_id'] = Variable<int>(nomineePlayerId.value);
+    }
+    if (passed.present) {
+      map['passed'] = Variable<bool>(passed.value);
+    }
+    if (voteResultJson.present) {
+      map['vote_result_json'] = Variable<String>(voteResultJson.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('NominationsCompanion(')
+          ..write('id: $id, ')
+          ..write('gameId: $gameId, ')
+          ..write('dayRecordId: $dayRecordId, ')
+          ..write('nominatorPlayerId: $nominatorPlayerId, ')
+          ..write('nomineePlayerId: $nomineePlayerId, ')
+          ..write('passed: $passed, ')
+          ..write('voteResultJson: $voteResultJson')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -2642,6 +3140,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     this,
   );
   late final $TrustLogsTable trustLogs = $TrustLogsTable(this);
+  late final $NominationsTable nominations = $NominationsTable(this);
   late final GamesDao gamesDao = GamesDao(this as AppDatabase);
   late final PlayersDao playersDao = PlayersDao(this as AppDatabase);
   late final DayRecordsDao dayRecordsDao = DayRecordsDao(this as AppDatabase);
@@ -2650,6 +3149,9 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     this as AppDatabase,
   );
   late final TrustLogsDao trustLogsDao = TrustLogsDao(this as AppDatabase);
+  late final NominationsDao nominationsDao = NominationsDao(
+    this as AppDatabase,
+  );
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -2661,6 +3163,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     roleClaims,
     infoDeclarations,
     trustLogs,
+    nominations,
   ];
   @override
   StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules([
@@ -2719,6 +3222,20 @@ abstract class _$AppDatabase extends GeneratedDatabase {
         limitUpdateKind: UpdateKind.delete,
       ),
       result: [TableUpdate('trust_logs', kind: UpdateKind.delete)],
+    ),
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'games',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('nominations', kind: UpdateKind.delete)],
+    ),
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'day_records',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('nominations', kind: UpdateKind.delete)],
     ),
   ]);
 }
@@ -2796,6 +3313,24 @@ final class $$GamesTableReferences
     ).filter((f) => f.gameId.id.sqlEquals($_itemColumn<int>('id')!));
 
     final cache = $_typedResult.readTableOrNull(_trustLogsRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
+  static MultiTypedResultKey<$NominationsTable, List<Nomination>>
+  _nominationsRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.nominations,
+    aliasName: 'games__id__nominations__game_id',
+  );
+
+  $$NominationsTableProcessedTableManager get nominationsRefs {
+    final manager = $$NominationsTableTableManager(
+      $_db,
+      $_db.nominations,
+    ).filter((f) => f.gameId.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_nominationsRefsTable($_db));
     return ProcessedTableManager(
       manager.$state.copyWith(prefetchedData: cache),
     );
@@ -2909,6 +3444,31 @@ class $$GamesTableFilterComposer extends Composer<_$AppDatabase, $GamesTable> {
           }) => $$TrustLogsTableFilterComposer(
             $db: $db,
             $table: $db.trustLogs,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> nominationsRefs(
+    Expression<bool> Function($$NominationsTableFilterComposer f) f,
+  ) {
+    final $$NominationsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.nominations,
+      getReferencedColumn: (t) => t.gameId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$NominationsTableFilterComposer(
+            $db: $db,
+            $table: $db.nominations,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -3062,6 +3622,31 @@ class $$GamesTableAnnotationComposer
     );
     return f(composer);
   }
+
+  Expression<T> nominationsRefs<T extends Object>(
+    Expression<T> Function($$NominationsTableAnnotationComposer a) f,
+  ) {
+    final $$NominationsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.nominations,
+      getReferencedColumn: (t) => t.gameId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$NominationsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.nominations,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $$GamesTableTableManager
@@ -3081,6 +3666,7 @@ class $$GamesTableTableManager
             bool playersRefs,
             bool dayRecordsRefs,
             bool trustLogsRefs,
+            bool nominationsRefs,
           })
         > {
   $$GamesTableTableManager(_$AppDatabase db, $GamesTable table)
@@ -3137,6 +3723,7 @@ class $$GamesTableTableManager
                 playersRefs = false,
                 dayRecordsRefs = false,
                 trustLogsRefs = false,
+                nominationsRefs = false,
               }) {
                 return PrefetchHooks(
                   db: db,
@@ -3144,6 +3731,7 @@ class $$GamesTableTableManager
                     if (playersRefs) db.players,
                     if (dayRecordsRefs) db.dayRecords,
                     if (trustLogsRefs) db.trustLogs,
+                    if (nominationsRefs) db.nominations,
                   ],
                   addJoins: null,
                   getPrefetchedDataCallback: (items) async {
@@ -3195,6 +3783,27 @@ class $$GamesTableTableManager
                               ),
                           typedResults: items,
                         ),
+                      if (nominationsRefs)
+                        await $_getPrefetchedData<
+                          Game,
+                          $GamesTable,
+                          Nomination
+                        >(
+                          currentTable: table,
+                          referencedTable: $$GamesTableReferences
+                              ._nominationsRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$GamesTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).nominationsRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.gameId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
                     ];
                   },
                 );
@@ -3219,6 +3828,7 @@ typedef $$GamesTableProcessedTableManager =
         bool playersRefs,
         bool dayRecordsRefs,
         bool trustLogsRefs,
+        bool nominationsRefs,
       })
     >;
 typedef $$PlayersTableCreateCompanionBuilder =
@@ -4166,6 +4776,24 @@ final class $$DayRecordsTableReferences
       manager.$state.copyWith(prefetchedData: cache),
     );
   }
+
+  static MultiTypedResultKey<$NominationsTable, List<Nomination>>
+  _nominationsRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.nominations,
+    aliasName: 'day_records__id__nominations__day_record_id',
+  );
+
+  $$NominationsTableProcessedTableManager get nominationsRefs {
+    final manager = $$NominationsTableTableManager(
+      $_db,
+      $_db.nominations,
+    ).filter((f) => f.dayRecordId.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_nominationsRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
 }
 
 class $$DayRecordsTableFilterComposer
@@ -4308,6 +4936,31 @@ class $$DayRecordsTableFilterComposer
           }) => $$InfoDeclarationsTableFilterComposer(
             $db: $db,
             $table: $db.infoDeclarations,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> nominationsRefs(
+    Expression<bool> Function($$NominationsTableFilterComposer f) f,
+  ) {
+    final $$NominationsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.nominations,
+      getReferencedColumn: (t) => t.dayRecordId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$NominationsTableFilterComposer(
+            $db: $db,
+            $table: $db.nominations,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -4559,6 +5212,31 @@ class $$DayRecordsTableAnnotationComposer
     );
     return f(composer);
   }
+
+  Expression<T> nominationsRefs<T extends Object>(
+    Expression<T> Function($$NominationsTableAnnotationComposer a) f,
+  ) {
+    final $$NominationsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.nominations,
+      getReferencedColumn: (t) => t.dayRecordId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$NominationsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.nominations,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $$DayRecordsTableTableManager
@@ -4580,6 +5258,7 @@ class $$DayRecordsTableTableManager
             bool dayExecutionPlayerId,
             bool roleClaimsRefs,
             bool infoDeclarationsRefs,
+            bool nominationsRefs,
           })
         > {
   $$DayRecordsTableTableManager(_$AppDatabase db, $DayRecordsTable table)
@@ -4644,12 +5323,14 @@ class $$DayRecordsTableTableManager
                 dayExecutionPlayerId = false,
                 roleClaimsRefs = false,
                 infoDeclarationsRefs = false,
+                nominationsRefs = false,
               }) {
                 return PrefetchHooks(
                   db: db,
                   explicitlyWatchedTables: [
                     if (roleClaimsRefs) db.roleClaims,
                     if (infoDeclarationsRefs) db.infoDeclarations,
+                    if (nominationsRefs) db.nominations,
                   ],
                   addJoins:
                       <
@@ -4756,6 +5437,27 @@ class $$DayRecordsTableTableManager
                               ),
                           typedResults: items,
                         ),
+                      if (nominationsRefs)
+                        await $_getPrefetchedData<
+                          DayRecord,
+                          $DayRecordsTable,
+                          Nomination
+                        >(
+                          currentTable: table,
+                          referencedTable: $$DayRecordsTableReferences
+                              ._nominationsRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$DayRecordsTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).nominationsRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.dayRecordId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
                     ];
                   },
                 );
@@ -4782,6 +5484,7 @@ typedef $$DayRecordsTableProcessedTableManager =
         bool dayExecutionPlayerId,
         bool roleClaimsRefs,
         bool infoDeclarationsRefs,
+        bool nominationsRefs,
       })
     >;
 typedef $$RoleClaimsTableCreateCompanionBuilder =
@@ -6021,6 +6724,639 @@ typedef $$TrustLogsTableProcessedTableManager =
       TrustLog,
       PrefetchHooks Function({bool gameId, bool playerId})
     >;
+typedef $$NominationsTableCreateCompanionBuilder =
+    NominationsCompanion Function({
+      Value<int> id,
+      required int gameId,
+      required int dayRecordId,
+      required int nominatorPlayerId,
+      required int nomineePlayerId,
+      required bool passed,
+      required String voteResultJson,
+    });
+typedef $$NominationsTableUpdateCompanionBuilder =
+    NominationsCompanion Function({
+      Value<int> id,
+      Value<int> gameId,
+      Value<int> dayRecordId,
+      Value<int> nominatorPlayerId,
+      Value<int> nomineePlayerId,
+      Value<bool> passed,
+      Value<String> voteResultJson,
+    });
+
+final class $$NominationsTableReferences
+    extends BaseReferences<_$AppDatabase, $NominationsTable, Nomination> {
+  $$NominationsTableReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static $GamesTable _gameIdTable(_$AppDatabase db) =>
+      db.games.createAlias('nominations__game_id__games__id');
+
+  $$GamesTableProcessedTableManager get gameId {
+    final $_column = $_itemColumn<int>('game_id')!;
+
+    final manager = $$GamesTableTableManager(
+      $_db,
+      $_db.games,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_gameIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+
+  static $DayRecordsTable _dayRecordIdTable(_$AppDatabase db) =>
+      db.dayRecords.createAlias('nominations__day_record_id__day_records__id');
+
+  $$DayRecordsTableProcessedTableManager get dayRecordId {
+    final $_column = $_itemColumn<int>('day_record_id')!;
+
+    final manager = $$DayRecordsTableTableManager(
+      $_db,
+      $_db.dayRecords,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_dayRecordIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+
+  static $PlayersTable _nominatorPlayerIdTable(_$AppDatabase db) =>
+      db.players.createAlias('nominations__nominator_player_id__players__id');
+
+  $$PlayersTableProcessedTableManager get nominatorPlayerId {
+    final $_column = $_itemColumn<int>('nominator_player_id')!;
+
+    final manager = $$PlayersTableTableManager(
+      $_db,
+      $_db.players,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_nominatorPlayerIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+
+  static $PlayersTable _nomineePlayerIdTable(_$AppDatabase db) =>
+      db.players.createAlias('nominations__nominee_player_id__players__id');
+
+  $$PlayersTableProcessedTableManager get nomineePlayerId {
+    final $_column = $_itemColumn<int>('nominee_player_id')!;
+
+    final manager = $$PlayersTableTableManager(
+      $_db,
+      $_db.players,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_nomineePlayerIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$NominationsTableFilterComposer
+    extends Composer<_$AppDatabase, $NominationsTable> {
+  $$NominationsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get passed => $composableBuilder(
+    column: $table.passed,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get voteResultJson => $composableBuilder(
+    column: $table.voteResultJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$GamesTableFilterComposer get gameId {
+    final $$GamesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.gameId,
+      referencedTable: $db.games,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$GamesTableFilterComposer(
+            $db: $db,
+            $table: $db.games,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$DayRecordsTableFilterComposer get dayRecordId {
+    final $$DayRecordsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.dayRecordId,
+      referencedTable: $db.dayRecords,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$DayRecordsTableFilterComposer(
+            $db: $db,
+            $table: $db.dayRecords,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$PlayersTableFilterComposer get nominatorPlayerId {
+    final $$PlayersTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.nominatorPlayerId,
+      referencedTable: $db.players,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$PlayersTableFilterComposer(
+            $db: $db,
+            $table: $db.players,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$PlayersTableFilterComposer get nomineePlayerId {
+    final $$PlayersTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.nomineePlayerId,
+      referencedTable: $db.players,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$PlayersTableFilterComposer(
+            $db: $db,
+            $table: $db.players,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$NominationsTableOrderingComposer
+    extends Composer<_$AppDatabase, $NominationsTable> {
+  $$NominationsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get passed => $composableBuilder(
+    column: $table.passed,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get voteResultJson => $composableBuilder(
+    column: $table.voteResultJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$GamesTableOrderingComposer get gameId {
+    final $$GamesTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.gameId,
+      referencedTable: $db.games,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$GamesTableOrderingComposer(
+            $db: $db,
+            $table: $db.games,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$DayRecordsTableOrderingComposer get dayRecordId {
+    final $$DayRecordsTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.dayRecordId,
+      referencedTable: $db.dayRecords,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$DayRecordsTableOrderingComposer(
+            $db: $db,
+            $table: $db.dayRecords,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$PlayersTableOrderingComposer get nominatorPlayerId {
+    final $$PlayersTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.nominatorPlayerId,
+      referencedTable: $db.players,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$PlayersTableOrderingComposer(
+            $db: $db,
+            $table: $db.players,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$PlayersTableOrderingComposer get nomineePlayerId {
+    final $$PlayersTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.nomineePlayerId,
+      referencedTable: $db.players,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$PlayersTableOrderingComposer(
+            $db: $db,
+            $table: $db.players,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$NominationsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $NominationsTable> {
+  $$NominationsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<bool> get passed =>
+      $composableBuilder(column: $table.passed, builder: (column) => column);
+
+  GeneratedColumn<String> get voteResultJson => $composableBuilder(
+    column: $table.voteResultJson,
+    builder: (column) => column,
+  );
+
+  $$GamesTableAnnotationComposer get gameId {
+    final $$GamesTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.gameId,
+      referencedTable: $db.games,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$GamesTableAnnotationComposer(
+            $db: $db,
+            $table: $db.games,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$DayRecordsTableAnnotationComposer get dayRecordId {
+    final $$DayRecordsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.dayRecordId,
+      referencedTable: $db.dayRecords,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$DayRecordsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.dayRecords,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$PlayersTableAnnotationComposer get nominatorPlayerId {
+    final $$PlayersTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.nominatorPlayerId,
+      referencedTable: $db.players,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$PlayersTableAnnotationComposer(
+            $db: $db,
+            $table: $db.players,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$PlayersTableAnnotationComposer get nomineePlayerId {
+    final $$PlayersTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.nomineePlayerId,
+      referencedTable: $db.players,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$PlayersTableAnnotationComposer(
+            $db: $db,
+            $table: $db.players,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$NominationsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $NominationsTable,
+          Nomination,
+          $$NominationsTableFilterComposer,
+          $$NominationsTableOrderingComposer,
+          $$NominationsTableAnnotationComposer,
+          $$NominationsTableCreateCompanionBuilder,
+          $$NominationsTableUpdateCompanionBuilder,
+          (Nomination, $$NominationsTableReferences),
+          Nomination,
+          PrefetchHooks Function({
+            bool gameId,
+            bool dayRecordId,
+            bool nominatorPlayerId,
+            bool nomineePlayerId,
+          })
+        > {
+  $$NominationsTableTableManager(_$AppDatabase db, $NominationsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$NominationsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$NominationsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$NominationsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<int> gameId = const Value.absent(),
+                Value<int> dayRecordId = const Value.absent(),
+                Value<int> nominatorPlayerId = const Value.absent(),
+                Value<int> nomineePlayerId = const Value.absent(),
+                Value<bool> passed = const Value.absent(),
+                Value<String> voteResultJson = const Value.absent(),
+              }) => NominationsCompanion(
+                id: id,
+                gameId: gameId,
+                dayRecordId: dayRecordId,
+                nominatorPlayerId: nominatorPlayerId,
+                nomineePlayerId: nomineePlayerId,
+                passed: passed,
+                voteResultJson: voteResultJson,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required int gameId,
+                required int dayRecordId,
+                required int nominatorPlayerId,
+                required int nomineePlayerId,
+                required bool passed,
+                required String voteResultJson,
+              }) => NominationsCompanion.insert(
+                id: id,
+                gameId: gameId,
+                dayRecordId: dayRecordId,
+                nominatorPlayerId: nominatorPlayerId,
+                nomineePlayerId: nomineePlayerId,
+                passed: passed,
+                voteResultJson: voteResultJson,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$NominationsTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback:
+              ({
+                gameId = false,
+                dayRecordId = false,
+                nominatorPlayerId = false,
+                nomineePlayerId = false,
+              }) {
+                return PrefetchHooks(
+                  db: db,
+                  explicitlyWatchedTables: [],
+                  addJoins:
+                      <
+                        T extends TableManagerState<
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic
+                        >
+                      >(state) {
+                        if (gameId) {
+                          state =
+                              state.withJoin(
+                                    currentTable: table,
+                                    currentColumn: table.gameId,
+                                    referencedTable:
+                                        $$NominationsTableReferences
+                                            ._gameIdTable(db),
+                                    referencedColumn:
+                                        $$NominationsTableReferences
+                                            ._gameIdTable(db)
+                                            .id,
+                                  )
+                                  as T;
+                        }
+                        if (dayRecordId) {
+                          state =
+                              state.withJoin(
+                                    currentTable: table,
+                                    currentColumn: table.dayRecordId,
+                                    referencedTable:
+                                        $$NominationsTableReferences
+                                            ._dayRecordIdTable(db),
+                                    referencedColumn:
+                                        $$NominationsTableReferences
+                                            ._dayRecordIdTable(db)
+                                            .id,
+                                  )
+                                  as T;
+                        }
+                        if (nominatorPlayerId) {
+                          state =
+                              state.withJoin(
+                                    currentTable: table,
+                                    currentColumn: table.nominatorPlayerId,
+                                    referencedTable:
+                                        $$NominationsTableReferences
+                                            ._nominatorPlayerIdTable(db),
+                                    referencedColumn:
+                                        $$NominationsTableReferences
+                                            ._nominatorPlayerIdTable(db)
+                                            .id,
+                                  )
+                                  as T;
+                        }
+                        if (nomineePlayerId) {
+                          state =
+                              state.withJoin(
+                                    currentTable: table,
+                                    currentColumn: table.nomineePlayerId,
+                                    referencedTable:
+                                        $$NominationsTableReferences
+                                            ._nomineePlayerIdTable(db),
+                                    referencedColumn:
+                                        $$NominationsTableReferences
+                                            ._nomineePlayerIdTable(db)
+                                            .id,
+                                  )
+                                  as T;
+                        }
+
+                        return state;
+                      },
+                  getPrefetchedDataCallback: (items) async {
+                    return [];
+                  },
+                );
+              },
+        ),
+      );
+}
+
+typedef $$NominationsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $NominationsTable,
+      Nomination,
+      $$NominationsTableFilterComposer,
+      $$NominationsTableOrderingComposer,
+      $$NominationsTableAnnotationComposer,
+      $$NominationsTableCreateCompanionBuilder,
+      $$NominationsTableUpdateCompanionBuilder,
+      (Nomination, $$NominationsTableReferences),
+      Nomination,
+      PrefetchHooks Function({
+        bool gameId,
+        bool dayRecordId,
+        bool nominatorPlayerId,
+        bool nomineePlayerId,
+      })
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -6037,4 +7373,6 @@ class $AppDatabaseManager {
       $$InfoDeclarationsTableTableManager(_db, _db.infoDeclarations);
   $$TrustLogsTableTableManager get trustLogs =>
       $$TrustLogsTableTableManager(_db, _db.trustLogs);
+  $$NominationsTableTableManager get nominations =>
+      $$NominationsTableTableManager(_db, _db.nominations);
 }

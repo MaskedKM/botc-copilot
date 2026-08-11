@@ -7,6 +7,7 @@ import 'package:botc_copilot/feature/game_board/domain/seat_ring_player.dart';
 import 'package:botc_copilot/feature/game_board/presentation/providers/game_board_provider.dart';
 import 'package:botc_copilot/feature/game_board/presentation/widgets/day_panels.dart';
 import 'package:botc_copilot/feature/game_board/presentation/widgets/seat_ring.dart';
+import 'package:botc_copilot/feature/game_board/presentation/widgets/voting_panel.dart';
 import 'package:botc_copilot/feature/player_detail/presentation/player_detail_sheet.dart';
 import 'package:botc_copilot/shared/models/enums.dart';
 import 'package:flutter/material.dart';
@@ -165,10 +166,7 @@ class _GameBoardBody extends ConsumerWidget {
                         children: [
                           NightPanel(gameId: gameId),
                           DayPanel(gameId: gameId),
-                          const ComingSoonPanel(
-                            title: '投票记录',
-                            hint: '提名与投票记录功能开发中（issue #15）',
-                          ),
+                          VotingPanel(gameId: gameId),
                           const ComingSoonPanel(
                             title: '我的推理',
                             hint: '信任度与排除法追踪开发中（issue #13）',

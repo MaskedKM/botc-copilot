@@ -133,6 +133,32 @@ class InfoDeclarations extends Table {
   TextColumn get reliability => textEnum<Reliability>()();
 }
 
+/// 提名表：一次提名 + 完整投票结果（issue #33）。
+class Nominations extends Table {
+  /// 自增主键。
+  IntColumn get id => integer().autoIncrement()();
+
+  /// 所属对局。
+  IntColumn get gameId =>
+      integer().references(Games, #id, onDelete: KeyAction.cascade)();
+
+  /// 提名发生的当天。
+  IntColumn get dayRecordId =>
+      integer().references(DayRecords, #id, onDelete: KeyAction.cascade)();
+
+  /// 提名者。
+  IntColumn get nominatorPlayerId => integer().references(Players, #id)();
+
+  /// 被提名者。
+  IntColumn get nomineePlayerId => integer().references(Players, #id)();
+
+  /// 是否达到处决阈值（赞成票 >= 存活人数一半）。
+  BoolColumn get passed => boolean()();
+
+  /// 投票结果 JSON：[{playerId, vote: for/against/abstain, isDeadVote}]。
+  TextColumn get voteResultJson => text()();
+}
+
 /// 信任度变更日志：按天记录对每个玩家的信任度判断。
 class TrustLogs extends Table {
   /// 自增主键。
