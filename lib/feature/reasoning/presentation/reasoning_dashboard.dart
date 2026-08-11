@@ -11,7 +11,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 /// 推理面板（issue #39）：信任度分组 + 恶魔候选池 + 矛盾检测。
 ///
 /// 原则：只展示数据分组，不自动判定身份。
-class ReasoningDashboard extends ConsumerWidget {
+class ReasoningDashboard extends ConsumerStatefulWidget {
   /// 创建面板。
   const ReasoningDashboard({required this.gameId, super.key});
 
@@ -19,18 +19,30 @@ class ReasoningDashboard extends ConsumerWidget {
   final int gameId;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ReasoningDashboard> createState() =>
+      _ReasoningDashboardState();
+}
+
+class _ReasoningDashboardState extends ConsumerState<ReasoningDashboard> {
+  /// 信任度分组是否只看存活玩家（PR #50 review S2）。
+  bool _aliveOnly = false;
+
+  @override
+  Widget build(BuildContext context) {
     final players =
-        ref.watch(gamePlayersProvider(gameId)).valueOrNull ?? [];
+        ref.watch(gamePlayersProvider(widget.gameId)).valueOrNull ?? [];
     final trustLevels =
-        ref.watch(latestTrustLevelsProvider(gameId)).valueOrNull ?? {};
+        ref.watch(latestTrustLevelsProvider(widget.gameId)).valueOrNull ??
+            {};
     final gameColors = context.gameColors;
 
-    // 按信任度分组（仅存活玩家参与恶魔候选池）
+    // 按信任度分组（可选只看存活）
+    final grouped =
+        _aliveOnly ? players.where((p) => p.isAlive).toList() : players;
     final groups = <TrustLevel, List<Player>>{
       for (final level in TrustLevel.values) level: [],
     };
-    for (final p in players) {
+    for (final p in grouped) {
       groups[trustLevels[p.id] ?? TrustLevel.unknown]!.add(p);
     }
     // 恶魔候选池 = 存活 且 未被标记为确信好人/偏好
@@ -52,7 +64,18 @@ class ReasoningDashboard extends ConsumerWidget {
         _DemonPoolSection(pool: demonPool, total: players.length),
         const SizedBox(height: 16),
         // 信任度分组
-        Text('信任度分组', style: AppTextStyles.headline),
+        Row(
+          children: [
+            Text('信任度分组', style: AppTextStyles.headline),
+            const Spacer(),
+            FilterChip(
+              label: const Text('只看存活'),
+              selected: _aliveOnly,
+              visualDensity: VisualDensity.compact,
+              onSelected: (v) => setState(() => _aliveOnly = v),
+            ),
+          ],
+        ),
         const SizedBox(height: 4),
         Text(
           '在玩家详情中调整信任度，此处实时同步。',
@@ -65,13 +88,13 @@ class ReasoningDashboard extends ConsumerWidget {
             _TrustGroupTile(
               level: level,
               players: groups[level]!,
-              gameId: gameId,
+              gameId: widget.gameId,
             ),
         const SizedBox(height: 16),
         const Divider(),
         const SizedBox(height: 8),
         // 矛盾检测（issue #38 面板内嵌）
-        ContradictionPanel(gameId: gameId),
+        ContradictionPanel(gameId: widget.gameId),
       ],
     );
   }
