@@ -7,5 +7,6 @@ analyzer:
     - "lib/core/database/**.dart"
 linter:
   rules:
-    # Drift 生成代码与 DAO 模式需要放宽
+    # 显式保持启用：AGENTS.md 要求每个公共类/方法必须有 dartdoc。
+    # 注意：YAML 裸写 key = 启用；如要禁用需写 false。
     public_member_api_docs:

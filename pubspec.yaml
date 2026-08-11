@@ -1,5 +1,5 @@
 name: botc_copilot
-description: "A new Flutter project."
+description: "血染钟楼（Blood on the Clocktower）对局推理助手：记录 → 结构化 → 交叉验证 → 推理分析。纯离线。"
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
@@ -37,6 +37,8 @@ dependencies:
   flutter_riverpod: ^2.6.1
   go_router: ^17.5.0
   drift: ^2.34.3
+  # +eol 是 pub.dev 上该包最终版本的真实后缀（上游停止维护的标记），
+  # Drift 官方仍推荐用它提供 SQLite native 库；后续可评估迁移到 sqlite3 自带加载。
   sqlite3_flutter_libs: ^0.6.0+eol
   path_provider: ^2.1.6
   path: ^1.9.1
