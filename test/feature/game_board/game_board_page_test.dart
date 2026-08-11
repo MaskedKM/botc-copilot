@@ -1,0 +1,96 @@
+import 'package:botc_copilot/core/constants/character.dart';
+import 'package:botc_copilot/core/constants/script.dart';
+import 'package:botc_copilot/core/database/app_database.dart';
+import 'package:botc_copilot/core/theme/app_theme.dart';
+import 'package:botc_copilot/feature/game_board/presentation/game_board_page.dart';
+import 'package:botc_copilot/feature/game_board/presentation/providers/game_board_provider.dart';
+import 'package:botc_copilot/feature/game_board/presentation/widgets/seat_ring.dart';
+import 'package:botc_copilot/shared/models/enums.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+void main() {
+  final game = Game(
+    id: 1,
+    script: Script.troubleBrewing,
+    playerCount: 7,
+    status: GameStatus.ongoing,
+    createdAt: DateTime(2026, 8, 12),
+    myRole: Character.empath,
+  );
+
+  final players = [
+    for (var i = 1; i <= 7; i++)
+      Player(
+        id: i,
+        gameId: 1,
+        name: '玩家$i',
+        seatNumber: i,
+        isAlive: i != 3, // 3 号已死亡
+        deathDay: i == 3 ? 1 : null,
+        deathCause: i == 3 ? DeathCause.nightKill : null,
+      ),
+  ];
+
+  /// 用 provider override 提供假数据（widget test 不碰真实数据库）。
+  Widget buildBoard() {
+    return ProviderScope(
+      overrides: [
+        currentGameProvider.overrideWith((ref) => Stream.value(game)),
+        gamePlayersProvider(1).overrideWith((ref) => Stream.value(players)),
+        latestTrustLevelsProvider(1)
+            .overrideWith((ref) => Stream.value(const <int, TrustLevel>{})),
+        currentDayRecordProvider((1, 1))
+            .overrideWith((ref) => Stream.value(null)),
+      ],
+      child: MaterialApp(
+        theme: AppTheme.dark,
+        home: const GameBoardPage(),
+      ),
+    );
+  }
+
+  testWidgets('渲染：圆环 + 天数 + 存活人数 + 四个 Tab', (tester) async {
+    await tester.pumpWidget(buildBoard());
+    await tester.pumpAndSettle();
+
+    expect(find.byType(SeatRing), findsOneWidget);
+    expect(find.text('第 1 天'), findsWidgets); // AppBar + 圆环中心
+    expect(find.text('暗流涌动 · 存活 6/7 人'), findsOneWidget);
+    expect(find.text('夜晚'), findsOneWidget);
+    expect(find.text('白天'), findsOneWidget);
+    expect(find.text('投票'), findsOneWidget);
+    expect(find.text('推理'), findsOneWidget);
+  });
+
+  testWidgets('白天 Tab：处决面板可见', (tester) async {
+    await tester.pumpWidget(buildBoard());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('白天'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('第 1 天 · 白天处决'), findsOneWidget);
+    expect(find.text('无处决'), findsOneWidget);
+    // 死亡玩家不在候选里
+    expect(find.text('3号 玩家3'), findsNothing);
+    expect(find.text('1号 玩家1'), findsOneWidget);
+  });
+
+  testWidgets('无进行中的对局时显示引导', (tester) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          currentGameProvider.overrideWith((ref) => Stream.value(null)),
+        ],
+        child: MaterialApp(
+          theme: AppTheme.dark,
+          home: const GameBoardPage(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('没有进行中的对局，请先完成开局设置'), findsOneWidget);
+  });
+}
