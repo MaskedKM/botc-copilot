@@ -3,6 +3,7 @@ import 'package:botc_copilot/core/database/app_database.dart';
 import 'package:botc_copilot/core/theme/app_colors.dart';
 import 'package:botc_copilot/core/theme/app_text_styles.dart';
 import 'package:botc_copilot/core/theme/game_colors.dart';
+import 'package:botc_copilot/feature/game_board/data/poison_repository.dart';
 import 'package:botc_copilot/feature/game_board/presentation/providers/game_board_provider.dart';
 import 'package:botc_copilot/feature/player_detail/data/player_detail_repository.dart';
 import 'package:botc_copilot/feature/player_detail/domain/info_payload_formatter.dart';
@@ -109,6 +110,8 @@ class PlayerDetailSheet extends ConsumerWidget {
             const SizedBox(height: 16),
             _RecordedInfoSection(player: player),
             const SizedBox(height: 16),
+            _PoisonSection(gameId: gameId, player: player, day: day),
+            const SizedBox(height: 16),
             _TrustSection(gameId: gameId, player: player, day: day),
           ],
         );
@@ -194,14 +197,15 @@ class _InfoInputSection extends ConsumerWidget {
           character: character,
           players: players,
           onSubmit: (payload) async {
-            final dayRecordId = await ref
-                .read(gameBoardProvider(gameId).notifier)
-                .ensureCurrentDayRecord();
+            final notifier = ref.read(gameBoardProvider(gameId).notifier);
+            final dayRecordId = await notifier.ensureCurrentDayRecord();
             await ref.read(playerDetailRepositoryProvider).declareInfo(
                   playerId: player.id,
                   dayRecordId: dayRecordId,
                   character: character,
                   payload: payload,
+                  gameId: gameId,
+                  dayNumber: ref.read(gameBoardProvider(gameId)).currentDay,
                 );
             if (context.mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
@@ -305,6 +309,58 @@ class _TrustSection extends ConsumerWidget {
                         ),
               ),
           ],
+        ),
+      ],
+    );
+  }
+}
+
+/// 醉/毒标记区（issue #35）。
+class _PoisonSection extends ConsumerWidget {
+  const _PoisonSection({
+    required this.gameId,
+    required this.player,
+    required this.day,
+  });
+
+  final int gameId;
+  final Player player;
+  final int day;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final statuses =
+        ref.watch(gamePoisonStatusesProvider(gameId)).valueOrNull ?? [];
+    final marked = statuses.any(
+      (p) => p.playerId == player.id && p.dayNumber == day && p.isActive,
+    );
+    final gameColors = context.gameColors;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('醉/毒状态', style: AppTextStyles.headline),
+        const SizedBox(height: 8),
+        SwitchListTile(
+          title: Text(
+            '标记为可能被毒/醉（第 $day 天）',
+            style: AppTextStyles.body,
+          ),
+          subtitle: Text(
+            '醉/毒时玩家「无能力」，其获得的信息可能为假。'
+            '录入信息时若当天有此标记，可靠性自动降为「可能被污染」。',
+            style: AppTextStyles.caption
+                .copyWith(color: gameColors.inkViolet),
+          ),
+          value: marked,
+          activeTrackColor: gameColors.inkViolet,
+          onChanged: (_) {
+            ref.read(poisonRepositoryProvider).toggleStatus(
+                  gameId: gameId,
+                  playerId: player.id,
+                  dayNumber: day,
+                );
+          },
         ),
       ],
     );

@@ -40,20 +40,37 @@ class PlayerDetailRepository {
   }
 
   /// 记录信息声明（payload 已按角色的 InfoInputType 编码为 JSON）。
+  ///
+  /// 若该玩家当天有生效的醉/毒标记，可靠性自动降级为 possiblyTainted。
   Future<int> declareInfo({
     required int playerId,
     required int dayRecordId,
     required Character character,
     required Map<String, Object?> payload,
     bool isMine = false,
-  }) {
+    int? dayNumber,
+    int? gameId,
+  }) async {
+    // 自动污染检查：玩家当天被标醉/毒 → 信息不可靠
+    var reliability = Reliability.unverified;
+    if (dayNumber != null && gameId != null) {
+      final statuses =
+          await _db.poisonStatusesDao.watchByGame(gameId).first;
+      final tainted = statuses.any(
+        (p) =>
+            p.playerId == playerId &&
+            p.dayNumber == dayNumber &&
+            p.isActive,
+      );
+      if (tainted) reliability = Reliability.possiblyTainted;
+    }
     return _db.infoDeclarationsDao.insertDeclaration(
       InfoDeclarationsCompanion(
         playerId: Value(playerId),
         dayRecordId: Value(dayRecordId),
         characterType: Value(character),
         payloadJson: Value(jsonEncode(payload)),
-        reliability: const Value(Reliability.unverified),
+        reliability: Value(reliability),
         isMine: Value(isMine),
       ),
     );

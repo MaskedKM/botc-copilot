@@ -3302,6 +3302,427 @@ class NominationsCompanion extends UpdateCompanion<Nomination> {
   }
 }
 
+class $PoisonStatusesTable extends PoisonStatuses
+    with TableInfo<$PoisonStatusesTable, PoisonStatuse> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $PoisonStatusesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _gameIdMeta = const VerificationMeta('gameId');
+  @override
+  late final GeneratedColumn<int> gameId = GeneratedColumn<int>(
+    'game_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES games (id) ON DELETE CASCADE',
+    ),
+  );
+  static const VerificationMeta _playerIdMeta = const VerificationMeta(
+    'playerId',
+  );
+  @override
+  late final GeneratedColumn<int> playerId = GeneratedColumn<int>(
+    'player_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES players (id) ON DELETE CASCADE',
+    ),
+  );
+  static const VerificationMeta _dayNumberMeta = const VerificationMeta(
+    'dayNumber',
+  );
+  @override
+  late final GeneratedColumn<int> dayNumber = GeneratedColumn<int>(
+    'day_number',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  @override
+  late final GeneratedColumnWithTypeConverter<PoisonSource, String> source =
+      GeneratedColumn<String>(
+        'source',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: true,
+      ).withConverter<PoisonSource>($PoisonStatusesTable.$convertersource);
+  static const VerificationMeta _isActiveMeta = const VerificationMeta(
+    'isActive',
+  );
+  @override
+  late final GeneratedColumn<bool> isActive = GeneratedColumn<bool>(
+    'is_active',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_active" IN (0, 1))',
+    ),
+    defaultValue: const Constant(true),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    gameId,
+    playerId,
+    dayNumber,
+    source,
+    isActive,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'poison_statuses';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<PoisonStatuse> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('game_id')) {
+      context.handle(
+        _gameIdMeta,
+        gameId.isAcceptableOrUnknown(data['game_id']!, _gameIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_gameIdMeta);
+    }
+    if (data.containsKey('player_id')) {
+      context.handle(
+        _playerIdMeta,
+        playerId.isAcceptableOrUnknown(data['player_id']!, _playerIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_playerIdMeta);
+    }
+    if (data.containsKey('day_number')) {
+      context.handle(
+        _dayNumberMeta,
+        dayNumber.isAcceptableOrUnknown(data['day_number']!, _dayNumberMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_dayNumberMeta);
+    }
+    if (data.containsKey('is_active')) {
+      context.handle(
+        _isActiveMeta,
+        isActive.isAcceptableOrUnknown(data['is_active']!, _isActiveMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  PoisonStatuse map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return PoisonStatuse(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      gameId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}game_id'],
+      )!,
+      playerId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}player_id'],
+      )!,
+      dayNumber: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}day_number'],
+      )!,
+      source: $PoisonStatusesTable.$convertersource.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}source'],
+        )!,
+      ),
+      isActive: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_active'],
+      )!,
+    );
+  }
+
+  @override
+  $PoisonStatusesTable createAlias(String alias) {
+    return $PoisonStatusesTable(attachedDatabase, alias);
+  }
+
+  static JsonTypeConverter2<PoisonSource, String, String> $convertersource =
+      const EnumNameConverter<PoisonSource>(PoisonSource.values);
+}
+
+class PoisonStatuse extends DataClass implements Insertable<PoisonStatuse> {
+  /// 自增主键。
+  final int id;
+
+  /// 所属对局。
+  final int gameId;
+
+  /// 玩家。
+  final int playerId;
+
+  /// 生效天数。
+  final int dayNumber;
+
+  /// 污染来源。
+  final PoisonSource source;
+
+  /// 当前是否生效（毒只在当夜+次日生效，可解除）。
+  final bool isActive;
+  const PoisonStatuse({
+    required this.id,
+    required this.gameId,
+    required this.playerId,
+    required this.dayNumber,
+    required this.source,
+    required this.isActive,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['game_id'] = Variable<int>(gameId);
+    map['player_id'] = Variable<int>(playerId);
+    map['day_number'] = Variable<int>(dayNumber);
+    {
+      map['source'] = Variable<String>(
+        $PoisonStatusesTable.$convertersource.toSql(source),
+      );
+    }
+    map['is_active'] = Variable<bool>(isActive);
+    return map;
+  }
+
+  PoisonStatusesCompanion toCompanion(bool nullToAbsent) {
+    return PoisonStatusesCompanion(
+      id: Value(id),
+      gameId: Value(gameId),
+      playerId: Value(playerId),
+      dayNumber: Value(dayNumber),
+      source: Value(source),
+      isActive: Value(isActive),
+    );
+  }
+
+  factory PoisonStatuse.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return PoisonStatuse(
+      id: serializer.fromJson<int>(json['id']),
+      gameId: serializer.fromJson<int>(json['gameId']),
+      playerId: serializer.fromJson<int>(json['playerId']),
+      dayNumber: serializer.fromJson<int>(json['dayNumber']),
+      source: $PoisonStatusesTable.$convertersource.fromJson(
+        serializer.fromJson<String>(json['source']),
+      ),
+      isActive: serializer.fromJson<bool>(json['isActive']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'gameId': serializer.toJson<int>(gameId),
+      'playerId': serializer.toJson<int>(playerId),
+      'dayNumber': serializer.toJson<int>(dayNumber),
+      'source': serializer.toJson<String>(
+        $PoisonStatusesTable.$convertersource.toJson(source),
+      ),
+      'isActive': serializer.toJson<bool>(isActive),
+    };
+  }
+
+  PoisonStatuse copyWith({
+    int? id,
+    int? gameId,
+    int? playerId,
+    int? dayNumber,
+    PoisonSource? source,
+    bool? isActive,
+  }) => PoisonStatuse(
+    id: id ?? this.id,
+    gameId: gameId ?? this.gameId,
+    playerId: playerId ?? this.playerId,
+    dayNumber: dayNumber ?? this.dayNumber,
+    source: source ?? this.source,
+    isActive: isActive ?? this.isActive,
+  );
+  PoisonStatuse copyWithCompanion(PoisonStatusesCompanion data) {
+    return PoisonStatuse(
+      id: data.id.present ? data.id.value : this.id,
+      gameId: data.gameId.present ? data.gameId.value : this.gameId,
+      playerId: data.playerId.present ? data.playerId.value : this.playerId,
+      dayNumber: data.dayNumber.present ? data.dayNumber.value : this.dayNumber,
+      source: data.source.present ? data.source.value : this.source,
+      isActive: data.isActive.present ? data.isActive.value : this.isActive,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PoisonStatuse(')
+          ..write('id: $id, ')
+          ..write('gameId: $gameId, ')
+          ..write('playerId: $playerId, ')
+          ..write('dayNumber: $dayNumber, ')
+          ..write('source: $source, ')
+          ..write('isActive: $isActive')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(id, gameId, playerId, dayNumber, source, isActive);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is PoisonStatuse &&
+          other.id == this.id &&
+          other.gameId == this.gameId &&
+          other.playerId == this.playerId &&
+          other.dayNumber == this.dayNumber &&
+          other.source == this.source &&
+          other.isActive == this.isActive);
+}
+
+class PoisonStatusesCompanion extends UpdateCompanion<PoisonStatuse> {
+  final Value<int> id;
+  final Value<int> gameId;
+  final Value<int> playerId;
+  final Value<int> dayNumber;
+  final Value<PoisonSource> source;
+  final Value<bool> isActive;
+  const PoisonStatusesCompanion({
+    this.id = const Value.absent(),
+    this.gameId = const Value.absent(),
+    this.playerId = const Value.absent(),
+    this.dayNumber = const Value.absent(),
+    this.source = const Value.absent(),
+    this.isActive = const Value.absent(),
+  });
+  PoisonStatusesCompanion.insert({
+    this.id = const Value.absent(),
+    required int gameId,
+    required int playerId,
+    required int dayNumber,
+    required PoisonSource source,
+    this.isActive = const Value.absent(),
+  }) : gameId = Value(gameId),
+       playerId = Value(playerId),
+       dayNumber = Value(dayNumber),
+       source = Value(source);
+  static Insertable<PoisonStatuse> custom({
+    Expression<int>? id,
+    Expression<int>? gameId,
+    Expression<int>? playerId,
+    Expression<int>? dayNumber,
+    Expression<String>? source,
+    Expression<bool>? isActive,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (gameId != null) 'game_id': gameId,
+      if (playerId != null) 'player_id': playerId,
+      if (dayNumber != null) 'day_number': dayNumber,
+      if (source != null) 'source': source,
+      if (isActive != null) 'is_active': isActive,
+    });
+  }
+
+  PoisonStatusesCompanion copyWith({
+    Value<int>? id,
+    Value<int>? gameId,
+    Value<int>? playerId,
+    Value<int>? dayNumber,
+    Value<PoisonSource>? source,
+    Value<bool>? isActive,
+  }) {
+    return PoisonStatusesCompanion(
+      id: id ?? this.id,
+      gameId: gameId ?? this.gameId,
+      playerId: playerId ?? this.playerId,
+      dayNumber: dayNumber ?? this.dayNumber,
+      source: source ?? this.source,
+      isActive: isActive ?? this.isActive,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (gameId.present) {
+      map['game_id'] = Variable<int>(gameId.value);
+    }
+    if (playerId.present) {
+      map['player_id'] = Variable<int>(playerId.value);
+    }
+    if (dayNumber.present) {
+      map['day_number'] = Variable<int>(dayNumber.value);
+    }
+    if (source.present) {
+      map['source'] = Variable<String>(
+        $PoisonStatusesTable.$convertersource.toSql(source.value),
+      );
+    }
+    if (isActive.present) {
+      map['is_active'] = Variable<bool>(isActive.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PoisonStatusesCompanion(')
+          ..write('id: $id, ')
+          ..write('gameId: $gameId, ')
+          ..write('playerId: $playerId, ')
+          ..write('dayNumber: $dayNumber, ')
+          ..write('source: $source, ')
+          ..write('isActive: $isActive')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -3314,6 +3735,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   );
   late final $TrustLogsTable trustLogs = $TrustLogsTable(this);
   late final $NominationsTable nominations = $NominationsTable(this);
+  late final $PoisonStatusesTable poisonStatuses = $PoisonStatusesTable(this);
   late final GamesDao gamesDao = GamesDao(this as AppDatabase);
   late final PlayersDao playersDao = PlayersDao(this as AppDatabase);
   late final DayRecordsDao dayRecordsDao = DayRecordsDao(this as AppDatabase);
@@ -3323,6 +3745,9 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   );
   late final TrustLogsDao trustLogsDao = TrustLogsDao(this as AppDatabase);
   late final NominationsDao nominationsDao = NominationsDao(
+    this as AppDatabase,
+  );
+  late final PoisonStatusesDao poisonStatusesDao = PoisonStatusesDao(
     this as AppDatabase,
   );
   @override
@@ -3337,6 +3762,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     infoDeclarations,
     trustLogs,
     nominations,
+    poisonStatuses,
   ];
   @override
   StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules([
@@ -3409,6 +3835,20 @@ abstract class _$AppDatabase extends GeneratedDatabase {
         limitUpdateKind: UpdateKind.delete,
       ),
       result: [TableUpdate('nominations', kind: UpdateKind.delete)],
+    ),
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'games',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('poison_statuses', kind: UpdateKind.delete)],
+    ),
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'players',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('poison_statuses', kind: UpdateKind.delete)],
     ),
   ]);
 }
@@ -3508,6 +3948,24 @@ final class $$GamesTableReferences
     ).filter((f) => f.gameId.id.sqlEquals($_itemColumn<int>('id')!));
 
     final cache = $_typedResult.readTableOrNull(_nominationsRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
+  static MultiTypedResultKey<$PoisonStatusesTable, List<PoisonStatuse>>
+  _poisonStatusesRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.poisonStatuses,
+    aliasName: 'games__id__poison_statuses__game_id',
+  );
+
+  $$PoisonStatusesTableProcessedTableManager get poisonStatusesRefs {
+    final manager = $$PoisonStatusesTableTableManager(
+      $_db,
+      $_db.poisonStatuses,
+    ).filter((f) => f.gameId.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_poisonStatusesRefsTable($_db));
     return ProcessedTableManager(
       manager.$state.copyWith(prefetchedData: cache),
     );
@@ -3656,6 +4114,31 @@ class $$GamesTableFilterComposer extends Composer<_$AppDatabase, $GamesTable> {
           }) => $$NominationsTableFilterComposer(
             $db: $db,
             $table: $db.nominations,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> poisonStatusesRefs(
+    Expression<bool> Function($$PoisonStatusesTableFilterComposer f) f,
+  ) {
+    final $$PoisonStatusesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.poisonStatuses,
+      getReferencedColumn: (t) => t.gameId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$PoisonStatusesTableFilterComposer(
+            $db: $db,
+            $table: $db.poisonStatuses,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -3854,6 +4337,31 @@ class $$GamesTableAnnotationComposer
     );
     return f(composer);
   }
+
+  Expression<T> poisonStatusesRefs<T extends Object>(
+    Expression<T> Function($$PoisonStatusesTableAnnotationComposer a) f,
+  ) {
+    final $$PoisonStatusesTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.poisonStatuses,
+      getReferencedColumn: (t) => t.gameId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$PoisonStatusesTableAnnotationComposer(
+            $db: $db,
+            $table: $db.poisonStatuses,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $$GamesTableTableManager
@@ -3874,6 +4382,7 @@ class $$GamesTableTableManager
             bool dayRecordsRefs,
             bool trustLogsRefs,
             bool nominationsRefs,
+            bool poisonStatusesRefs,
           })
         > {
   $$GamesTableTableManager(_$AppDatabase db, $GamesTable table)
@@ -3939,6 +4448,7 @@ class $$GamesTableTableManager
                 dayRecordsRefs = false,
                 trustLogsRefs = false,
                 nominationsRefs = false,
+                poisonStatusesRefs = false,
               }) {
                 return PrefetchHooks(
                   db: db,
@@ -3947,6 +4457,7 @@ class $$GamesTableTableManager
                     if (dayRecordsRefs) db.dayRecords,
                     if (trustLogsRefs) db.trustLogs,
                     if (nominationsRefs) db.nominations,
+                    if (poisonStatusesRefs) db.poisonStatuses,
                   ],
                   addJoins: null,
                   getPrefetchedDataCallback: (items) async {
@@ -4019,6 +4530,27 @@ class $$GamesTableTableManager
                               ),
                           typedResults: items,
                         ),
+                      if (poisonStatusesRefs)
+                        await $_getPrefetchedData<
+                          Game,
+                          $GamesTable,
+                          PoisonStatuse
+                        >(
+                          currentTable: table,
+                          referencedTable: $$GamesTableReferences
+                              ._poisonStatusesRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$GamesTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).poisonStatusesRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.gameId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
                     ];
                   },
                 );
@@ -4044,6 +4576,7 @@ typedef $$GamesTableProcessedTableManager =
         bool dayRecordsRefs,
         bool trustLogsRefs,
         bool nominationsRefs,
+        bool poisonStatusesRefs,
       })
     >;
 typedef $$PlayersTableCreateCompanionBuilder =
@@ -4173,6 +4706,24 @@ final class $$PlayersTableReferences
     ).filter((f) => f.playerId.id.sqlEquals($_itemColumn<int>('id')!));
 
     final cache = $_typedResult.readTableOrNull(_trustLogsRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
+  static MultiTypedResultKey<$PoisonStatusesTable, List<PoisonStatuse>>
+  _poisonStatusesRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.poisonStatuses,
+    aliasName: 'players__id__poison_statuses__player_id',
+  );
+
+  $$PoisonStatusesTableProcessedTableManager get poisonStatusesRefs {
+    final manager = $$PoisonStatusesTableTableManager(
+      $_db,
+      $_db.poisonStatuses,
+    ).filter((f) => f.playerId.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_poisonStatusesRefsTable($_db));
     return ProcessedTableManager(
       manager.$state.copyWith(prefetchedData: cache),
     );
@@ -4358,6 +4909,31 @@ class $$PlayersTableFilterComposer
           }) => $$TrustLogsTableFilterComposer(
             $db: $db,
             $table: $db.trustLogs,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> poisonStatusesRefs(
+    Expression<bool> Function($$PoisonStatusesTableFilterComposer f) f,
+  ) {
+    final $$PoisonStatusesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.poisonStatuses,
+      getReferencedColumn: (t) => t.playerId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$PoisonStatusesTableFilterComposer(
+            $db: $db,
+            $table: $db.poisonStatuses,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -4610,6 +5186,31 @@ class $$PlayersTableAnnotationComposer
     );
     return f(composer);
   }
+
+  Expression<T> poisonStatusesRefs<T extends Object>(
+    Expression<T> Function($$PoisonStatusesTableAnnotationComposer a) f,
+  ) {
+    final $$PoisonStatusesTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.poisonStatuses,
+      getReferencedColumn: (t) => t.playerId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$PoisonStatusesTableAnnotationComposer(
+            $db: $db,
+            $table: $db.poisonStatuses,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $$PlayersTableTableManager
@@ -4632,6 +5233,7 @@ class $$PlayersTableTableManager
             bool roleClaimsRefs,
             bool infoDeclarationsRefs,
             bool trustLogsRefs,
+            bool poisonStatusesRefs,
           })
         > {
   $$PlayersTableTableManager(_$AppDatabase db, $PlayersTable table)
@@ -4697,6 +5299,7 @@ class $$PlayersTableTableManager
                 roleClaimsRefs = false,
                 infoDeclarationsRefs = false,
                 trustLogsRefs = false,
+                poisonStatusesRefs = false,
               }) {
                 return PrefetchHooks(
                   db: db,
@@ -4706,6 +5309,7 @@ class $$PlayersTableTableManager
                     if (roleClaimsRefs) db.roleClaims,
                     if (infoDeclarationsRefs) db.infoDeclarations,
                     if (trustLogsRefs) db.trustLogs,
+                    if (poisonStatusesRefs) db.poisonStatuses,
                   ],
                   addJoins:
                       <
@@ -4846,6 +5450,27 @@ class $$PlayersTableTableManager
                               ),
                           typedResults: items,
                         ),
+                      if (poisonStatusesRefs)
+                        await $_getPrefetchedData<
+                          Player,
+                          $PlayersTable,
+                          PoisonStatuse
+                        >(
+                          currentTable: table,
+                          referencedTable: $$PlayersTableReferences
+                              ._poisonStatusesRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$PlayersTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).poisonStatusesRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.playerId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
                     ];
                   },
                 );
@@ -4873,6 +5498,7 @@ typedef $$PlayersTableProcessedTableManager =
         bool roleClaimsRefs,
         bool infoDeclarationsRefs,
         bool trustLogsRefs,
+        bool poisonStatusesRefs,
       })
     >;
 typedef $$DayRecordsTableCreateCompanionBuilder =
@@ -7591,6 +8217,431 @@ typedef $$NominationsTableProcessedTableManager =
         bool nomineePlayerId,
       })
     >;
+typedef $$PoisonStatusesTableCreateCompanionBuilder =
+    PoisonStatusesCompanion Function({
+      Value<int> id,
+      required int gameId,
+      required int playerId,
+      required int dayNumber,
+      required PoisonSource source,
+      Value<bool> isActive,
+    });
+typedef $$PoisonStatusesTableUpdateCompanionBuilder =
+    PoisonStatusesCompanion Function({
+      Value<int> id,
+      Value<int> gameId,
+      Value<int> playerId,
+      Value<int> dayNumber,
+      Value<PoisonSource> source,
+      Value<bool> isActive,
+    });
+
+final class $$PoisonStatusesTableReferences
+    extends BaseReferences<_$AppDatabase, $PoisonStatusesTable, PoisonStatuse> {
+  $$PoisonStatusesTableReferences(
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
+
+  static $GamesTable _gameIdTable(_$AppDatabase db) =>
+      db.games.createAlias('poison_statuses__game_id__games__id');
+
+  $$GamesTableProcessedTableManager get gameId {
+    final $_column = $_itemColumn<int>('game_id')!;
+
+    final manager = $$GamesTableTableManager(
+      $_db,
+      $_db.games,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_gameIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+
+  static $PlayersTable _playerIdTable(_$AppDatabase db) =>
+      db.players.createAlias('poison_statuses__player_id__players__id');
+
+  $$PlayersTableProcessedTableManager get playerId {
+    final $_column = $_itemColumn<int>('player_id')!;
+
+    final manager = $$PlayersTableTableManager(
+      $_db,
+      $_db.players,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_playerIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$PoisonStatusesTableFilterComposer
+    extends Composer<_$AppDatabase, $PoisonStatusesTable> {
+  $$PoisonStatusesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get dayNumber => $composableBuilder(
+    column: $table.dayNumber,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnWithTypeConverterFilters<PoisonSource, PoisonSource, String>
+  get source => $composableBuilder(
+    column: $table.source,
+    builder: (column) => ColumnWithTypeConverterFilters(column),
+  );
+
+  ColumnFilters<bool> get isActive => $composableBuilder(
+    column: $table.isActive,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$GamesTableFilterComposer get gameId {
+    final $$GamesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.gameId,
+      referencedTable: $db.games,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$GamesTableFilterComposer(
+            $db: $db,
+            $table: $db.games,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$PlayersTableFilterComposer get playerId {
+    final $$PlayersTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.playerId,
+      referencedTable: $db.players,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$PlayersTableFilterComposer(
+            $db: $db,
+            $table: $db.players,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$PoisonStatusesTableOrderingComposer
+    extends Composer<_$AppDatabase, $PoisonStatusesTable> {
+  $$PoisonStatusesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get dayNumber => $composableBuilder(
+    column: $table.dayNumber,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get source => $composableBuilder(
+    column: $table.source,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isActive => $composableBuilder(
+    column: $table.isActive,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$GamesTableOrderingComposer get gameId {
+    final $$GamesTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.gameId,
+      referencedTable: $db.games,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$GamesTableOrderingComposer(
+            $db: $db,
+            $table: $db.games,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$PlayersTableOrderingComposer get playerId {
+    final $$PlayersTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.playerId,
+      referencedTable: $db.players,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$PlayersTableOrderingComposer(
+            $db: $db,
+            $table: $db.players,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$PoisonStatusesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $PoisonStatusesTable> {
+  $$PoisonStatusesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<int> get dayNumber =>
+      $composableBuilder(column: $table.dayNumber, builder: (column) => column);
+
+  GeneratedColumnWithTypeConverter<PoisonSource, String> get source =>
+      $composableBuilder(column: $table.source, builder: (column) => column);
+
+  GeneratedColumn<bool> get isActive =>
+      $composableBuilder(column: $table.isActive, builder: (column) => column);
+
+  $$GamesTableAnnotationComposer get gameId {
+    final $$GamesTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.gameId,
+      referencedTable: $db.games,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$GamesTableAnnotationComposer(
+            $db: $db,
+            $table: $db.games,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$PlayersTableAnnotationComposer get playerId {
+    final $$PlayersTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.playerId,
+      referencedTable: $db.players,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$PlayersTableAnnotationComposer(
+            $db: $db,
+            $table: $db.players,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$PoisonStatusesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $PoisonStatusesTable,
+          PoisonStatuse,
+          $$PoisonStatusesTableFilterComposer,
+          $$PoisonStatusesTableOrderingComposer,
+          $$PoisonStatusesTableAnnotationComposer,
+          $$PoisonStatusesTableCreateCompanionBuilder,
+          $$PoisonStatusesTableUpdateCompanionBuilder,
+          (PoisonStatuse, $$PoisonStatusesTableReferences),
+          PoisonStatuse,
+          PrefetchHooks Function({bool gameId, bool playerId})
+        > {
+  $$PoisonStatusesTableTableManager(
+    _$AppDatabase db,
+    $PoisonStatusesTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$PoisonStatusesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$PoisonStatusesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$PoisonStatusesTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<int> gameId = const Value.absent(),
+                Value<int> playerId = const Value.absent(),
+                Value<int> dayNumber = const Value.absent(),
+                Value<PoisonSource> source = const Value.absent(),
+                Value<bool> isActive = const Value.absent(),
+              }) => PoisonStatusesCompanion(
+                id: id,
+                gameId: gameId,
+                playerId: playerId,
+                dayNumber: dayNumber,
+                source: source,
+                isActive: isActive,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required int gameId,
+                required int playerId,
+                required int dayNumber,
+                required PoisonSource source,
+                Value<bool> isActive = const Value.absent(),
+              }) => PoisonStatusesCompanion.insert(
+                id: id,
+                gameId: gameId,
+                playerId: playerId,
+                dayNumber: dayNumber,
+                source: source,
+                isActive: isActive,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$PoisonStatusesTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({gameId = false, playerId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (gameId) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.gameId,
+                                referencedTable: $$PoisonStatusesTableReferences
+                                    ._gameIdTable(db),
+                                referencedColumn:
+                                    $$PoisonStatusesTableReferences
+                                        ._gameIdTable(db)
+                                        .id,
+                              )
+                              as T;
+                    }
+                    if (playerId) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.playerId,
+                                referencedTable: $$PoisonStatusesTableReferences
+                                    ._playerIdTable(db),
+                                referencedColumn:
+                                    $$PoisonStatusesTableReferences
+                                        ._playerIdTable(db)
+                                        .id,
+                              )
+                              as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$PoisonStatusesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $PoisonStatusesTable,
+      PoisonStatuse,
+      $$PoisonStatusesTableFilterComposer,
+      $$PoisonStatusesTableOrderingComposer,
+      $$PoisonStatusesTableAnnotationComposer,
+      $$PoisonStatusesTableCreateCompanionBuilder,
+      $$PoisonStatusesTableUpdateCompanionBuilder,
+      (PoisonStatuse, $$PoisonStatusesTableReferences),
+      PoisonStatuse,
+      PrefetchHooks Function({bool gameId, bool playerId})
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -7609,4 +8660,6 @@ class $AppDatabaseManager {
       $$TrustLogsTableTableManager(_db, _db.trustLogs);
   $$NominationsTableTableManager get nominations =>
       $$NominationsTableTableManager(_db, _db.nominations);
+  $$PoisonStatusesTableTableManager get poisonStatuses =>
+      $$PoisonStatusesTableTableManager(_db, _db.poisonStatuses);
 }
