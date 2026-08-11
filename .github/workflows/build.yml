@@ -36,9 +36,9 @@ jobs:
       - name: 测试
         run: flutter test
 
-  # 构建 APK（手动触发或 main 分支 push 时）
+  # 构建 APK（仅手动触发：Actions → build → Run workflow）
   apk:
-    if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main'
+    if: github.event_name == 'workflow_dispatch'
     needs: check
     runs-on: ubuntu-latest
     steps:
