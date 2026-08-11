@@ -1,5 +1,5 @@
 import 'package:botc_copilot/feature/game_board/presentation/game_board_page.dart';
-import 'package:botc_copilot/feature/setup/presentation/setup_page.dart';
+import 'package:botc_copilot/feature/setup/presentation/setup_wizard_page.dart';
 import 'package:botc_copilot/feature/timeline/presentation/timeline_page.dart';
 import 'package:go_router/go_router.dart';
 
@@ -26,7 +26,7 @@ final GoRouter appRouter = GoRouter(
     ),
     GoRoute(
       path: AppRoutes.setup,
-      builder: (context, state) => const SetupPage(),
+      builder: (context, state) => const SetupWizardPage(),
     ),
     GoRoute(
       path: AppRoutes.gameBoard,
