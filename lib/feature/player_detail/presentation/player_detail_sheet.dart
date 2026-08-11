@@ -5,6 +5,7 @@ import 'package:botc_copilot/core/theme/app_text_styles.dart';
 import 'package:botc_copilot/core/theme/game_colors.dart';
 import 'package:botc_copilot/feature/game_board/presentation/providers/game_board_provider.dart';
 import 'package:botc_copilot/feature/player_detail/data/player_detail_repository.dart';
+import 'package:botc_copilot/feature/player_detail/domain/info_payload_formatter.dart';
 import 'package:botc_copilot/feature/player_detail/presentation/widgets/info_input_factory.dart';
 import 'package:botc_copilot/shared/models/enums.dart';
 import 'package:flutter/material.dart';
@@ -105,6 +106,8 @@ class PlayerDetailSheet extends ConsumerWidget {
                 style: AppTextStyles.caption
                     .copyWith(color: context.gameColors.inkViolet),
               ),
+            const SizedBox(height: 16),
+            _RecordedInfoSection(player: player),
             const SizedBox(height: 16),
             _TrustSection(gameId: gameId, player: player, day: day),
           ],
@@ -207,6 +210,50 @@ class _InfoInputSection extends ConsumerWidget {
             }
           },
         ),
+      ],
+    );
+  }
+}
+
+/// 已录入信息回显区（最近 5 条，最新在前）。
+class _RecordedInfoSection extends ConsumerWidget {
+  const _RecordedInfoSection({required this.player});
+
+  final Player player;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final declarations =
+        ref.watch(playerDeclarationsProvider(player.id)).valueOrNull ?? [];
+    if (declarations.isEmpty) return const SizedBox.shrink();
+
+    final recent = declarations.reversed.take(5).toList();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('已录入信息', style: AppTextStyles.headline),
+        const SizedBox(height: 8),
+        for (final decl in recent)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 2),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.circle,
+                  size: 6,
+                  color: context.gameColors
+                      .ofReliability(decl.reliability),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    InfoPayloadFormatter.summarize(decl),
+                    style: AppTextStyles.body,
+                  ),
+                ),
+              ],
+            ),
+          ),
       ],
     );
   }

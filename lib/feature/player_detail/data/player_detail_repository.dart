@@ -17,23 +17,26 @@ class PlayerDetailRepository {
   /// 声明角色。
   ///
   /// 自动判定 claimType：该玩家此前无声明 = firstClaim，有 = changed。
+  /// 查写包在同一事务中，防快速连点产生两条 firstClaim。
   Future<int> claimRole({
     required int playerId,
     required int dayRecordId,
     required Character character,
-  }) async {
-    final existing = await (_db.select(_db.roleClaims)
-          ..where((c) => c.playerId.equals(playerId)))
-        .get();
-    final type = existing.isEmpty ? ClaimType.firstClaim : ClaimType.changed;
-    return _db.roleClaimsDao.insertClaim(
-      RoleClaimsCompanion(
-        playerId: Value(playerId),
-        dayRecordId: Value(dayRecordId),
-        character: Value(character),
-        claimType: Value(type),
-      ),
-    );
+  }) {
+    return _db.transaction(() async {
+      final existing = await (_db.select(_db.roleClaims)
+            ..where((c) => c.playerId.equals(playerId)))
+          .get();
+      final type = existing.isEmpty ? ClaimType.firstClaim : ClaimType.changed;
+      return _db.roleClaimsDao.insertClaim(
+        RoleClaimsCompanion(
+          playerId: Value(playerId),
+          dayRecordId: Value(dayRecordId),
+          character: Value(character),
+          claimType: Value(type),
+        ),
+      );
+    });
   }
 
   /// 记录信息声明（payload 已按角色的 InfoInputType 编码为 JSON）。
