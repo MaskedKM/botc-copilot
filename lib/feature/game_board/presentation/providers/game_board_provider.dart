@@ -84,6 +84,9 @@ class GameBoardNotifier extends StateNotifier<GameBoardState> {
     );
   }
 
+  /// 确保当前天的记录存在（幂等，靠唯一约束兜底），返回记录 id。
+  Future<int> ensureCurrentDayRecord() => _ensureDayRecord(state.currentDay);
+
   /// 确保某天的记录存在（幂等，靠唯一约束兜底）。
   Future<int> _ensureDayRecord(int day) async {
     final existing = await _db.dayRecordsDao.getByGameAndDay(_gameId, day);
