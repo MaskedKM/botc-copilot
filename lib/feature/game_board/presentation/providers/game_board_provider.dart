@@ -122,10 +122,12 @@ class GameBoardNotifier extends StateNotifier<GameBoardState> {
   /// 记录夜晚死亡（null = 无人死亡）。
   ///
   /// 事务包裹：当日记录与玩家死亡标记必须同生共死。
+  /// 撤销/改选时复活上一个夜晚死亡者，保证「一天至多一个夜晚死亡」。
   /// 返回结束建议：存活 ≤ 2 时为 [EvilWinCandidate]。
   Future<GameEndSuggestion?> recordNightDeath(int? playerId) async {
     final dayId = await _ensureDayRecord(state.currentDay);
     await _db.transaction(() async {
+      await _revivePreviousDeath(dayId, (d) => d.nightDeathPlayerId);
       await _db.dayRecordsDao.updateDay(
         dayId,
         DayRecordsCompanion(nightDeathPlayerId: Value(playerId)),
@@ -145,10 +147,12 @@ class GameBoardNotifier extends StateNotifier<GameBoardState> {
   /// 记录白天处决（null = 无处决）。
   ///
   /// 事务包裹：当日记录与玩家死亡标记必须同生共死。
+  /// 撤销/改选时复活上一个被处决者，保证「一天至多一个处决」。
   /// 返回 [DemonExecutionCheck] 让 UI 确认被处决者是否是恶魔。
   Future<GameEndSuggestion?> recordExecution(int? playerId) async {
     final dayId = await _ensureDayRecord(state.currentDay);
     await _db.transaction(() async {
+      await _revivePreviousDeath(dayId, (d) => d.dayExecutionPlayerId);
       await _db.dayRecordsDao.updateDay(
         dayId,
         DayRecordsCompanion(dayExecutionPlayerId: Value(playerId)),
@@ -173,6 +177,26 @@ class GameBoardNotifier extends StateNotifier<GameBoardState> {
       aliveCountAfter: alive,
     );
   }
+
+  /// 复活当天记录中此前登记的死亡者（撤销/改选时调用）。
+  ///
+  /// 必须在更新当日记录之前调用，否则取到的是新值。
+  Future<void> _revivePreviousDeath(
+    int dayId,
+    int? Function(DayRecord) getPlayerId,
+  ) async {
+    final day = await _db.dayRecordsDao.getByGameAndDay(
+      _gameId,
+      state.currentDay,
+    );
+    final oldId = day != null && day.id == dayId ? getPlayerId(day) : null;
+    if (oldId != null) {
+      await _db.playersDao.revive(oldId);
+    }
+  }
+
+  /// 复活玩家（撤销误标死亡，如 SnackBar 撤销）。
+  Future<void> revivePlayer(int playerId) => _db.playersDao.revive(playerId);
 
   /// 存活 ≤ 2 时返回邪恶获胜候选。
   Future<GameEndSuggestion?> _evilWinCheck() async {

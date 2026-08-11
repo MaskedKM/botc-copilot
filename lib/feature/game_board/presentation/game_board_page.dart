@@ -289,16 +289,18 @@ class _GameBoardBody extends ConsumerWidget {
           .quickToggleDead(player);
       // 标死后提供 SnackBar 撤销（issue #65）
       if (wasAlive && context.mounted) {
+        // 只捕获 id：player 对象是标死前的快照（isAlive 仍为 true），
+        // 若再传给 quickToggleDead 会误判为「再标死一次」而非复活。
+        final playerId = player.id;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('${player.seatNumber}号 ${player.name} 已标记死亡'),
             action: SnackBarAction(
               label: '撤销',
               onPressed: () {
-                ref.read(gameBoardProvider(gameId).notifier).quickToggleDead(
-                      // player 已死，再 toggle = 复活
-                      player,
-                    );
+                ref
+                    .read(gameBoardProvider(gameId).notifier)
+                    .revivePlayer(playerId);
               },
             ),
             duration: const Duration(seconds: 10),

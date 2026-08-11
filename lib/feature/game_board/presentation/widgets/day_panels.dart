@@ -53,8 +53,6 @@ class NightPanel extends ConsumerWidget {
                   action: () => notifier.recordNightDeath(p.id),
                   verb: '夜晚死亡',
                   gameId: gameId,
-                  currentPlayerId: dayRecord?.nightDeathPlayerId,
-                  onUndo: () => notifier.recordNightDeath(null),
                 ),
               ),
           ],
@@ -113,8 +111,6 @@ class DayPanel extends ConsumerWidget {
                   action: () => notifier.recordExecution(p.id),
                   verb: '处决',
                   gameId: gameId,
-                  currentPlayerId: dayRecord?.dayExecutionPlayerId,
-                  onUndo: () => notifier.recordExecution(null),
                 ),
               ),
           ],
@@ -131,7 +127,7 @@ class DayPanel extends ConsumerWidget {
 }
 
 /// 破坏性操作二次确认（防误触原则）。
-/// 夜晚死亡/处决为 toggle：已选中再点 → 撤销（恢复为 null）。
+/// 撤销/改选由 provider 处理：重选「无人死亡」或改选他人会自动复活前者。
 Future<void> _confirmDeath(
   BuildContext context,
   WidgetRef ref, {
@@ -139,14 +135,7 @@ Future<void> _confirmDeath(
   required Future<GameEndSuggestion?> Function() action,
   required String verb,
   required int gameId,
-  required int? currentPlayerId,
-  required VoidCallback onUndo,
 }) async {
-  // toggle：已选中 → 撤销
-  if (currentPlayerId == player.id) {
-    onUndo();
-    return;
-  }
   final confirmed = await showDialog<bool>(
     context: context,
     builder: (context) => AlertDialog(
