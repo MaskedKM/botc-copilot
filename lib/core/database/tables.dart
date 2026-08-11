@@ -47,6 +47,12 @@ class Players extends Table {
 
   /// 死亡原因（存活则为空）。
   TextColumn get deathCause => textEnum<DeathCause>().nullable()();
+
+  @override
+  List<Set<Column<Object>>> get uniqueKeys => [
+        // 同一局中座位号唯一。
+        {gameId, seatNumber},
+      ];
 }
 
 /// 每日记录表：一天 = 夜晚 + 白天的聚合记录。
@@ -76,6 +82,12 @@ class DayRecords extends Table {
 
   /// 当日备注。
   TextColumn get notes => text().withDefault(const Constant(''))();
+
+  @override
+  List<Set<Column<Object>>> get uniqueKeys => [
+        // 同一局中天数唯一。
+        {gameId, dayNumber},
+      ];
 }
 
 /// 角色声明表：某玩家在某天声明的角色。

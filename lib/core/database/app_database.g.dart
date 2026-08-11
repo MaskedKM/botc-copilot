@@ -584,6 +584,10 @@ class $PlayersTable extends Players with TableInfo<$PlayersTable, Player> {
   @override
   Set<GeneratedColumn> get $primaryKey => {id};
   @override
+  List<Set<GeneratedColumn>> get uniqueKeys => [
+    {gameId, seatNumber},
+  ];
+  @override
   Player map(Map<String, dynamic> data, {String? tablePrefix}) {
     final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
     return Player(
@@ -1061,6 +1065,10 @@ class $DayRecordsTable extends DayRecords
 
   @override
   Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  List<Set<GeneratedColumn>> get uniqueKeys => [
+    {gameId, dayNumber},
+  ];
   @override
   DayRecord map(Map<String, dynamic> data, {String? tablePrefix}) {
     final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';

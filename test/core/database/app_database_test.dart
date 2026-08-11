@@ -81,6 +81,22 @@ void main() {
       expect(players.every((p) => p.isAlive), isTrue);
     });
 
+    test('唯一约束：同局座位号不可重复', () async {
+      final (gameId, _) = await seedGame();
+      await expectLater(
+        () => db.playersDao.insertAll([
+          PlayersCompanion(
+            gameId: Value(gameId),
+            name: const Value('重复座位'),
+            seatNumber: const Value(3),
+          ),
+        ]),
+        throwsA(
+          predicate<Object>((e) => e.toString().contains('UNIQUE')),
+        ),
+      );
+    });
+
     test('markDead / revive', () async {
       final (gameId, playerIds) = await seedGame();
       await db.playersDao.markDead(playerIds[2], 1, DeathCause.nightKill);
@@ -105,6 +121,19 @@ void main() {
           dayNumber: const Value(1),
           nightDeathPlayerId: Value(playerIds[3]),
           notes: const Value('首夜死亡'),
+        ),
+      );
+
+      // 唯一约束：同局同一天不可重复
+      await expectLater(
+        () => db.dayRecordsDao.insertDay(
+          DayRecordsCompanion(
+            gameId: Value(gameId),
+            dayNumber: const Value(1),
+          ),
+        ),
+        throwsA(
+          predicate<Object>((e) => e.toString().contains('UNIQUE')),
         ),
       );
 

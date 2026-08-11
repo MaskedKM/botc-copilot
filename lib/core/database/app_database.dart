@@ -60,6 +60,8 @@ class AppDatabase extends _$AppDatabase {
         beforeOpen: (details) async {
           // 启用外键约束（SQLite 默认关闭，级联删除依赖它）。
           await customStatement('PRAGMA foreign_keys = ON');
+          // WAL 模式：读写并发更好，适配 .watch() 高频 reactive 查询。
+          await customStatement('PRAGMA journal_mode = WAL');
         },
       );
 }
