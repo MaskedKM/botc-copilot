@@ -1,0 +1,12 @@
+include: package:very_good_analysis/analysis_options.yaml
+
+analyzer:
+  exclude:
+    - "**/*.g.dart"
+    - "**/*.freezed.dart"
+    - "lib/core/database/**.dart"
+linter:
+  rules:
+    # 显式保持启用：AGENTS.md 要求每个公共类/方法必须有 dartdoc。
+    # 注意：YAML 裸写 key = 启用；如要禁用需写 false。
+    public_member_api_docs:
