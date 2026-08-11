@@ -14,11 +14,14 @@ import 'package:botc_copilot/shared/models/enums.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-/// 玩家详情底部弹层（issue #7）。
+/// 玩家详情底部弹层（issue #7 / #69）。
 ///
-/// 内容：角色声明 + 角色自适应信息录入 + 信任度调整。
+/// 角色声明 / 信任度 / 醉毒标记采用**草稿→保存**模式：编辑只更新本地
+/// 草稿，点底部「保存」一次性提交，避免误点污染 RoleClaim / TrustLog
+/// 历史。信息录入与行为备注保留各自的提交语义（已有表单提交）。
+///
 /// 通过 [show] 弹出。
-class PlayerDetailSheet extends ConsumerWidget {
+class PlayerDetailSheet extends ConsumerStatefulWidget {
   /// 创建玩家详情弹层。
   const PlayerDetailSheet({
     required this.gameId,
@@ -51,96 +54,264 @@ class PlayerDetailSheet extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<PlayerDetailSheet> createState() => _PlayerDetailSheetState();
+}
+
+class _PlayerDetailSheetState extends ConsumerState<PlayerDetailSheet> {
+  // 草稿字段：未「触动」前显示来源值，触动后显示草稿值。
+  bool _roleTouched = false;
+  Character? _draftRole;
+  bool _trustTouched = false;
+  TrustLevel _draftTrust = TrustLevel.unknown;
+  bool _poisonTouched = false;
+  bool _draftPoison = false;
+
+  bool _saving = false;
+
+  /// 是否存在未保存的修改。
+  bool _isDirty({
+    required Character? initialRole,
+    required TrustLevel initialTrust,
+    required bool initialPoison,
+  }) =>
+      (_roleTouched && _draftRole != initialRole) ||
+      (_trustTouched && _draftTrust != initialTrust) ||
+      (_poisonTouched && _draftPoison != initialPoison);
+
+  /// 提交所有草稿变更到 DB，完成后关闭。
+  Future<void> _save({
+    required Character? initialRole,
+    required TrustLevel initialTrust,
+    required bool initialPoison,
+    required int day,
+  }) async {
+    setState(() => _saving = true);
+    try {
+      final repo = ref.read(playerDetailRepositoryProvider);
+      final poisonRepo = ref.read(poisonRepositoryProvider);
+      final notifier = ref.read(gameBoardProvider(widget.gameId).notifier);
+
+      // 角色声明（仅当改了且选了角色）
+      if (_roleTouched && _draftRole != null && _draftRole != initialRole) {
+        final dayRecordId = await notifier.ensureCurrentDayRecord();
+        await repo.claimRole(
+          playerId: widget.player.id,
+          dayRecordId: dayRecordId,
+          character: _draftRole!,
+        );
+      }
+      // 信任度
+      if (_trustTouched && _draftTrust != initialTrust) {
+        await repo.setTrustLevel(
+          gameId: widget.gameId,
+          playerId: widget.player.id,
+          day: day,
+          level: _draftTrust,
+        );
+      }
+      // 醉/毒（toggleStatus：草稿与初始不同时翻转一次即到位）
+      if (_poisonTouched && _draftPoison != initialPoison) {
+        await poisonRepo.toggleStatus(
+          gameId: widget.gameId,
+          playerId: widget.player.id,
+          dayNumber: day,
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('已保存')),
+      );
+      Navigator.of(context).pop();
+    }
+  }
+
+  /// 有未保存修改时弹「丢弃修改？」确认；无修改直接关闭。
+  Future<void> _confirmDiscardIfDirty({required bool dirty}) async {
+    if (!dirty) {
+      Navigator.of(context).pop();
+      return;
+    }
+    final discard = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('丢弃修改？'),
+        content: const Text('你有未保存的修改，确定要关闭吗？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('继续编辑'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('丢弃'),
+          ),
+        ],
+      ),
+    );
+    if (discard == true && mounted) {
+      Navigator.of(context).pop();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final playerId = widget.player.id;
     final claims =
-        ref.watch(playerClaimsProvider(player.id)).valueOrNull ?? [];
-    final declared = claims.isEmpty ? null : claims.last.character;
+        ref.watch(playerClaimsProvider(playerId)).valueOrNull ??
+            const <RoleClaim>[];
+    final initialRole = claims.isEmpty ? null : claims.last.character;
+
     final day = ref.watch(
-      gameBoardProvider(gameId).select((s) => s.currentDay),
+      gameBoardProvider(widget.gameId).select((s) => s.currentDay),
     );
     final players =
-        ref.watch(gamePlayersProvider(gameId)).valueOrNull ?? [];
+        ref.watch(gamePlayersProvider(widget.gameId)).valueOrNull ?? [];
 
-    return DraggableScrollableSheet(
-      initialChildSize: 0.7,
-      minChildSize: 0.4,
-      maxChildSize: 0.95,
-      expand: false,
-      builder: (context, scrollController) {
-        return ListView(
-          controller: scrollController,
-          padding: const EdgeInsets.all(16),
-          children: [
-            // 头部：座位号 + 名字 + 存活状态
-            Row(
-              children: [
-                Text(
-                  '${player.seatNumber}号 ${player.name}',
-                  style: AppTextStyles.title,
-                ),
-                const SizedBox(width: 8),
-                if (!player.isAlive)
-                  Text(
-                    '☠ 已死亡',
-                    style: AppTextStyles.caption
-                        .copyWith(color: context.gameColors.blood),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            _RoleClaimSection(
-              gameId: gameId,
-              player: player,
-              day: day,
-              claims: claims,
-            ),
-            const SizedBox(height: 16),
-            if (declared != null)
-              _InfoInputSection(
-                gameId: gameId,
-                player: player,
-                day: day,
-                character: declared,
-                players: players,
-              )
-            else
-              Text(
-                '先声明角色，再录入该角色的信息。',
-                style: AppTextStyles.caption
-                    .copyWith(color: context.gameColors.inkViolet),
-              ),
-            const SizedBox(height: 16),
-            _RecordedInfoSection(player: player, currentRole: declared),
-            const SizedBox(height: 16),
-            _PoisonSection(gameId: gameId, player: player, day: day),
-            const SizedBox(height: 16),
-            _BehaviorNoteSection(gameId: gameId, player: player, day: day),
-            const SizedBox(height: 16),
-            _TrustSection(gameId: gameId, player: player, day: day),
-          ],
-        );
+    final trustMap =
+        ref.watch(latestTrustLevelsProvider(widget.gameId)).valueOrNull ??
+            const <int, TrustLevel>{};
+    final initialTrust = trustMap[playerId] ?? TrustLevel.unknown;
+
+    final statuses =
+        ref.watch(gamePoisonStatusesProvider(widget.gameId)).valueOrNull ??
+            const <PoisonStatus>[];
+    final initialPoison = statuses.any(
+      (p) => p.playerId == playerId && p.dayNumber == day && p.isActive,
+    );
+
+    // 显示值：触动后取草稿，否则取来源值。
+    final displayRole = _roleTouched ? _draftRole : initialRole;
+    final displayTrust = _trustTouched ? _draftTrust : initialTrust;
+    final displayPoison = _poisonTouched ? _draftPoison : initialPoison;
+
+    final dirty = _isDirty(
+      initialRole: initialRole,
+      initialTrust: initialTrust,
+      initialPoison: initialPoison,
+    );
+
+    return PopScope(
+      // 有未保存修改时阻止直接返回 / 下拉关闭，改走确认。
+      canPop: !dirty,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _confirmDiscardIfDirty(dirty: dirty);
       },
+      child: DraggableScrollableSheet(
+        initialChildSize: 0.7,
+        minChildSize: 0.4,
+        maxChildSize: 0.95,
+        expand: false,
+        builder: (context, scrollController) {
+          return ListView(
+            controller: scrollController,
+            padding: const EdgeInsets.all(16),
+            children: [
+              // 头部：座位号 + 名字 + 存活状态
+              Row(
+                children: [
+                  Text(
+                    '${widget.player.seatNumber}号 ${widget.player.name}',
+                    style: AppTextStyles.title,
+                  ),
+                  const SizedBox(width: 8),
+                  if (!widget.player.isAlive)
+                    Text(
+                      '☠ 已死亡',
+                      style: AppTextStyles.caption
+                          .copyWith(color: context.gameColors.blood),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              _RoleClaimSection(
+                gameId: widget.gameId,
+                selected: displayRole,
+                onSelect: (c) => setState(() {
+                  _roleTouched = true;
+                  _draftRole = c;
+                }),
+              ),
+              const SizedBox(height: 16),
+              if (displayRole != null)
+                _InfoInputSection(
+                  gameId: widget.gameId,
+                  playerId: playerId,
+                  day: day,
+                  character: displayRole,
+                  players: players,
+                )
+              else
+                Text(
+                  '先声明角色，再录入该角色的信息。',
+                  style: AppTextStyles.caption
+                      .copyWith(color: context.gameColors.inkViolet),
+                ),
+              const SizedBox(height: 16),
+              _RecordedInfoSection(
+                playerId: playerId,
+                currentRole: displayRole,
+              ),
+              const SizedBox(height: 16),
+              _PoisonSection(
+                day: day,
+                marked: displayPoison,
+                onChanged: (v) => setState(() {
+                  _poisonTouched = true;
+                  _draftPoison = v;
+                }),
+              ),
+              const SizedBox(height: 16),
+              _BehaviorNoteSection(
+                gameId: widget.gameId,
+                playerId: playerId,
+                day: day,
+              ),
+              const SizedBox(height: 16),
+              _TrustSection(
+                current: displayTrust,
+                onSelect: (l) => setState(() {
+                  _trustTouched = true;
+                  _draftTrust = l;
+                }),
+              ),
+              const SizedBox(height: 20),
+              FilledButton.icon(
+                onPressed: (dirty && !_saving)
+                    ? () => _save(
+                          initialRole: initialRole,
+                          initialTrust: initialTrust,
+                          initialPoison: initialPoison,
+                          day: day,
+                        )
+                    : null,
+                icon: const Icon(Icons.save_outlined),
+                label: Text(_saving ? '保存中…' : '保存'),
+              ),
+            ],
+          );
+        },
+      ),
     );
   }
 }
 
-/// 角色声明区。
+/// 角色声明区（草稿：onSelect 只更新草稿，不写 DB）。
 class _RoleClaimSection extends ConsumerWidget {
   const _RoleClaimSection({
     required this.gameId,
-    required this.player,
-    required this.day,
-    required this.claims,
+    required this.selected,
+    required this.onSelect,
   });
 
   final int gameId;
-  final Player player;
-  final int day;
-  final List<RoleClaim> claims;
+  final Character? selected;
+  final void Function(Character) onSelect;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final claimed = claims.isEmpty ? null : claims.last.character;
     final helpLevel = ref.watch(gameHelpLevelProvider(gameId));
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -154,46 +325,35 @@ class _RoleClaimSection extends ConsumerWidget {
             for (final c in Character.values)
               ChoiceChip(
                 label: Text(c.nameCn),
-                selected: claimed == c,
-                onSelected: (_) async {
-                  final dayRecordId = await ref
-                      .read(gameBoardProvider(gameId).notifier)
-                      .ensureCurrentDayRecord();
-                  await ref
-                      .read(playerDetailRepositoryProvider)
-                      .claimRole(
-                        playerId: player.id,
-                        dayRecordId: dayRecordId,
-                        character: c,
-                      );
-                },
+                selected: selected == c,
+                onSelected: (_) => onSelect(c),
               ),
           ],
         ),
         // 新手模式：显示当前声明角色的能力描述（issue #41）
-        if (claimed != null)
+        if (selected != null)
           HelpTooltip(
             level: helpLevel,
             icon: Icons.auto_stories_outlined,
-            text: '${claimed.nameCn}：${claimed.ability}',
+            text: '${selected!.nameCn}：${selected!.ability}',
           ),
       ],
     );
   }
 }
 
-/// 信息录入区（按角色自适应）。
+/// 信息录入区（按角色自适应；保留自身表单提交语义，立即写 DB）。
 class _InfoInputSection extends ConsumerWidget {
   const _InfoInputSection({
     required this.gameId,
-    required this.player,
+    required this.playerId,
     required this.day,
     required this.character,
     required this.players,
   });
 
   final int gameId;
-  final Player player;
+  final int playerId;
   final int day;
   final Character character;
   final List<Player> players;
@@ -212,7 +372,7 @@ class _InfoInputSection extends ConsumerWidget {
             final notifier = ref.read(gameBoardProvider(gameId).notifier);
             final dayRecordId = await notifier.ensureCurrentDayRecord();
             await ref.read(playerDetailRepositoryProvider).declareInfo(
-                  playerId: player.id,
+                  playerId: playerId,
                   dayRecordId: dayRecordId,
                   character: character,
                   payload: payload,
@@ -237,17 +397,17 @@ class _InfoInputSection extends ConsumerWidget {
 /// 「改口历史」，弱化显示但不丢失——既避免新旧角色信息混在一起，
 /// 又保留改口轨迹供复盘。
 class _RecordedInfoSection extends ConsumerWidget {
-  const _RecordedInfoSection({required this.player, required this.currentRole});
+  const _RecordedInfoSection({required this.playerId, required this.currentRole});
 
-  final Player player;
+  final int playerId;
 
-  /// 当前声明角色（claims.last）；null = 尚未声明，回退为显示全部。
+  /// 当前声明角色（草稿或来源值）；null = 尚未声明，回退为显示全部。
   final Character? currentRole;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final declarations =
-        ref.watch(playerDeclarationsProvider(player.id)).valueOrNull ?? [];
+        ref.watch(playerDeclarationsProvider(playerId)).valueOrNull ?? [];
     if (declarations.isEmpty) return const SizedBox.shrink();
 
     final current = currentRole == null
@@ -325,23 +485,15 @@ class _InfoRow extends StatelessWidget {
   }
 }
 
-/// 信任度调整区（5 档滑块，实时反映到圆环色环）。
-class _TrustSection extends ConsumerWidget {
-  const _TrustSection({
-    required this.gameId,
-    required this.player,
-    required this.day,
-  });
+/// 信任度调整区（草稿：onSelect 只更新草稿，不写 DB）。
+class _TrustSection extends StatelessWidget {
+  const _TrustSection({required this.current, required this.onSelect});
 
-  final int gameId;
-  final Player player;
-  final int day;
+  final TrustLevel current;
+  final void Function(TrustLevel) onSelect;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final levels = ref.watch(latestTrustLevelsProvider(gameId)).valueOrNull ??
-        const <int, TrustLevel>{};
-    final current = levels[player.id] ?? TrustLevel.unknown;
+  Widget build(BuildContext context) {
     final gameColors = context.gameColors;
 
     return Column(
@@ -362,13 +514,7 @@ class _TrustSection extends ConsumerWidget {
                       ? AppColors.textOnGold
                       : AppColors.textPrimary,
                 ),
-                onSelected: (_) =>
-                    ref.read(playerDetailRepositoryProvider).setTrustLevel(
-                          gameId: gameId,
-                          playerId: player.id,
-                          day: day,
-                          level: level,
-                        ),
+                onSelected: (_) => onSelect(level),
               ),
           ],
         ),
@@ -377,25 +523,20 @@ class _TrustSection extends ConsumerWidget {
   }
 }
 
-/// 醉/毒标记区（issue #35）。
-class _PoisonSection extends ConsumerWidget {
+/// 醉/毒标记区（草稿：onChanged 只更新草稿，不写 DB）。
+class _PoisonSection extends StatelessWidget {
   const _PoisonSection({
-    required this.gameId,
-    required this.player,
     required this.day,
+    required this.marked,
+    required this.onChanged,
   });
 
-  final int gameId;
-  final Player player;
   final int day;
+  final bool marked;
+  final void Function(bool) onChanged;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final statuses =
-        ref.watch(gamePoisonStatusesProvider(gameId)).valueOrNull ?? [];
-    final marked = statuses.any(
-      (p) => p.playerId == player.id && p.dayNumber == day && p.isActive,
-    );
+  Widget build(BuildContext context) {
     final gameColors = context.gameColors;
 
     return Column(
@@ -416,29 +557,23 @@ class _PoisonSection extends ConsumerWidget {
           ),
           value: marked,
           activeTrackColor: gameColors.inkViolet,
-          onChanged: (_) {
-            ref.read(poisonRepositoryProvider).toggleStatus(
-                  gameId: gameId,
-                  playerId: player.id,
-                  dayNumber: day,
-                );
-          },
+          onChanged: onChanged,
         ),
       ],
     );
   }
 }
 
-/// 行为备注区（issue #36）。
+/// 行为备注区（issue #36；保留自身提交语义，立即写 DB）。
 class _BehaviorNoteSection extends ConsumerStatefulWidget {
   const _BehaviorNoteSection({
     required this.gameId,
-    required this.player,
+    required this.playerId,
     required this.day,
   });
 
   final int gameId;
-  final Player player;
+  final int playerId;
   final int day;
 
   @override
@@ -446,8 +581,7 @@ class _BehaviorNoteSection extends ConsumerStatefulWidget {
       _BehaviorNoteSectionState();
 }
 
-class _BehaviorNoteSectionState
-    extends ConsumerState<_BehaviorNoteSection> {
+class _BehaviorNoteSectionState extends ConsumerState<_BehaviorNoteSection> {
   final _controller = TextEditingController();
 
   @override
@@ -461,7 +595,7 @@ class _BehaviorNoteSectionState
     if (note.isEmpty) return;
     await ref.read(behaviorNoteRepositoryProvider).addNote(
           gameId: widget.gameId,
-          playerId: widget.player.id,
+          playerId: widget.playerId,
           dayNumber: widget.day,
           note: note,
         );
@@ -471,7 +605,7 @@ class _BehaviorNoteSectionState
   @override
   Widget build(BuildContext context) {
     final todayNotes = ref
-            .watch(playerDayNotesProvider((widget.player.id, widget.day)))
+            .watch(playerDayNotesProvider((widget.playerId, widget.day)))
             .valueOrNull ??
         [];
     final gameColors = context.gameColors;
