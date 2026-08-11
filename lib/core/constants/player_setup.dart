@@ -134,11 +134,19 @@ class PlayerSetup {
   }
 
   /// Baron 在场时的修正配置：+2 外来者、-2 镇民。
-  PlayerSetup withBaron() => PlayerSetup._(
-        playerCount: playerCount,
-        townsfolk: townsfolk - 2,
-        outsiders: outsiders + 2,
-        minions: minions,
-        demons: demons,
-      );
+  ///
+  /// 断言镇民数足够（5 人局 + Baron 后剩 1 镇民，规则上合法但极端）。
+  PlayerSetup withBaron() {
+    assert(
+      townsfolk >= 2,
+      'Baron 修正后镇民数不能为负（当前 $townsfolk）',
+    );
+    return PlayerSetup._(
+      playerCount: playerCount,
+      townsfolk: townsfolk - 2,
+      outsiders: outsiders + 2,
+      minions: minions,
+      demons: demons,
+    );
+  }
 }

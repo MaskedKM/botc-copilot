@@ -237,7 +237,8 @@ enum Character {
   /// 信息输入模板类型。
   final InfoInputType infoInputType;
 
-  /// 所属剧本（当前全部角色均属 TB；扩展 BMR/S&V 时改为构造参数）。
+  /// 所属剧本（当前全部角色均属 TB）。
+  // TODO: 扩展 BMR/S&V 角色时改为构造参数（搜索本标记）。
   Script get script => Script.troubleBrewing;
 
   /// 是否善良阵营。
