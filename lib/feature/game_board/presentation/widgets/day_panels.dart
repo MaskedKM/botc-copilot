@@ -202,14 +202,23 @@ Future<void> _handleEndSuggestion(
       if (context.mounted &&
           !(result.goodWin ?? false) &&
           GameEndRules.isEvilWinCandidate(aliveCountAfter)) {
-        final confirmed = await EndGameDialog.showEvilCandidate(
-          context,
-          aliveCount: aliveCountAfter,
-        );
-        if (confirmed ?? false) {
-          await notifier.endGame(goodWin: false);
-        }
+        await _checkEvilWinAfterExecution(context, notifier, aliveCountAfter);
       }
+  }
+}
+
+/// 处决非恶魔后，若存活 ≤ 2 则级联提示邪恶获胜。
+Future<void> _checkEvilWinAfterExecution(
+  BuildContext context,
+  GameBoardNotifier notifier,
+  int aliveCount,
+) async {
+  final confirmed = await EndGameDialog.showEvilCandidate(
+    context,
+    aliveCount: aliveCount,
+  );
+  if (confirmed ?? false) {
+    await notifier.endGame(goodWin: false);
   }
 }
 
