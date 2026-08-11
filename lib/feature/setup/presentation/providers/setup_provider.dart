@@ -77,6 +77,11 @@ class SetupNotifier extends StateNotifier<SetupState> {
     state = state.copyWith(demonBluffs: bluffs);
   }
 
+  /// 选择我的座位号（1-based）。
+  void selectMySeat(int seat) {
+    state = state.copyWith(mySeat: seat);
+  }
+
   /// 下一步。
   void nextStep() {
     if (state.canProceed && state.step < SetupState.totalSteps - 1) {
@@ -105,6 +110,7 @@ class SetupNotifier extends StateNotifier<SetupState> {
             names: state.playerNames,
             myRole: state.myRole!,
             demonBluffs: state.demonBluffs,
+            mySeat: state.mySeat,
           );
       // 异步间隙中页面可能已跳转、notifier 已 dispose，需 mounted 守卫。
       if (mounted) state = SetupState();
