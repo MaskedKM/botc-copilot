@@ -1,4 +1,4 @@
-import 'package:botc_copilot/core/theme/app_colors.dart';
+import 'package:botc_copilot/core/theme/app_text_styles.dart';
 import 'package:flutter/material.dart';
 
 /// 骨架期占位页：暗色底 + 居中标题。
@@ -18,12 +18,7 @@ class PlaceholderPage extends StatelessWidget {
       body: Center(
         child: Text(
           title,
-          style: const TextStyle(
-            fontSize: 28,
-            height: 36 / 28,
-            fontWeight: FontWeight.bold,
-            color: AppColors.textPrimary,
-          ),
+          style: AppTextStyles.display,
         ),
       ),
     );
