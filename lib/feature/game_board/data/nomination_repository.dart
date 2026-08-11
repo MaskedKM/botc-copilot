@@ -12,11 +12,11 @@ final dayNominationsProvider =
         (ref, key) {
   final db = ref.watch(appDatabaseProvider);
   final (gameId, day) = key;
-  // 经 day_records 关联过滤到某天
-  return db.dayRecordsDao.watchByGame(gameId).asyncMap((days) async {
+  // asyncExpand 保持两层流都是活的：天记录或提名任一变化都刷新。
+  return db.dayRecordsDao.watchByGame(gameId).asyncExpand((days) {
     final dayRecord = days.where((d) => d.dayNumber == day).firstOrNull;
-    if (dayRecord == null) return <Nomination>[];
-    return db.nominationsDao.watchByDay(dayRecord.id).first;
+    if (dayRecord == null) return Stream.value(<Nomination>[]);
+    return db.nominationsDao.watchByDay(dayRecord.id);
   });
 });
 
