@@ -5,7 +5,8 @@ import 'package:botc_copilot/feature/game_board/presentation/providers/game_boar
 import 'package:botc_copilot/feature/reasoning/domain/contradiction.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-final _claimsProvider =
+/// 某对局的全部角色声明流。
+final gameClaimsProvider =
     StreamProvider.family<List<RoleClaim>, int>((ref, gameId) {
   return ref.watch(appDatabaseProvider).roleClaimsDao.watchByGame(gameId);
 });
@@ -26,7 +27,7 @@ final _daysProvider =
 /// 当前对局的矛盾标记流（issue #38）。
 final contradictionsProvider = Provider.family<List<Contradiction>, int>(
   (ref, gameId) {
-    final claims = ref.watch(_claimsProvider(gameId)).valueOrNull ?? [];
+    final claims = ref.watch(gameClaimsProvider(gameId)).valueOrNull ?? [];
     final declarations =
         ref.watch(_declarationsProvider(gameId)).valueOrNull ?? [];
     final days = ref.watch(_daysProvider(gameId)).valueOrNull ?? [];
