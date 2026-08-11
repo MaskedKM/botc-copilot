@@ -1,3 +1,5 @@
+import 'package:botc_copilot/core/router.dart';
+import 'package:go_router/go_router.dart';
 import 'package:botc_copilot/core/theme/app_colors.dart';
 import 'package:botc_copilot/core/theme/app_text_styles.dart';
 import 'package:botc_copilot/core/theme/game_colors.dart';
@@ -89,6 +91,11 @@ class _GameBoardBody extends ConsumerWidget {
           ),
         ),
         actions: [
+          IconButton(
+            tooltip: '事件时间线',
+            icon: const Icon(Icons.timeline),
+            onPressed: () => context.push(AppRoutes.timeline(gameId)),
+          ),
           IconButton(
             tooltip: '推进到下一天',
             icon: const Icon(Icons.skip_next),

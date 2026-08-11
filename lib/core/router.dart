@@ -15,8 +15,8 @@ abstract final class AppRoutes {
   /// 对局主界面（座位圆环 + 当日面板），携带对局 id。
   static String gameBoard(int gameId) => '/game/$gameId';
 
-  /// 每日事件流时间线。
-  static const String timeline = '/timeline';
+  /// 每日事件流时间线，携带对局 id。
+  static String timeline(int gameId) => '/game/$gameId/timeline';
 }
 
 /// 创建全局路由。
@@ -42,8 +42,11 @@ GoRouter createAppRouter() => GoRouter(
       },
     ),
     GoRoute(
-      path: AppRoutes.timeline,
-      builder: (context, state) => const TimelinePage(),
+      path: '/game/:id/timeline',
+      builder: (context, state) {
+        final gameId = int.parse(state.pathParameters['id']!);
+        return TimelinePage(gameId: gameId);
+      },
     ),
   ],
 );
