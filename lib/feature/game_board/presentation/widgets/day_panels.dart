@@ -251,6 +251,12 @@ Future<void> handleEndSuggestion(
 ) async {
   final notifier = ref.read(gameBoardProvider(gameId).notifier);
   switch (suggestion) {
+    case MayorVictoryCandidate():
+      // 市长特殊胜利（issue #88）：3 人存活且当日无人被处决。
+      final confirmed = await EndGameDialog.showMayorCheck(context);
+      if (confirmed ?? false) {
+        await notifier.endGame(goodWin: true);
+      }
     case EvilWinCandidate(:final aliveCount):
       final confirmed = await EndGameDialog.showEvilCandidate(
         context,
