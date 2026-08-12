@@ -141,8 +141,12 @@ void main() {
   /// 默认：无声明 / 无信任记录 / 无毒标记。
   /// [myPlayerId] 模拟「我的座位」（issue #105）：设为 me.id 时点自己座位
   /// 应识别「这是我」并以真实角色录入。
-  Widget buildSheet({int? myPlayerId}) {
-    final g = game.copyWith(myPlayerId: Value(myPlayerId));
+  /// [myRole] 覆盖我的真实角色（默认沿用顶层 game 的 empath）。
+  Widget buildSheet({int? myPlayerId, Character? myRole}) {
+    final g = game.copyWith(
+      myPlayerId: Value(myPlayerId),
+      myRole: Value(myRole ?? game.myRole),
+    );
     return ProviderScope(
       overrides: [
         gameByIdProvider(1).overrideWith((ref) => Stream.value(g)),
@@ -308,6 +312,15 @@ void main() {
     expect(detailRepo.declareCalls, 1);
     expect(detailRepo.lastDeclareIsMine, isTrue);
     expect(find.text('我的信息已记录'), findsOneWidget);
+  });
+
+  testWidgets('我座位：一次性能力按真实角色显示（myRole=slayer）', (tester) async {
+    useTallSurface(tester);
+    await tester.pumpWidget(buildSheet(myPlayerId: me.id, myRole: Character.slayer));
+    await tester.pump();
+
+    // 能力区按真实角色（猎杀者）显示，无需公开声明
+    expect(find.text('一次性能力 · 猎杀者'), findsOneWidget);
   });
 
   testWidgets('他人座位行为不变：仍要求先声明角色', (tester) async {
