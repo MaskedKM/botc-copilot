@@ -175,6 +175,42 @@ void main() {
     expect(day2, isNotNull);
   });
 
+  test('revertAdvanceDay：空记录的预建天可回退（#87）', () async {
+    await notifier().advanceDay(); // → day 2（预建，空）
+    expect(state().currentDay, 2);
+    final ok = await notifier().revertAdvanceDay();
+    expect(ok, isTrue);
+    expect(state().currentDay, 1);
+    final day2 = await db.dayRecordsDao.getByGameAndDay(gameId, 2);
+    expect(day2, isNull); // 预建记录已删
+  });
+
+  test('revertAdvanceDay：当天有夜晚死亡不可回退（#87）', () async {
+    await notifier().advanceDay(); // → day 2
+    await notifier().recordNightDeath(players[1].id); // day 2 有夜死
+    final ok = await notifier().revertAdvanceDay();
+    expect(ok, isFalse);
+    expect(state().currentDay, 2); // 未回退
+  });
+
+  test('revertAdvanceDay：当天有角色声明不可回退（review M1 级联）', () async {
+    await notifier().advanceDay(); // → day 2
+    final day2 = await db.dayRecordsDao.getByGameAndDay(gameId, 2);
+    await db.roleClaimsDao.insertClaim(
+      RoleClaimsCompanion(
+        playerId: Value(players[0].id),
+        dayRecordId: Value(day2!.id),
+        character: const Value(Character.empath),
+        claimType: const Value(ClaimType.firstClaim),
+      ),
+    );
+    final ok = await notifier().revertAdvanceDay();
+    expect(ok, isFalse); // 有声明 → 拒绝回退（避免级联删声明）
+    expect(state().currentDay, 2);
+    final claims = await db.roleClaimsDao.watchByDay(day2.id).first;
+    expect(claims, hasLength(1)); // 声明仍在，未被级联删除
+  });
+
   test('advanceDay 幂等：重复推进不重复建记录', () async {
     await notifier().advanceDay();
     await notifier().advanceDay();

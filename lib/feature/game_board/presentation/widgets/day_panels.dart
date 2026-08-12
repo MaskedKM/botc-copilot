@@ -30,6 +30,7 @@ class NightPanel extends ConsumerWidget {
     final players = ref.watch(gamePlayersProvider(gameId)).valueOrNull ?? [];
     final notifier = ref.read(gameBoardProvider(gameId).notifier);
     final helpLevel = ref.watch(gameHelpLevelProvider(gameId));
+    final ongoing = ref.watch(isGameOngoingProvider(gameId));
 
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -42,23 +43,25 @@ class NightPanel extends ConsumerWidget {
           children: [
             ChoiceChip(
               label: const Text('无人死亡'),
-              // 选中态由显式 nightConfirmed 驱动，避免预建记录假选中（#77）。
+              // 选中态由显式 nightConfirmed 驱动（#77）；onSelected gate ongoing（#81）
               selected: dayRecord?.nightConfirmed == true &&
                   dayRecord?.nightDeathPlayerId == null,
-              onSelected: (_) => notifier.recordNightDeath(null),
+              onSelected: ongoing ? (_) => notifier.recordNightDeath(null) : null,
             ),
             for (final p in players.where((p) => p.isAlive))
               ChoiceChip(
                 label: Text('${p.seatNumber}号 ${p.name}'),
                 selected: dayRecord?.nightDeathPlayerId == p.id,
-                onSelected: (_) => confirmDeath(
-                  context,
-                  ref,
-                  player: p,
-                  action: () => notifier.recordNightDeath(p.id),
-                  verb: '夜晚死亡',
-                  gameId: gameId,
-                ),
+                onSelected: ongoing
+                    ? (_) => confirmDeath(
+                          context,
+                          ref,
+                          player: p,
+                          action: () => notifier.recordNightDeath(p.id),
+                          verb: '夜晚死亡',
+                          gameId: gameId,
+                        )
+                    : null,
               ),
           ],
         ),
@@ -91,6 +94,7 @@ class DayPanel extends ConsumerWidget {
     final todayNominations =
         ref.watch(dayNominationsProvider((gameId, day))).valueOrNull ?? [];
     final notifier = ref.read(gameBoardProvider(gameId).notifier);
+    final ongoing = ref.watch(isGameOngoingProvider(gameId));
 
     // 处决合法性参考（issue #85）：当天「即将死亡」者
     final aliveCount = players.where((p) => p.isAlive).length;
@@ -123,7 +127,7 @@ class DayPanel extends ConsumerWidget {
               label: const Text('无处决'),
               selected:
                   dayRecord?.dayExecutionPlayerId == null && dayRecord != null,
-              onSelected: (_) => notifier.recordExecution(null),
+              onSelected: ongoing ? (_) => notifier.recordExecution(null) : null,
             ),
             for (final p in players)
               ChoiceChip(
@@ -133,15 +137,17 @@ class DayPanel extends ConsumerWidget {
                   '${p.isAlive ? '' : ' ☠'}',
                 ),
                 selected: dayRecord?.dayExecutionPlayerId == p.id,
-                onSelected: (_) => _confirmExecution(
-                  context,
-                  ref,
-                  player: p,
-                  gameId: gameId,
-                  pendingId: pendingId,
-                  pendingLabel: pendingLabel,
-                  notifier: notifier,
-                ),
+                onSelected: ongoing
+                    ? (_) => _confirmExecution(
+                          context,
+                          ref,
+                          player: p,
+                          gameId: gameId,
+                          pendingId: pendingId,
+                          pendingLabel: pendingLabel,
+                          notifier: notifier,
+                        )
+                    : null,
               ),
           ],
         ),

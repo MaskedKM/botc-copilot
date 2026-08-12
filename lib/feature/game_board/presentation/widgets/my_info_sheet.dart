@@ -39,6 +39,7 @@ class MyInfoSheet extends ConsumerWidget {
         ref.watch(gamePlayersProvider(game.id)).valueOrNull ?? [];
     final myRole = game.myRole;
     final gameColors = context.gameColors;
+    final ongoing = ref.watch(isGameOngoingProvider(game.id));
 
     return Padding(
       padding: const EdgeInsets.all(16),
@@ -96,34 +97,52 @@ class MyInfoSheet extends ConsumerWidget {
                       style: AppTextStyles.caption
                           .copyWith(color: gameColors.inkViolet),
                     ),
-                    const SizedBox(height: 8),
-                    InfoInputFactory.build(
-                      character: myRole,
-                      players: players,
-                      onSubmit: (payload) async {
-                        final dayRecordId = await ref
-                            .read(gameBoardProvider(game.id).notifier)
-                            .ensureCurrentDayRecord();
-                        await ref
-                            .read(playerDetailRepositoryProvider)
-                            .declareInfo(
-                              playerId: myPlayer.id,
-                              dayRecordId: dayRecordId,
-                              character: myRole,
-                              payload: payload,
-                              isMine: true,
-                              gameId: game.id,
-                              dayNumber: ref
-                                  .read(gameBoardProvider(game.id))
-                                  .currentDay,
-                            );
-                        if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('我的信息已记录')),
-                          );
-                        }
-                      },
+                    // #86：任何阶段可修正我的座位（开局选错可补救）
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: TextButton.icon(
+                        onPressed: () =>
+                            _changeSeatDialog(context, ref, game, players),
+                        icon: const Icon(Icons.swap_horiz, size: 18),
+                        label: const Text('更换座位'),
+                      ),
                     ),
+                    const SizedBox(height: 8),
+                    // #81：对局结束后信息录入只读（更换座位 #86 不受影响）
+                    if (ongoing)
+                      InfoInputFactory.build(
+                        character: myRole,
+                        players: players,
+                        onSubmit: (payload) async {
+                          final dayRecordId = await ref
+                              .read(gameBoardProvider(game.id).notifier)
+                              .ensureCurrentDayRecord();
+                          await ref
+                              .read(playerDetailRepositoryProvider)
+                              .declareInfo(
+                                playerId: myPlayer.id,
+                                dayRecordId: dayRecordId,
+                                character: myRole,
+                                payload: payload,
+                                isMine: true,
+                                gameId: game.id,
+                                dayNumber: ref
+                                    .read(gameBoardProvider(game.id))
+                                    .currentDay,
+                              );
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('我的信息已记录')),
+                            );
+                          }
+                        },
+                      )
+                    else
+                      Text(
+                        '对局已结束，信息只读。',
+                        style: AppTextStyles.caption
+                            .copyWith(color: gameColors.inkViolet),
+                      ),
                   ],
                 );
               },
@@ -138,5 +157,59 @@ class MyInfoSheet extends ConsumerWidget {
         ],
       ),
     );
+  }
+}
+
+/// 更换我的座位（issue #86）：选座 → 二次确认 → 写 myPlayerId。
+Future<void> _changeSeatDialog(
+  BuildContext context,
+  WidgetRef ref,
+  Game game,
+  List<Player> players,
+) async {
+  var picked = game.myPlayerId;
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (ctx) => StatefulBuilder(
+      builder: (ctx, setState) => AlertDialog(
+        title: const Text('更换我的座位'),
+        content: Wrap(
+          spacing: 8,
+          runSpacing: 4,
+          children: [
+            for (final p in players)
+              ChoiceChip(
+                label: Text('${p.seatNumber}号 ${p.name}'),
+                selected: picked == p.id,
+                onSelected: (_) => setState(() => picked = p.id),
+              ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: picked == null
+                ? null
+                : () => Navigator.pop(ctx, true),
+            child: const Text('确认'),
+          ),
+        ],
+      ),
+    ),
+  );
+  final id = picked;
+  if (confirmed == true && id != null && id != game.myPlayerId) {
+    await ref
+        .read(appDatabaseProvider)
+        .gamesDao
+        .updateMyPlayerId(game.id, id);
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('已更换座位')),
+      );
+    }
   }
 }

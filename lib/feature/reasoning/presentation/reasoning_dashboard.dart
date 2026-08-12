@@ -173,7 +173,7 @@ class _DemonPoolSection extends StatelessWidget {
   }
 }
 
-class _TrustGroupTile extends StatelessWidget {
+class _TrustGroupTile extends ConsumerWidget {
   const _TrustGroupTile({
     required this.level,
     required this.players,
@@ -185,9 +185,11 @@ class _TrustGroupTile extends StatelessWidget {
   final int gameId;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final gameColors = context.gameColors;
     final color = gameColors.ofTrustLevel(level);
+    // #81：对局结束后玩家详情只读（不可打开写入）
+    final ongoing = ref.watch(isGameOngoingProvider(gameId));
 
     return Card(
       margin: const EdgeInsets.only(bottom: 6),
@@ -218,11 +220,13 @@ class _TrustGroupTile extends StatelessWidget {
               children: [
                 for (final p in players)
                   InkWell(
-                    onTap: () => PlayerDetailSheet.show(
-                      context,
-                      gameId: gameId,
-                      player: p,
-                    ),
+                    onTap: ongoing
+                        ? () => PlayerDetailSheet.show(
+                            context,
+                            gameId: gameId,
+                            player: p,
+                          )
+                        : null,
                     child: Chip(
                       label: Text(
                         '${p.seatNumber}号 ${p.name}'

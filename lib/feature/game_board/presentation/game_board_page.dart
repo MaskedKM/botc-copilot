@@ -131,8 +131,36 @@ class _GameBoardBody extends ConsumerWidget {
           IconButton(
             tooltip: '推进到下一天',
             icon: const Icon(Icons.skip_next),
-            onPressed: () =>
-                ref.read(gameBoardProvider(gameId).notifier).advanceDay(),
+            // #81：对局结束后禁用；#87：推进后提供撤销
+            onPressed: game.status != GameStatus.ongoing
+                ? null
+                : () async {
+                    final notifier =
+                        ref.read(gameBoardProvider(gameId).notifier);
+                    await notifier.advanceDay();
+                    if (!context.mounted) return;
+                    final advancedDay = ref.read(
+                      gameBoardProvider(gameId).select((s) => s.currentDay),
+                    );
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('已推进到第 $advancedDay 天'),
+                        action: SnackBarAction(
+                          label: '撤销',
+                          onPressed: () async {
+                            final ok = await notifier.revertAdvanceDay();
+                            if (!ok && context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('当天已有记录，无法回退'),
+                                ),
+                              );
+                            }
+                          },
+                        ),
+                      ),
+                    );
+                  },
           ),
           PopupMenuButton<String>(
             onSelected: (v) => _onMenu(context, ref, v),

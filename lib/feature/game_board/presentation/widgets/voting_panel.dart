@@ -27,6 +27,7 @@ class VotingPanel extends ConsumerWidget {
     final dayRecord =
         ref.watch(currentDayRecordProvider((gameId, day))).valueOrNull;
     final gameColors = context.gameColors;
+    final ongoing = ref.watch(isGameOngoingProvider(gameId));
 
     final playersById = {for (final p in players) p.id: p};
 
@@ -85,16 +86,18 @@ class VotingPanel extends ConsumerWidget {
                 if (pending is PendingExecution && pendingNominee != null) ...[
                   const SizedBox(height: 8),
                   FilledButton.icon(
-                    onPressed: () => confirmDeath(
-                      context,
-                      ref,
-                      player: pendingNominee,
-                      action: () => ref
-                          .read(gameBoardProvider(gameId).notifier)
-                          .recordExecution(pendingNominee.id),
-                      verb: '处决',
-                      gameId: gameId,
-                    ),
+                    onPressed: ongoing
+                        ? () => confirmDeath(
+                            context,
+                            ref,
+                            player: pendingNominee,
+                            action: () => ref
+                                .read(gameBoardProvider(gameId).notifier)
+                                .recordExecution(pendingNominee.id),
+                            verb: '处决',
+                            gameId: gameId,
+                          )
+                        : null,
                     icon: const Icon(Icons.gavel),
                     label: const Text('记录处决'),
                   ),
@@ -175,8 +178,13 @@ class VotingPanel extends ConsumerWidget {
                                 size: 20,
                                 color: gameColors.inkViolet,
                               ),
-                              onPressed: () =>
-                                  _confirmDeleteNomination(context, ref, n.id),
+                              onPressed: ongoing
+                                  ? () => _confirmDeleteNomination(
+                                        context,
+                                        ref,
+                                        n.id,
+                                      )
+                                  : null,
                             ),
                           ],
                         ),
@@ -188,7 +196,7 @@ class VotingPanel extends ConsumerWidget {
         Padding(
           padding: const EdgeInsets.all(16),
           child: FilledButton.icon(
-            onPressed: (players.isEmpty || executed)
+            onPressed: (players.isEmpty || executed || !ongoing)
                 ? null
                 : () => NominationEntrySheet.show(context, gameId: gameId),
             icon: const Icon(Icons.how_to_vote),
