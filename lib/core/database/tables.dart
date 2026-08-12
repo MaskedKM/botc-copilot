@@ -70,6 +70,14 @@ class Players extends Table {
   BoolColumn get abilityUsed =>
       boolean().withDefault(const Constant(false))();
 
+  /// 疑似醉汉（整局身份推测，issue #109）。
+  ///
+  /// 官方规则：醉汉是**整局身份**（从头到尾醉酒，非按天毒），其所有天的
+  /// 信息都为假。这与「按天的毒」（PoisonStatuses）语义不同——故挂在玩家
+  /// 上作整局标记。标记后该玩家全部信息（历史+未来）按可能不可靠处理。
+  BoolColumn get suspectedDrunk =>
+      boolean().withDefault(const Constant(false))();
+
   @override
   List<Set<Column<Object>>> get uniqueKeys => [
         // 同一局中座位号唯一。

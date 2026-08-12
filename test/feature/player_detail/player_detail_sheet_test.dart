@@ -2,6 +2,7 @@ import 'package:botc_copilot/core/constants/character.dart';
 import 'package:botc_copilot/core/constants/script.dart';
 import 'package:botc_copilot/core/database/app_database.dart';
 import 'package:botc_copilot/core/theme/app_theme.dart';
+import 'package:botc_copilot/core/theme/game_colors.dart';
 import 'package:botc_copilot/feature/game_board/data/poison_repository.dart';
 import 'package:botc_copilot/feature/game_board/presentation/providers/game_board_provider.dart';
 import 'package:botc_copilot/feature/player_detail/data/behavior_note_repository.dart';
@@ -21,6 +22,8 @@ class _FakePlayerDetailRepository implements PlayerDetailRepository {
   int trustCalls = 0;
   bool? lastDeclareIsMine;
   int declareCalls = 0;
+  int drunkCalls = 0;
+  bool? lastSuspectedDrunk;
 
   @override
   Future<int> claimRole({
@@ -62,6 +65,13 @@ class _FakePlayerDetailRepository implements PlayerDetailRepository {
 
   @override
   Future<void> deleteDeclaration(int id) async {}
+
+  @override
+  Future<int> setSuspectedDrunk(int playerId, {required bool suspected}) async {
+    drunkCalls++;
+    lastSuspectedDrunk = suspected;
+    return 1;
+  }
 }
 
 class _FakePoisonRepository implements PoisonRepository {
@@ -111,7 +121,7 @@ void main() {
     name: 'A',
     seatNumber: 1,
     isAlive: true,
-    abilityUsed: false,
+    abilityUsed: false, suspectedDrunk: false,
     deathDay: null,
     deathCause: null,
   );
@@ -126,7 +136,9 @@ void main() {
       ..claimCalls = 0
       ..trustCalls = 0
       ..declareCalls = 0
-      ..lastDeclareIsMine = null;
+      ..lastDeclareIsMine = null
+      ..drunkCalls = 0
+      ..lastSuspectedDrunk = null;
     poisonRepo.toggleCalls = 0;
   });
 
@@ -142,7 +154,14 @@ void main() {
   /// [myPlayerId] 模拟「我的座位」（issue #105）：设为 me.id 时点自己座位
   /// 应识别「这是我」并以真实角色录入。
   /// [myRole] 覆盖我的真实角色（默认沿用顶层 game 的 empath）。
-  Widget buildSheet({int? myPlayerId, Character? myRole}) {
+  /// [suspectedDrunk] 模拟玩家已被标「疑似醉汉」（#109，测 overlay 显示）。
+  /// [declarations] 覆盖已录入信息（默认空）。
+  Widget buildSheet({
+    int? myPlayerId,
+    Character? myRole,
+    bool suspectedDrunk = false,
+    List<InfoDeclaration> declarations = const [],
+  }) {
     final g = game.copyWith(
       myPlayerId: Value(myPlayerId),
       myRole: Value(myRole ?? game.myRole),
@@ -150,14 +169,15 @@ void main() {
     return ProviderScope(
       overrides: [
         gameByIdProvider(1).overrideWith((ref) => Stream.value(g)),
-        gamePlayersProvider(1)
-            .overrideWith((ref) => Stream.value([me])),
+        gamePlayersProvider(1).overrideWith(
+          (ref) => Stream.value([me.copyWith(suspectedDrunk: suspectedDrunk)]),
+        ),
         gameBoardProvider(1)
             .overrideWith((ref) => _FakeGameBoardNotifier(ref, 1)),
         playerClaimsProvider(1)
             .overrideWith((ref) => Stream.value(const <RoleClaim>[])),
         playerDeclarationsProvider(1)
-            .overrideWith((ref) => Stream.value(const <InfoDeclaration>[])),
+            .overrideWith((ref) => Stream.value(declarations)),
         latestTrustLevelsProvider(1)
             .overrideWith((ref) => Stream.value(const <int, TrustLevel>{})),
         gamePoisonStatusesProvider(1)
@@ -192,7 +212,7 @@ void main() {
     expect(saveAfter.onPressed, isNotNull);
   });
 
-  testWidgets('保存一次性提交角色/信任度/醉毒草稿', (tester) async {
+  testWidgets('保存一次性提交角色/信任度/毒草稿', (tester) async {
     useTallSurface(tester);
     await tester.pumpWidget(buildSheet());
     await tester.pump();
@@ -201,7 +221,7 @@ void main() {
     await tester.pump();
     await tester.tap(find.text('确信好人')); // 信任度草稿
     await tester.pump();
-    await tester.tap(find.byType(SwitchListTile)); // 醉毒草稿
+    await tester.tap(find.text('标记为可能被毒（第 1 天）')); // 毒草稿（#109 拆分）
     await tester.pump();
 
     // 草稿阶段均不写库
@@ -334,5 +354,55 @@ void main() {
     // 未声明时不显示信息录入区
     expect(find.text('共情者 的信息'), findsNothing);
     expect(find.text('先声明角色，再录入该角色的信息。'), findsOneWidget);
+  });
+
+  testWidgets('疑似醉汉整局开关：草稿→保存提交 setSuspectedDrunk（#109）',
+      (tester) async {
+    useTallSurface(tester);
+    await tester.pumpWidget(buildSheet());
+    await tester.pump();
+
+    // 两个 SwitchListTile（毒 + 醉）都应出现，文案区分
+    expect(find.text('标记为可能被毒（第 1 天）'), findsOneWidget);
+    expect(find.text('怀疑是醉汉'), findsOneWidget);
+
+    // 草稿阶段不写库
+    expect(detailRepo.drunkCalls, 0);
+
+    await tester.tap(find.text('怀疑是醉汉'));
+    await tester.pump();
+    await tester.tap(find.text('保存'));
+    await tester.pump();
+    await tester.pump();
+
+    expect(detailRepo.drunkCalls, 1);
+    expect(detailRepo.lastSuspectedDrunk, isTrue);
+  });
+
+  testWidgets('疑似醉汉 → 信息圆点叠加为被污染色（#109 overlay）',
+      (tester) async {
+    useTallSurface(tester);
+    final decl = InfoDeclaration(
+      id: 1,
+      playerId: me.id,
+      dayRecordId: 1,
+      characterType: Character.chef,
+      payloadJson: '{"value": 1}',
+      reliability: Reliability.unverified,
+      isMine: false,
+    );
+    // 被疑醉：圆点应取 reliabilityTainted 色（overlay 把 unverified 升级为 tainted）
+    await tester.pumpWidget(
+      buildSheet(suspectedDrunk: true, declarations: [decl]),
+    );
+    await tester.pump();
+    await tester.pump();
+    await tester.pump(); // 等 gamePlayers / declarations 流产出
+    final gc = Theme.of(tester.element(find.byIcon(Icons.circle)))
+        .extension<GameColors>()!;
+    final dot = tester.widget<Icon>(find.byIcon(Icons.circle));
+    expect(dot.color, gc.reliabilityTainted);
+    // 与未验证色不同（紫 vs 橙），overlay 可视
+    expect(gc.reliabilityUnverified, isNot(gc.reliabilityTainted));
   });
 }

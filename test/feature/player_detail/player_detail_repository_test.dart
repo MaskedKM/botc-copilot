@@ -324,4 +324,16 @@ void main() {
       );
     });
   });
+
+  group('setSuspectedDrunk（#109 整局疑似醉汉）', () {
+    test('标记/取消疑似醉汉持久化到玩家', () async {
+      await repo.setSuspectedDrunk(playerId, suspected: true);
+      var p = (await db.playersDao.watchByGame(gameId).first).single;
+      expect(p.suspectedDrunk, isTrue);
+
+      await repo.setSuspectedDrunk(playerId, suspected: false);
+      p = (await db.playersDao.watchByGame(gameId).first).single;
+      expect(p.suspectedDrunk, isFalse);
+    });
+  });
 }

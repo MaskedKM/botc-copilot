@@ -114,15 +114,12 @@ enum HelpLevel {
   final String nameCn;
 }
 
-/// 醉/毒来源。
+/// 毒来源（仅按天的「毒」；醉汉是整局身份，见 Players.suspectedDrunk，issue #109）。
 enum PoisonSource {
   /// 投毒者。
   poisoner('投毒'),
 
-  /// 醉汉（本局酒鬼能力导致）。
-  drunk('醉酒'),
-
-  /// 其他来源。
+  /// 其他来源（自定义剧本的非 Poisoner 毒源）。
   other('其他');
 
   const PoisonSource(this.nameCn);

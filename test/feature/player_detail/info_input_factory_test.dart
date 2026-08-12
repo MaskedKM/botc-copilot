@@ -14,7 +14,7 @@ void main() {
         name: '玩家$i',
         seatNumber: i,
         isAlive: true,
-        abilityUsed: false,
+        abilityUsed: false, suspectedDrunk: false,
       ),
   ];
 
@@ -186,7 +186,7 @@ void main() {
         name: '亡者',
         seatNumber: 8,
         isAlive: false,
-        abilityUsed: false,
+        abilityUsed: false, suspectedDrunk: false,
         deathDay: 2,
       ),
     ];

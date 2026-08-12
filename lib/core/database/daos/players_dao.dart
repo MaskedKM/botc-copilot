@@ -58,6 +58,12 @@ class PlayersDao extends DatabaseAccessor<AppDatabase>
         PlayersCompanion(abilityUsed: Value(used)),
       );
 
+  /// 标记/取消「疑似醉汉」（整局身份推测，issue #109）。
+  Future<int> markSuspectedDrunk(int id, {required bool suspected}) =>
+      (update(players)..where((p) => p.id.equals(id))).write(
+        PlayersCompanion(suspectedDrunk: Value(suspected)),
+      );
+
   /// 删除玩家。
   Future<int> deletePlayer(int id) =>
       (delete(players)..where((p) => p.id.equals(id))).go();

@@ -16,7 +16,7 @@ Player _player(
       name: 'P$id',
       seatNumber: seat,
       isAlive: deathDay == null,
-      abilityUsed: false,
+      abilityUsed: false, suspectedDrunk: false,
       deathDay: deathDay,
       deathCause: deathCause ??
           (deathDay == null ? null : DeathCause.nightKill),

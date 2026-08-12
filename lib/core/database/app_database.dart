@@ -58,7 +58,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 9;
+  int get schemaVersion => 10;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -102,6 +102,10 @@ class AppDatabase extends _$AppDatabase {
               'UPDATE day_records SET night_confirmed = 1 '
               'WHERE night_death_player_id IS NOT NULL',
             );
+          }
+          // v9 → v10：players 加 suspectedDrunk（整局疑似醉汉，issue #109）
+          if (from < 10) {
+            await m.addColumn(players, players.suspectedDrunk);
           }
         },
         beforeOpen: (details) async {

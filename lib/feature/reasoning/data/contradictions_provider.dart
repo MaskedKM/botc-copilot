@@ -3,6 +3,7 @@ import 'package:botc_copilot/core/database/app_database.dart';
 import 'package:botc_copilot/core/database/database_provider.dart';
 import 'package:botc_copilot/feature/game_board/presentation/providers/game_board_provider.dart';
 import 'package:botc_copilot/feature/reasoning/domain/contradiction.dart';
+import 'package:botc_copilot/shared/reliability.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// 某对局的全部角色声明流。
@@ -37,11 +38,24 @@ final contradictionsProvider = Provider.family<List<Contradiction>, int>(
     final expectedOutsiders =
         game != null ? PlayerSetup.forCount(game.playerCount).outsiders : 0;
 
+    // 整局「疑似醉汉」overlay（#109）：被疑醉玩家的声明 reliability 实时降级，
+    // 再交给 detect()。按天的毒已在存档 reliability 中（#122）。
+    final playersById = {for (final p in players) p.id: p};
+    final effectiveDeclarations = [
+      for (final d in declarations)
+        d.copyWith(
+          reliability: effectiveReliability(
+            d.reliability,
+            playersById[d.playerId]?.suspectedDrunk ?? false,
+          ),
+        ),
+    ];
+
     return ContradictionDetector.detect(
       claims: claims,
-      declarations: declarations,
+      declarations: effectiveDeclarations,
       days: days,
-      playersById: {for (final p in players) p.id: p},
+      playersById: playersById,
       dayRecordToDayNumber: {for (final d in days) d.id: d.dayNumber},
       expectedOutsiders: expectedOutsiders,
       myPlayerId: game?.myPlayerId,

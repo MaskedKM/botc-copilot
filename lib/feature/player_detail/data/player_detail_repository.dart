@@ -116,6 +116,10 @@ class PlayerDetailRepository {
     );
   }
 
+  /// 标记/取消「疑似醉汉」（整局身份推测，issue #109）。
+  Future<int> setSuspectedDrunk(int playerId, {required bool suspected}) =>
+      _db.playersDao.markSuspectedDrunk(playerId, suspected: suspected);
+
   /// 删除一条信息声明（误录纠错，issue #83）。
   ///
   /// 若删除的是 Poisoner 声明，且其毒目标当夜无残留毒源（无其他 Poisoner
