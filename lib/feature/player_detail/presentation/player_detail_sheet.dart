@@ -799,7 +799,11 @@ class _AbilitySectionState extends ConsumerState<_AbilitySection> {
     );
   }
 
-  /// Virgin：追踪能力消耗（修正官方规则——醉毒不触发且不消耗）。
+  /// Virgin：追踪能力消耗。
+  ///
+  /// 官方规则（Wiki · Virgin · Summary）：首次被提名后处女即失去能力，
+  /// **即使提名者未死、即使处女当时被毒/醉**。被毒/醉时能力不触发
+  /// （提名者不被处决），但能力仍已消耗——清醒后再被提名不再触发。
   Widget _buildVirgin(bool used, GameColors gameColors) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -813,9 +817,10 @@ class _AbilitySectionState extends ConsumerState<_AbilitySection> {
               .setAbilityUsed(widget.playerId, used: v),
         ),
         Text(
-          '官方规则：处女首次被镇民提名时，提名者可能被立即处决。'
-          '被毒/醉时**不触发且不消耗**——清醒后再次被镇民提名仍会触发。'
-          '（被非镇民提名不触发。）',
+          '官方规则：处女首次被镇民提名时，提名者立即被处决（当天提名结束）。'
+          '被非镇民提名不触发，但能力仍失去。'
+          '被毒/醉时被提名不触发（无人被处决），但能力同样已消耗——'
+          '清醒后再被提名不再触发。',
           style: AppTextStyles.caption
               .copyWith(color: gameColors.inkViolet),
         ),
@@ -898,7 +903,8 @@ class _AbilitySectionState extends ConsumerState<_AbilitySection> {
         SnackBar(
           content: Text(
             result == SlayerGuessResult.killed
-                ? '击杀成功：目标已死亡'
+                ? '击杀成功：目标已死亡。若目标为恶魔，游戏结束'
+                    '（善良胜；绯红女在场且存活 ≥5 则恶魔已传承）'
                 : '未击杀（目标非恶魔 或 你被毒/醉），能力已永久消耗',
           ),
         ),

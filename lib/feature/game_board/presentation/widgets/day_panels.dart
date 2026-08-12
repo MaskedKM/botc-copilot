@@ -255,6 +255,7 @@ Future<void> _handleEndSuggestion(
       ):
       // Saint 处决 → 邪恶立即获胜（issue #54）。
       // App 按玩家**声明**提示：声明圣徒被处决时弹出邪恶胜确认。
+      // 用户否认（如恶魔 bluff 圣徒，实际应善良胜）→ 继续走恶魔确认。
       if (await _claimedSaint(ref, executedPlayerId)) {
         if (!context.mounted) return;
         final evilWin = await showDialog<bool>(
@@ -277,8 +278,10 @@ Future<void> _handleEndSuggestion(
         );
         if (evilWin ?? false) {
           await notifier.endGame(goodWin: false);
+          return;
         }
-        return;
+        // 未确认邪恶胜 → 落入下方恶魔确认流程（不 return）
+        if (!context.mounted) return;
       }
       final result = await EndGameDialog.showDemonCheck(
         context,
