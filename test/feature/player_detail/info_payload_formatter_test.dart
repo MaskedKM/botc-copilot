@@ -90,5 +90,14 @@ void main() {
         '投毒者：下毒 2 号',
       );
     });
+
+    test('Ravenkeeper：玩家 + 角色（不得丢失玩家）', () {
+      expect(
+        InfoPayloadFormatter.summarize(
+          decl(Character.ravenkeeper, '{"playerId": 5, "character": "spy"}'),
+        ),
+        '渡鸦守护者：5 号 是 间谍',
+      );
+    });
   });
 }

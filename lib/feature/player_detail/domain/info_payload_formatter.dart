@@ -31,6 +31,9 @@ abstract final class InfoPayloadFormatter {
       _ when payload.containsKey('playerIds') =>
         '${character.nameCn}：${charLabel(payload['character'])}'
             '${(payload['playerIds'] as List).isEmpty ? '' : '（${(payload['playerIds'] as List).map((id) => playerLabel(id as int)).join('、')}）'}',
+      // {"playerId": n, "character": "..."}（Ravenkeeper：X号 是 Y）
+      _ when payload.containsKey('playerId') && payload.containsKey('character') =>
+        '${character.nameCn}：${playerLabel(payload['playerId'] as int)} 是 ${charLabel(payload['character'])}',
       // {"character": "..."}
       _ when payload.containsKey('character') =>
         '${character.nameCn}：${charLabel(payload['character'])}',
