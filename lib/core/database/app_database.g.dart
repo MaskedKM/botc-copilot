@@ -2954,6 +2954,17 @@ class $NominationsTable extends Nominations
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _defenseTextMeta = const VerificationMeta(
+    'defenseText',
+  );
+  @override
+  late final GeneratedColumn<String> defenseText = GeneratedColumn<String>(
+    'defense_text',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -2963,6 +2974,7 @@ class $NominationsTable extends Nominations
     nomineePlayerId,
     passed,
     voteResultJson,
+    defenseText,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -3039,6 +3051,15 @@ class $NominationsTable extends Nominations
     } else if (isInserting) {
       context.missing(_voteResultJsonMeta);
     }
+    if (data.containsKey('defense_text')) {
+      context.handle(
+        _defenseTextMeta,
+        defenseText.isAcceptableOrUnknown(
+          data['defense_text']!,
+          _defenseTextMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -3076,6 +3097,10 @@ class $NominationsTable extends Nominations
         DriftSqlType.string,
         data['${effectivePrefix}vote_result_json'],
       )!,
+      defenseText: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}defense_text'],
+      ),
     );
   }
 
@@ -3106,6 +3131,9 @@ class Nomination extends DataClass implements Insertable<Nomination> {
 
   /// 投票结果 JSON：[{playerId, vote: for/against/abstain, isDeadVote}]。
   final String voteResultJson;
+
+  /// 被提名者辩护记录（可选，issue #56）。
+  final String? defenseText;
   const Nomination({
     required this.id,
     required this.gameId,
@@ -3114,6 +3142,7 @@ class Nomination extends DataClass implements Insertable<Nomination> {
     required this.nomineePlayerId,
     required this.passed,
     required this.voteResultJson,
+    this.defenseText,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -3125,6 +3154,9 @@ class Nomination extends DataClass implements Insertable<Nomination> {
     map['nominee_player_id'] = Variable<int>(nomineePlayerId);
     map['passed'] = Variable<bool>(passed);
     map['vote_result_json'] = Variable<String>(voteResultJson);
+    if (!nullToAbsent || defenseText != null) {
+      map['defense_text'] = Variable<String>(defenseText);
+    }
     return map;
   }
 
@@ -3137,6 +3169,9 @@ class Nomination extends DataClass implements Insertable<Nomination> {
       nomineePlayerId: Value(nomineePlayerId),
       passed: Value(passed),
       voteResultJson: Value(voteResultJson),
+      defenseText: defenseText == null && nullToAbsent
+          ? const Value.absent()
+          : Value(defenseText),
     );
   }
 
@@ -3153,6 +3188,7 @@ class Nomination extends DataClass implements Insertable<Nomination> {
       nomineePlayerId: serializer.fromJson<int>(json['nomineePlayerId']),
       passed: serializer.fromJson<bool>(json['passed']),
       voteResultJson: serializer.fromJson<String>(json['voteResultJson']),
+      defenseText: serializer.fromJson<String?>(json['defenseText']),
     );
   }
   @override
@@ -3166,6 +3202,7 @@ class Nomination extends DataClass implements Insertable<Nomination> {
       'nomineePlayerId': serializer.toJson<int>(nomineePlayerId),
       'passed': serializer.toJson<bool>(passed),
       'voteResultJson': serializer.toJson<String>(voteResultJson),
+      'defenseText': serializer.toJson<String?>(defenseText),
     };
   }
 
@@ -3177,6 +3214,7 @@ class Nomination extends DataClass implements Insertable<Nomination> {
     int? nomineePlayerId,
     bool? passed,
     String? voteResultJson,
+    Value<String?> defenseText = const Value.absent(),
   }) => Nomination(
     id: id ?? this.id,
     gameId: gameId ?? this.gameId,
@@ -3185,6 +3223,7 @@ class Nomination extends DataClass implements Insertable<Nomination> {
     nomineePlayerId: nomineePlayerId ?? this.nomineePlayerId,
     passed: passed ?? this.passed,
     voteResultJson: voteResultJson ?? this.voteResultJson,
+    defenseText: defenseText.present ? defenseText.value : this.defenseText,
   );
   Nomination copyWithCompanion(NominationsCompanion data) {
     return Nomination(
@@ -3203,6 +3242,9 @@ class Nomination extends DataClass implements Insertable<Nomination> {
       voteResultJson: data.voteResultJson.present
           ? data.voteResultJson.value
           : this.voteResultJson,
+      defenseText: data.defenseText.present
+          ? data.defenseText.value
+          : this.defenseText,
     );
   }
 
@@ -3215,7 +3257,8 @@ class Nomination extends DataClass implements Insertable<Nomination> {
           ..write('nominatorPlayerId: $nominatorPlayerId, ')
           ..write('nomineePlayerId: $nomineePlayerId, ')
           ..write('passed: $passed, ')
-          ..write('voteResultJson: $voteResultJson')
+          ..write('voteResultJson: $voteResultJson, ')
+          ..write('defenseText: $defenseText')
           ..write(')'))
         .toString();
   }
@@ -3229,6 +3272,7 @@ class Nomination extends DataClass implements Insertable<Nomination> {
     nomineePlayerId,
     passed,
     voteResultJson,
+    defenseText,
   );
   @override
   bool operator ==(Object other) =>
@@ -3240,7 +3284,8 @@ class Nomination extends DataClass implements Insertable<Nomination> {
           other.nominatorPlayerId == this.nominatorPlayerId &&
           other.nomineePlayerId == this.nomineePlayerId &&
           other.passed == this.passed &&
-          other.voteResultJson == this.voteResultJson);
+          other.voteResultJson == this.voteResultJson &&
+          other.defenseText == this.defenseText);
 }
 
 class NominationsCompanion extends UpdateCompanion<Nomination> {
@@ -3251,6 +3296,7 @@ class NominationsCompanion extends UpdateCompanion<Nomination> {
   final Value<int> nomineePlayerId;
   final Value<bool> passed;
   final Value<String> voteResultJson;
+  final Value<String?> defenseText;
   const NominationsCompanion({
     this.id = const Value.absent(),
     this.gameId = const Value.absent(),
@@ -3259,6 +3305,7 @@ class NominationsCompanion extends UpdateCompanion<Nomination> {
     this.nomineePlayerId = const Value.absent(),
     this.passed = const Value.absent(),
     this.voteResultJson = const Value.absent(),
+    this.defenseText = const Value.absent(),
   });
   NominationsCompanion.insert({
     this.id = const Value.absent(),
@@ -3268,6 +3315,7 @@ class NominationsCompanion extends UpdateCompanion<Nomination> {
     required int nomineePlayerId,
     required bool passed,
     required String voteResultJson,
+    this.defenseText = const Value.absent(),
   }) : gameId = Value(gameId),
        dayRecordId = Value(dayRecordId),
        nominatorPlayerId = Value(nominatorPlayerId),
@@ -3282,6 +3330,7 @@ class NominationsCompanion extends UpdateCompanion<Nomination> {
     Expression<int>? nomineePlayerId,
     Expression<bool>? passed,
     Expression<String>? voteResultJson,
+    Expression<String>? defenseText,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -3291,6 +3340,7 @@ class NominationsCompanion extends UpdateCompanion<Nomination> {
       if (nomineePlayerId != null) 'nominee_player_id': nomineePlayerId,
       if (passed != null) 'passed': passed,
       if (voteResultJson != null) 'vote_result_json': voteResultJson,
+      if (defenseText != null) 'defense_text': defenseText,
     });
   }
 
@@ -3302,6 +3352,7 @@ class NominationsCompanion extends UpdateCompanion<Nomination> {
     Value<int>? nomineePlayerId,
     Value<bool>? passed,
     Value<String>? voteResultJson,
+    Value<String?>? defenseText,
   }) {
     return NominationsCompanion(
       id: id ?? this.id,
@@ -3311,6 +3362,7 @@ class NominationsCompanion extends UpdateCompanion<Nomination> {
       nomineePlayerId: nomineePlayerId ?? this.nomineePlayerId,
       passed: passed ?? this.passed,
       voteResultJson: voteResultJson ?? this.voteResultJson,
+      defenseText: defenseText ?? this.defenseText,
     );
   }
 
@@ -3338,6 +3390,9 @@ class NominationsCompanion extends UpdateCompanion<Nomination> {
     if (voteResultJson.present) {
       map['vote_result_json'] = Variable<String>(voteResultJson.value);
     }
+    if (defenseText.present) {
+      map['defense_text'] = Variable<String>(defenseText.value);
+    }
     return map;
   }
 
@@ -3350,7 +3405,8 @@ class NominationsCompanion extends UpdateCompanion<Nomination> {
           ..write('nominatorPlayerId: $nominatorPlayerId, ')
           ..write('nomineePlayerId: $nomineePlayerId, ')
           ..write('passed: $passed, ')
-          ..write('voteResultJson: $voteResultJson')
+          ..write('voteResultJson: $voteResultJson, ')
+          ..write('defenseText: $defenseText')
           ..write(')'))
         .toString();
   }
@@ -8285,6 +8341,7 @@ typedef $$NominationsTableCreateCompanionBuilder =
       required int nomineePlayerId,
       required bool passed,
       required String voteResultJson,
+      Value<String?> defenseText,
     });
 typedef $$NominationsTableUpdateCompanionBuilder =
     NominationsCompanion Function({
@@ -8295,6 +8352,7 @@ typedef $$NominationsTableUpdateCompanionBuilder =
       Value<int> nomineePlayerId,
       Value<bool> passed,
       Value<String> voteResultJson,
+      Value<String?> defenseText,
     });
 
 final class $$NominationsTableReferences
@@ -8391,6 +8449,11 @@ class $$NominationsTableFilterComposer
 
   ColumnFilters<String> get voteResultJson => $composableBuilder(
     column: $table.voteResultJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get defenseText => $composableBuilder(
+    column: $table.defenseText,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -8511,6 +8574,11 @@ class $$NominationsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get defenseText => $composableBuilder(
+    column: $table.defenseText,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$GamesTableOrderingComposer get gameId {
     final $$GamesTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -8621,6 +8689,11 @@ class $$NominationsTableAnnotationComposer
 
   GeneratedColumn<String> get voteResultJson => $composableBuilder(
     column: $table.voteResultJson,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get defenseText => $composableBuilder(
+    column: $table.defenseText,
     builder: (column) => column,
   );
 
@@ -8757,6 +8830,7 @@ class $$NominationsTableTableManager
                 Value<int> nomineePlayerId = const Value.absent(),
                 Value<bool> passed = const Value.absent(),
                 Value<String> voteResultJson = const Value.absent(),
+                Value<String?> defenseText = const Value.absent(),
               }) => NominationsCompanion(
                 id: id,
                 gameId: gameId,
@@ -8765,6 +8839,7 @@ class $$NominationsTableTableManager
                 nomineePlayerId: nomineePlayerId,
                 passed: passed,
                 voteResultJson: voteResultJson,
+                defenseText: defenseText,
               ),
           createCompanionCallback:
               ({
@@ -8775,6 +8850,7 @@ class $$NominationsTableTableManager
                 required int nomineePlayerId,
                 required bool passed,
                 required String voteResultJson,
+                Value<String?> defenseText = const Value.absent(),
               }) => NominationsCompanion.insert(
                 id: id,
                 gameId: gameId,
@@ -8783,6 +8859,7 @@ class $$NominationsTableTableManager
                 nomineePlayerId: nomineePlayerId,
                 passed: passed,
                 voteResultJson: voteResultJson,
+                defenseText: defenseText,
               ),
           withReferenceMapper: (p0) => p0
               .map(

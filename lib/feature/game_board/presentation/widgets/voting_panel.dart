@@ -27,8 +27,36 @@ class VotingPanel extends ConsumerWidget {
 
     final playersById = {for (final p in players) p.id: p};
 
+    // 当天「即将死亡」判定（issue #53 最高票累计 + 平票规则）。
+    final aliveCount = players.where((p) => p.isAlive).length;
+    final pending = NominationRules.pendingExecution(nominations, aliveCount);
+    final pendingNominee = pending is PendingExecution
+        ? playersById[(pending).nomineeId]
+        : null;
+
     return Column(
       children: [
+        // 即将死亡 / 平票提示条
+        if (pending is PendingExecution || pending is PendingTie)
+          Container(
+            width: double.infinity,
+            margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: gameColors.blood.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: gameColors.blood, width: 1),
+            ),
+            child: Text(
+              pending is PendingExecution
+                  ? '即将死亡：${pendingNominee?.seatNumber ?? "?"}号 '
+                      '${pendingNominee?.name ?? "?"}'
+                      '（${(pending).forCount} 票，可被更高票替换）'
+                  : '平票 ${(pending as PendingTie).forCount} 票'
+                      ' —— 无人即将死亡，后续须超过此票数',
+              style: AppTextStyles.body.copyWith(color: gameColors.blood),
+            ),
+          ),
         Expanded(
           child: nominations.isEmpty
               ? Center(
@@ -47,21 +75,43 @@ class VotingPanel extends ConsumerWidget {
                     final forCount = NominationRules.countFor(votes);
                     final nominator = playersById[n.nominatorPlayerId];
                     final nominee = playersById[n.nomineePlayerId];
+                    final isPending = pending is PendingExecution &&
+                        n.nomineePlayerId == (pending).nomineeId;
                     return Card(
                       margin: const EdgeInsets.only(bottom: 8),
+                      color: isPending
+                          ? gameColors.blood.withValues(alpha: 0.08)
+                          : null,
                       child: ListTile(
                         title: Text(
-                          '${nominator?.name ?? "?"} 提名 ${nominee?.name ?? "?"}',
+                          '${nominator?.name ?? "?"} 提名 ${nominee?.name ?? "?"}'
+                          '${nominee != null && !nominee.isAlive ? ' ☠' : ''}',
                           style: AppTextStyles.headline,
                         ),
-                        subtitle: Text(
-                          '赞成 $forCount 票'
-                          '${n.passed ? ' · 通过' : ' · 未通过'}',
-                          style: AppTextStyles.caption.copyWith(
-                            color: n.passed
-                                ? gameColors.blood
-                                : gameColors.inkViolet,
-                          ),
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              '赞成 $forCount 票'
+                              '${n.passed ? ' · 通过' : ' · 未通过'}',
+                              style: AppTextStyles.caption.copyWith(
+                                color: n.passed
+                                    ? gameColors.blood
+                                    : gameColors.inkViolet,
+                              ),
+                            ),
+                            if ((n.defenseText ?? '').isNotEmpty)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 4),
+                                child: Text(
+                                  '「${n.defenseText}」',
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: AppTextStyles.caption,
+                                ),
+                              ),
+                          ],
                         ),
                         trailing: Icon(
                           n.passed ? Icons.gavel : Icons.close,

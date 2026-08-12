@@ -42,6 +42,13 @@ class _NominationEntrySheetState
   int? _nomineeId;
   final Map<int, Vote> _votes = {};
   bool _submitting = false;
+  final TextEditingController _defenseController = TextEditingController();
+
+  @override
+  void dispose() {
+    _defenseController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -99,17 +106,20 @@ class _NominationEntrySheetState
             ),
             const SizedBox(height: 16),
 
-            // 被提名者
+            // 被提名者（含死人——官方规则死人可被提名；标 ☠ 区分）
             const Text('被提名者', style: AppTextStyles.headline),
             const SizedBox(height: 8),
             Wrap(
               spacing: 8,
               runSpacing: 4,
               children: [
-                for (final p in alivePlayers)
+                for (final p in players)
                   if (p.id != _nominatorId)
                     ChoiceChip(
-                      label: Text('${p.seatNumber}号 ${p.name}'),
+                      label: Text(
+                        '${p.seatNumber}号 ${p.name}'
+                        '${p.isAlive ? '' : ' ☠'}',
+                      ),
                       selected: _nomineeId == p.id,
                       onSelected: NominationRules.hasBeenNominatedToday(
                         todayNominations,
@@ -147,6 +157,27 @@ class _NominationEntrySheetState
                 '（处决阈值 ${NominationRules.threshold(alivePlayers.length)} 票）',
                 style: AppTextStyles.caption
                     .copyWith(color: gameColors.goldBright),
+              ),
+              const SizedBox(height: 16),
+              // 被提名者辩护（可选，issue #56）
+              const Text('辩护记录（可选）', style: AppTextStyles.headline),
+              const SizedBox(height: 4),
+              Text(
+                '记录被提名者的辩护 / 反指控 / 透露的信息。',
+                style: AppTextStyles.caption
+                    .copyWith(color: gameColors.inkViolet),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _defenseController,
+                maxLines: 3,
+                minLines: 1,
+                textCapitalization: TextCapitalization.sentences,
+                decoration: const InputDecoration(
+                  hintText: '如：我绝不是恶魔，X 号昨晚的行为更可疑…',
+                  isDense: true,
+                  border: OutlineInputBorder(),
+                ),
               ),
             ],
             // 新手提示：提名/投票规则（issue #41）
@@ -209,6 +240,7 @@ class _NominationEntrySheetState
               players: players,
               todayNominations: todayNominations,
               allNominations: allNominations,
+              defenseText: _defenseController.text,
             );
 
     if (error != null) {
