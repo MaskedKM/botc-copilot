@@ -248,7 +248,7 @@ class _MyMinionsSection extends ConsumerWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          '我的爪牙（私密，$expected 人局应有 $expected 个）',
+          '我的爪牙（私密，${game.playerCount} 人局应有 $expected 个）',
           style: AppTextStyles.headline.copyWith(color: gameColors.blood),
         ),
         const SizedBox(height: 4),
@@ -267,7 +267,11 @@ class _MyMinionsSection extends ConsumerWidget {
                 selected: selected.contains(p.id),
                 onSelected: (_) async {
                   final next = Set<int>.of(selected);
-                  next.contains(p.id) ? next.remove(p.id) : next.add(p.id);
+                  if (next.contains(p.id)) {
+                    next.remove(p.id);
+                  } else {
+                    next.add(p.id);
+                  }
                   await ref.read(appDatabaseProvider).gamesDao.updateMyMinionIds(
                         game.id,
                         jsonEncode(next.toList()),
