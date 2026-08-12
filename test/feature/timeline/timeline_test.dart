@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:botc_copilot/core/constants/character.dart';
 import 'package:botc_copilot/core/constants/script.dart';
 import 'package:botc_copilot/core/database/app_database.dart';
@@ -178,5 +180,46 @@ void main() {
       timeline.single.events.map((e) => e.summary).join(),
       contains('2号 玩家2 声明 共情者（改口）'),
     );
+  });
+
+  test('提名/投票事件出现在处决之前且含赞成票数与辩护（issue #90）', () async {
+    // 4 票赞成（7 人阈值 ceil(7/2)=4）→ 通过；投票者均为存活非被提名人
+    final votesJson = jsonEncode([
+      for (final id in [
+        players[0].id,
+        players[3].id,
+        players[5].id,
+        players[6].id,
+      ])
+        {'playerId': id, 'vote': 'forVote', 'isDeadVote': false},
+    ]);
+    await db.nominationsDao.insertNomination(
+      NominationsCompanion(
+        gameId: Value(gameId),
+        dayRecordId: Value(day1Id),
+        nominatorPlayerId: Value(players[0].id),
+        nomineePlayerId: Value(players[1].id),
+        passed: const Value(true),
+        voteResultJson: Value(votesJson),
+        defenseText: const Value('我是好人'),
+      ),
+    );
+
+    final timeline = await readTimeline();
+    final events = timeline.single.events;
+    final summaries = events.map((e) => e.summary).join('\n');
+
+    // 摘要含 提名者→被提名者 / 赞成票数 / 通过 / 辩护
+    expect(summaries, contains('1号 玩家1 → 2号 玩家2（赞成4票，通过）'));
+    expect(summaries, contains('辩护：我是好人'));
+
+    // 时序：提名事件位于处决之前
+    final nomIdx = events
+        .indexWhere((e) => e.type == TimelineEventType.nomination);
+    final execIdx = events
+        .indexWhere((e) => e.type == TimelineEventType.execution);
+    expect(nomIdx, greaterThanOrEqualTo(0));
+    expect(execIdx, greaterThanOrEqualTo(0));
+    expect(nomIdx, lessThan(execIdx));
   });
 }

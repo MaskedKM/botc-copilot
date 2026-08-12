@@ -1,4 +1,5 @@
 import 'package:botc_copilot/core/database/app_database.dart';
+import 'package:botc_copilot/feature/game_board/domain/nomination_rules.dart';
 import 'package:botc_copilot/feature/player_detail/domain/info_payload_formatter.dart';
 import 'package:botc_copilot/shared/models/enums.dart';
 
@@ -18,6 +19,9 @@ enum TimelineEventType {
 
   /// 信息声明。
   infoDeclaration,
+
+  /// 提名与投票（issue #90）。
+  nomination,
 
   /// 醉/毒标记（issue #35）。
   poisonMarked,
@@ -68,11 +72,25 @@ abstract final class TimelineBuilder {
     required Map<int, int> dayRecordToDayNumber,
     List<PoisonStatus> poisonStatuses = const [],
     List<BehaviorNote> behaviorNotes = const [],
+    List<Nomination> nominations = const [],
   }) {
     String nameOf(int? playerId) {
       if (playerId == null) return '';
       final p = playersById[playerId];
       return p != null ? '${p.seatNumber}号 ${p.name}' : '?';
+    }
+
+    // 提名事件摘要：提名者 → 被提名者（赞成票数，是否通过）[· 辩护]（issue #90）
+    String nominationSummary(Nomination n) {
+      final forCount = NominationRules.countFor(
+        NominationRules.decodeVotes(n.voteResultJson),
+      );
+      final defense = n.defenseText;
+      final defenseSuffix = (defense != null && defense.isNotEmpty)
+          ? ' · 辩护：${defense.length > 30 ? '${defense.substring(0, 30)}…' : defense}'
+          : '';
+      return '${nameOf(n.nominatorPlayerId)} → ${nameOf(n.nomineePlayerId)}'
+          '（赞成$forCount票，${n.passed ? '通过' : '未通过'}）$defenseSuffix';
     }
 
     final sortedDays = [...days]..sort(
@@ -116,6 +134,15 @@ abstract final class TimelineBuilder {
                     ? '我（${nameOf(decl.playerId)}）获得 ${InfoPayloadFormatter.summarize(decl)}'
                     : '${nameOf(decl.playerId)} 报 ${InfoPayloadFormatter.summarize(decl)}',
                 playerId: decl.playerId,
+              ),
+            // 提名/投票（该天的；位于处决之前——符合白天时序，issue #90）
+            for (final n in nominations.where(
+              (n) => dayRecordToDayNumber[n.dayRecordId] == day.dayNumber,
+            ))
+              TimelineEvent(
+                type: TimelineEventType.nomination,
+                summary: nominationSummary(n),
+                playerId: n.nomineePlayerId,
               ),
             // 处决
             if (day.dayExecutionPlayerId != null)
