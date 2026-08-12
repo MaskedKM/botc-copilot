@@ -154,10 +154,14 @@ void main() {
     );
   });
 
-  test('规则3：外来者声明数 > 配置 → outsiderCountAnomaly', () {
-    // 7人局应有 0 外来者，1 人声明外来者即异常
+  test('规则3：声明数 > base+2（即便 Baron 也无法解释）→ outsiderCountAnomaly', () {
+    // 7 人局 base=0，Baron 局最多 2；3 人声明外来者即硬矛盾
     final result = ContradictionDetector.detect(
-      claims: [_claim(1, Character.butler)],
+      claims: [
+        _claim(1, Character.butler),
+        _claim(2, Character.saint),
+        _claim(3, Character.drunk),
+      ],
       declarations: [],
       days: [],
       playersById: players,
@@ -167,6 +171,19 @@ void main() {
     expect(result, hasLength(1));
     expect(result[0].type, ContradictionType.outsiderCountAnomaly);
     expect(result[0].description, contains('Baron'));
+  });
+
+  test('规则3：声明数 == base+2（Baron 局一致）→ 不报警（#59 收紧）', () {
+    // 7 人局 base=0，Baron 局 2 个；2 人声明不报警（旧逻辑会误报）
+    final result = ContradictionDetector.detect(
+      claims: [_claim(1, Character.butler), _claim(2, Character.saint)],
+      declarations: [],
+      days: [],
+      playersById: players,
+      dayRecordToDayNumber: {},
+      expectedOutsiders: 0,
+    );
+    expect(result, isEmpty);
   });
 
   test('规则3：声明数 ≤ 配置不报警', () {

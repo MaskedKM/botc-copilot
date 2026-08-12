@@ -5,6 +5,7 @@ import 'package:botc_copilot/feature/game_board/presentation/providers/game_boar
 import 'package:botc_copilot/feature/player_detail/presentation/player_detail_sheet.dart';
 import 'package:botc_copilot/feature/reasoning/presentation/contradiction_panel.dart';
 import 'package:botc_copilot/feature/reasoning/presentation/role_matrix_page.dart';
+import 'package:botc_copilot/feature/reasoning/presentation/setup_analysis_panel.dart';
 import 'package:botc_copilot/shared/models/enums.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -70,6 +71,9 @@ class _ReasoningDashboardState extends ConsumerState<ReasoningDashboard> {
           label: const Text('声明矩阵'),
           onPressed: () => RoleMatrixPage.show(context, gameId: widget.gameId),
         ),
+        const SizedBox(height: 16),
+        // 配置分析：外来者计数 配置 vs 声明（issue #59）
+        SetupAnalysisPanel(gameId: widget.gameId),
         const SizedBox(height: 16),
         // 信任度分组
         Row(

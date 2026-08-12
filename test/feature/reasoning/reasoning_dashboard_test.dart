@@ -1,5 +1,6 @@
 import 'package:botc_copilot/core/database/app_database.dart';
 import 'package:botc_copilot/feature/game_board/presentation/providers/game_board_provider.dart';
+import 'package:botc_copilot/feature/reasoning/data/setup_analysis_provider.dart';
 import 'package:botc_copilot/feature/reasoning/presentation/reasoning_dashboard.dart';
 import 'package:botc_copilot/shared/models/enums.dart';
 import 'package:flutter/material.dart';
@@ -42,6 +43,8 @@ void main() {
         latestTrustLevelsProvider.overrideWith(
           (ref, gameId) => Stream.value(trustLevels),
         ),
+        // 配置分析面板（#59）不经真实 DB：返回 null → 面板 shrink。
+        setupAnalysisProvider.overrideWith((ref, gameId) => null),
       ],
       child: const MaterialApp(
         home: Scaffold(body: ReasoningDashboard(gameId: 1)),
