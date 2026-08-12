@@ -409,6 +409,20 @@ void main() {
       expect(id, isNull);
     });
 
+    test('Virgin 已死 → 不触发（死亡玩家无能力，review M3）', () {
+      // players[6] 在 setUp 中已 markDead
+      final id = NominationRules.virginTriggerScenario(
+        nominatorId: players[0].id,
+        nomineeId: players[6].id,
+        latestClaim: {
+          players[0].id: rc(players[0].id, Character.chef),
+          players[6].id: rc(players[6].id, Character.virgin),
+        },
+        playersById: {for (final p in players) p.id: p},
+      );
+      expect(id, isNull);
+    });
+
     test('Virgin 能力已消耗 → 不触发', () async {
       await db.playersDao.markAbilityUsed(players[1].id, used: true);
       final updated = await db.playersDao.watchByGame(gameId).first;

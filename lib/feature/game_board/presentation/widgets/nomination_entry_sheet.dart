@@ -283,16 +283,13 @@ class _NominationEntrySheetState
         content: Text(
           '${nominee.seatNumber}号 ${nominee.name}（声明处女）首次被镇民 '
           '${nominator.seatNumber}号 ${nominator.name} 提名。\n'
-          '官方规则：若处女未被毒/醉，提名者立即被处决，当天提名结束。',
+          '官方规则：若处女未被毒/醉，提名者立即被处决；若被毒/醉则不触发'
+          '（且不消耗能力），请选「不处理」。',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, _VirginAction.dismiss),
             child: const Text('不处理'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, _VirginAction.markOnly),
-            child: const Text('仅标记已用'),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, _VirginAction.execute),
@@ -318,10 +315,6 @@ class _NominationEntrySheetState
             suggestion,
           );
         }
-      case _VirginAction.markOnly:
-        await ref
-            .read(abilityRepositoryProvider)
-            .setAbilityUsed(virginId, used: true);
       case _VirginAction.dismiss:
       case null:
         break;
@@ -330,7 +323,7 @@ class _NominationEntrySheetState
 }
 
 /// Virgin 触发弹窗的选项。
-enum _VirginAction { dismiss, markOnly, execute }
+enum _VirginAction { dismiss, execute }
 
 /// 单个玩家的投票行。
 class _VoteRow extends StatelessWidget {

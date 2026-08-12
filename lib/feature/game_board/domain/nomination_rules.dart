@@ -148,6 +148,7 @@ abstract final class NominationRules {
     if (nominatorClaim.character.team != Team.townsfolk) return null;
     final nominee = playersById[nomineeId];
     if (nominee == null || nominee.abilityUsed) return null;
+    if (!nominee.isAlive) return null; // 死亡玩家无能力，不触发（review M3）
     return nomineeId;
   }
 }
