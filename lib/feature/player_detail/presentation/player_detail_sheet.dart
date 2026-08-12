@@ -165,6 +165,13 @@ class _PlayerDetailSheetState extends ConsumerState<PlayerDetailSheet> {
             const <RoleClaim>[];
     final initialRole = claims.isEmpty ? null : claims.last.character;
 
+    // 我座位识别（issue #105）：setup 已选定「我的座位 + 真实角色」，
+    // 点自己座位时应以真实角色（myRole）驱动信息/能力录入，不要求重复声明。
+    final game = ref.watch(gameByIdProvider(widget.gameId)).valueOrNull;
+    final isMe = game?.myPlayerId == widget.player.id;
+    final myRole = game?.myRole;
+    final effectiveRole = isMe ? myRole : initialRole;
+
     final day = ref.watch(
       gameBoardProvider(widget.gameId).select((s) => s.currentDay),
     );
@@ -226,38 +233,58 @@ class _PlayerDetailSheetState extends ConsumerState<PlayerDetailSheet> {
                     ),
                 ],
               ),
+              // 我座位：标识真实角色（私密，区别于公开声明，#105）
+              if (isMe)
+                Padding(
+                  padding: const EdgeInsets.only(top: 6),
+                  child: Text(
+                    '这是我 · 真实角色：${myRole?.nameCn ?? '未设置'}',
+                    style: AppTextStyles.caption
+                        .copyWith(color: context.gameColors.goldBright),
+                  ),
+                ),
               const SizedBox(height: 16),
-              _RoleClaimSection(
-                gameId: widget.gameId,
-                selected: displayRole,
-                onSelect: (c) => setState(() {
-                  _roleTouched = true;
-                  _draftRole = c;
-                }),
-              ),
-              if (initialRole != null &&
-                  (initialRole == Character.virgin ||
-                      initialRole == Character.slayer ||
-                      initialRole == Character.saint)) ...[
+              // 角色声明区（我座位跳过：真实角色已知，不要求重复声明，#105）
+              if (!isMe)
+                _RoleClaimSection(
+                  gameId: widget.gameId,
+                  selected: displayRole,
+                  onSelect: (c) => setState(() {
+                    _roleTouched = true;
+                    _draftRole = c;
+                  }),
+                ),
+              // 一次性能力：我座位按真实角色，他人按声明角色
+              if (effectiveRole != null &&
+                  (effectiveRole == Character.virgin ||
+                      effectiveRole == Character.slayer ||
+                      effectiveRole == Character.saint)) ...[
                 const SizedBox(height: 16),
                 _AbilitySection(
                   gameId: widget.gameId,
                   playerId: playerId,
                   day: day,
-                  character: initialRole,
+                  character: effectiveRole,
                   players: players,
                 ),
               ],
               const SizedBox(height: 16),
-              // 信息录入只对已保存的声明角色开放：草稿角色未保存就录入，
-              // 丢弃后会留下「从未声明过的角色」的孤儿信息记录。
-              if (initialRole != null)
+              // 信息录入：我座位直接以真实角色录入（isMine=true），不要求
+              // 先声明角色（#105）。他人仍需先保存声明，避免孤儿信息记录。
+              if (effectiveRole != null)
                 _InfoInputSection(
                   gameId: widget.gameId,
                   playerId: playerId,
                   day: day,
-                  character: initialRole,
+                  character: effectiveRole,
                   players: players,
+                  isMine: isMe,
+                )
+              else if (isMe)
+                Text(
+                  '开局未设置角色，无法录入信息。',
+                  style: AppTextStyles.caption
+                      .copyWith(color: context.gameColors.inkViolet),
                 )
               else if (displayRole != null)
                 Text(
@@ -272,10 +299,10 @@ class _PlayerDetailSheetState extends ConsumerState<PlayerDetailSheet> {
                       .copyWith(color: context.gameColors.inkViolet),
                 ),
               const SizedBox(height: 16),
-              // 分组按实际保存的声明角色（草稿不改分组，避免误导）。
+              // 分组按有效角色（我座位=myRole；草稿不改分组，避免误导）。
               _RecordedInfoSection(
                 playerId: playerId,
-                currentRole: initialRole,
+                currentRole: effectiveRole,
               ),
               const SizedBox(height: 16),
               _PoisonSection(
@@ -373,6 +400,7 @@ class _InfoInputSection extends ConsumerWidget {
     required this.day,
     required this.character,
     required this.players,
+    this.isMine = false,
   });
 
   final int gameId;
@@ -380,6 +408,9 @@ class _InfoInputSection extends ConsumerWidget {
   final int day;
   final Character character;
   final List<Player> players;
+
+  /// 是否录入「我的」信息（我座位以真实角色录入，写入 isMine=true，#105）。
+  final bool isMine;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -399,12 +430,13 @@ class _InfoInputSection extends ConsumerWidget {
                   dayRecordId: dayRecordId,
                   character: character,
                   payload: payload,
+                  isMine: isMine,
                   gameId: gameId,
                   dayNumber: ref.read(gameBoardProvider(gameId)).currentDay,
                 );
             if (context.mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('信息已记录')),
+                SnackBar(content: Text(isMine ? '我的信息已记录' : '信息已记录')),
               );
             }
           },
