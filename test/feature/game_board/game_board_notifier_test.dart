@@ -175,6 +175,24 @@ void main() {
     expect(day2, isNotNull);
   });
 
+  test('revertAdvanceDay：空记录的预建天可回退（#87）', () async {
+    await notifier().advanceDay(); // → day 2（预建，空）
+    expect(state().currentDay, 2);
+    final ok = await notifier().revertAdvanceDay();
+    expect(ok, isTrue);
+    expect(state().currentDay, 1);
+    final day2 = await db.dayRecordsDao.getByGameAndDay(gameId, 2);
+    expect(day2, isNull); // 预建记录已删
+  });
+
+  test('revertAdvanceDay：当天有夜晚死亡不可回退（#87）', () async {
+    await notifier().advanceDay(); // → day 2
+    await notifier().recordNightDeath(players[1].id); // day 2 有夜死
+    final ok = await notifier().revertAdvanceDay();
+    expect(ok, isFalse);
+    expect(state().currentDay, 2); // 未回退
+  });
+
   test('advanceDay 幂等：重复推进不重复建记录', () async {
     await notifier().advanceDay();
     await notifier().advanceDay();

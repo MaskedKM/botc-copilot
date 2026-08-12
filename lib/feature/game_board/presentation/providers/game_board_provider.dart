@@ -15,6 +15,12 @@ final currentGameProvider = StreamProvider<Game?>((ref) {
       );
 });
 
+/// 对局是否进行中（只读 gating 用，issue #81）。加载中默认 true（不阻断）。
+final isGameOngoingProvider = Provider.family<bool, int>((ref, gameId) {
+  final status = ref.watch(gameByIdProvider(gameId)).valueOrNull?.status;
+  return (status ?? GameStatus.ongoing) == GameStatus.ongoing;
+});
+
 /// 按 id 监听单局（只监听该行变化）。
 final gameByIdProvider =
     StreamProvider.family<Game?, int>((ref, gameId) {
@@ -287,6 +293,28 @@ class GameBoardNotifier extends StateNotifier<GameBoardState> {
     final nextDay = state.currentDay + 1;
     await _ensureDayRecord(nextDay);
     state = state.copyWith(currentDay: nextDay, selectedPlayerId: () => null);
+  }
+
+  /// 撤销最近一次推进（仅当天为预建的空记录时，issue #87）。
+  ///
+  /// 当天一旦有夜晚结果 / 处决 / 提名即视为已使用，不可静默回退。
+  /// 返回是否成功回退。
+  Future<bool> revertAdvanceDay() async {
+    if (state.currentDay <= 1) return false;
+    final day =
+        await _db.dayRecordsDao.getByGameAndDay(_gameId, state.currentDay);
+    if (day == null) return false;
+    final hasNight = day.nightDeathPlayerId != null;
+    final hasExec = day.dayExecutionPlayerId != null;
+    final hasNoms = (await _db.nominationsDao.watchByDay(day.id).first)
+        .isNotEmpty;
+    if (hasNight || hasExec || hasNoms) return false;
+    await _db.dayRecordsDao.deleteDay(day.id);
+    state = state.copyWith(
+      currentDay: state.currentDay - 1,
+      selectedPlayerId: () => null,
+    );
+    return true;
   }
 }
 
