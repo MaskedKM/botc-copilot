@@ -299,7 +299,9 @@ void main() {
   });
 
   test('规则4：当夜被杀的邻居不算存活邻居（收缩，#78）', () {
-    // 3 号当夜被杀（nightKill）→ Empath 读取时已死，邻居收缩为 1、4
+    // 3 号当夜被杀（nightKill）→ Empath 读取时已死，邻居收缩为 1、4。
+    // 给 3 号好人声明（monk）作判别器：若 3 被错误算入，邻居[1,3]皆好人
+    // → 报 1 邪恶会触发 mismatch（非空），从而守住「必须按 cause 排除 nightKill」。
     final deadPlayers = {
       ...players,
       3: _player(3, 3, deathDay: 2, deathCause: DeathCause.nightKill),
@@ -308,6 +310,7 @@ void main() {
       claims: [
         _claim(2, Character.empath),
         _claim(1, Character.chef), // 左邻居好人
+        _claim(3, Character.monk), // 被杀者：好人（判别器）
         _claim(4, Character.poisoner), // 收缩后的右邻居邪恶
       ],
       declarations: [_empathDecl(2, 10, 1)], // 报 1 个邪恶
@@ -316,7 +319,7 @@ void main() {
       dayRecordToDayNumber: {10: 2},
       expectedOutsiders: 0,
     );
-    // 邻居 1（好）、4（邪）→ 报 1 邪恶 → 匹配，不报警
+    // 正确排除 3 → 邻居 1（好）、4（邪）→ 报 1 邪恶 → 匹配，不报警
     expect(result, isEmpty);
   });
 
