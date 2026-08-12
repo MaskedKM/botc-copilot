@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:botc_copilot/core/constants/character.dart';
 import 'package:botc_copilot/core/database/app_database.dart';
 import 'package:botc_copilot/core/database/database_provider.dart';
@@ -10,6 +12,7 @@ import 'package:botc_copilot/feature/game_board/domain/nomination_rules.dart';
 import 'package:botc_copilot/shared/widgets/help_tooltip.dart';
 import 'package:botc_copilot/feature/game_board/presentation/providers/game_board_provider.dart';
 import 'package:botc_copilot/feature/game_board/presentation/widgets/end_game_dialog.dart';
+import 'package:botc_copilot/feature/game_board/presentation/widgets/night_action_section.dart';
 import 'package:botc_copilot/feature/game_board/presentation/widgets/night_order_section.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -75,6 +78,9 @@ class NightPanel extends ConsumerWidget {
         const SizedBox(height: 8),
         // 夜晚行动顺序参考（issue #61）
         NightOrderSection(currentDay: day, helpLevel: helpLevel),
+        const SizedBox(height: 8),
+        // 夜间行动记录区（issue #110）
+        NightActionSection(gameId: gameId),
       ],
     );
   }
@@ -391,9 +397,11 @@ Future<void> _confirmNightDeath(
   required GameBoardNotifier notifier,
 }) async {
   final claimed = await _claimedCharacter(ref, gameId, player.id);
+  final monkProtected = await _monkProtectedThisNight(ref, gameId, day, player.id);
   final warnings = NightDeathRules.warnings(
     day: day,
     claimedCharacter: claimed,
+    monkProtected: monkProtected,
   );
   if (warnings.isNotEmpty && context.mounted) {
     final override = await showDialog<bool>(
@@ -423,6 +431,31 @@ Future<void> _confirmNightDeath(
     verb: '夜晚死亡',
     gameId: gameId,
   );
+}
+
+/// 该玩家当晚是否被僧侣保护（#110 夜间行动记录 → #114 任务3）。
+///
+/// 查当日 InfoDeclaration 中 characterType == monk 且 payload.playerId 命中。
+Future<bool> _monkProtectedThisNight(
+  WidgetRef ref,
+  int gameId,
+  int day,
+  int playerId,
+) async {
+  final db = ref.read(appDatabaseProvider);
+  final dayRecord = await db.dayRecordsDao.getByGameAndDay(gameId, day);
+  if (dayRecord == null) return false;
+  final decls = await db.infoDeclarationsDao.watchByDay(dayRecord.id).first;
+  for (final d in decls) {
+    if (d.characterType != Character.monk) continue;
+    try {
+      final payload = jsonDecode(d.payloadJson);
+      if (payload is Map && payload['playerId'] == playerId) return true;
+    } on FormatException {
+      continue;
+    }
+  }
+  return false;
 }
 
 /// 占位面板：投票分析 / 我的推理（后续 issue 实现）。

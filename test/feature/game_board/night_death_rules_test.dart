@@ -44,5 +44,24 @@ void main() {
       final w = NightDeathRules.warnings(day: 3, claimedCharacter: null);
       expect(w, isEmpty);
     });
+
+    test('被 Monk 保护者夜死 → 警告保护未生效（#110/#114任务3）', () {
+      final w = NightDeathRules.warnings(
+        day: 3,
+        claimedCharacter: Character.chef,
+        monkProtected: true,
+      );
+      expect(w, hasLength(1));
+      expect(w.first, contains('僧侣保护'));
+      expect(w.first, contains('毒'));
+    });
+
+    test('monkProtected 默认 false → 不触发', () {
+      final w = NightDeathRules.warnings(
+        day: 3,
+        claimedCharacter: Character.chef,
+      );
+      expect(w, isEmpty);
+    });
   });
 }

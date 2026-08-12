@@ -13,17 +13,18 @@ import 'package:botc_copilot/core/constants/character.dart';
 /// - **声明 Soldier 的玩家夜死**：Soldier 能力 *"You are safe from the
 ///   Demon."*——免疫恶魔能力；TB 夜死只有恶魔造成，故 Soldier 夜死意味
 ///   着能力被毒/醉关闭或录错。
-///
-/// 待 #110（夜间行动记录）落地后补充：当晚有 Monk 保护记录的被保护者
-/// 夜死（#114 任务 3）。
+/// - **被 Monk 保护者夜死**（#110/#114 任务3）：Monk 保护在 Imp 之前结算，
+///   被保护者不会被恶魔杀——除非僧侣被毒/醉。
 abstract final class NightDeathRules {
   /// 返回适用警告文案列表（空 = 无警告）。
   ///
   /// [day] 当前天数（从 1 开始）；[claimedCharacter] 该玩家**声明**的角色
   /// （最新公开声明；调用方对「我」的座位应传 myRole，见 _claimedCharacter）。
+  /// [monkProtected] 该玩家当晚是否被僧侣保护（#110 夜间行动记录）。
   static List<String> warnings({
     required int day,
     Character? claimedCharacter,
+    bool monkProtected = false,
   }) {
     final result = <String>[];
     if (day == 1) {
@@ -31,6 +32,10 @@ abstract final class NightDeathRules {
     }
     if (claimedCharacter == Character.soldier) {
       result.add('该玩家声明为士兵。士兵免疫恶魔能力——除非被毒/醉。');
+    }
+    if (monkProtected) {
+      result.add('该玩家当晚被僧侣保护——被保护者不会被恶魔杀死，'
+          '除非僧侣被毒/醉或保护未生效。');
     }
     return result;
   }
