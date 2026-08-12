@@ -34,12 +34,24 @@ abstract final class InfoPayloadFormatter {
       // {"character": "..."}
       _ when payload.containsKey('character') =>
         '${character.nameCn}：${charLabel(payload['character'])}',
+      // {"playerId": n}（Monk 保护 / Butler 主人 / Poisoner 下毒）
+      _ when payload.containsKey('playerId') =>
+        '${character.nameCn}：${_nightActionVerb(character)}'
+            '${playerLabel(payload['playerId'] as int)}',
       // {"text": "..."}
       _ when payload.containsKey('text') =>
         '${character.nameCn}：${payload['text']}',
       _ => character.nameCn,
     };
   }
+
+  /// 夜间行动目标的动词（Monk 保护 / Butler 主人 / Poisoner 下毒）。
+  static String _nightActionVerb(Character c) => switch (c) {
+        Character.monk => '保护 ',
+        Character.butler => '主人 ',
+        Character.poisoner => '下毒 ',
+        _ => '',
+      };
 
   /// 解析 payload 中的角色（适用于 undertaker / ravenkeeper 等
   /// `{"character": "..."}` 结构的声明）。

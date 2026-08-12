@@ -422,6 +422,7 @@ class _InfoInputSection extends ConsumerWidget {
         InfoInputFactory.build(
           character: character,
           players: players,
+          actingPlayerId: playerId,
           onSubmit: (payload) async {
             final notifier = ref.read(gameBoardProvider(gameId).notifier);
             final dayRecordId = await notifier.ensureCurrentDayRecord();

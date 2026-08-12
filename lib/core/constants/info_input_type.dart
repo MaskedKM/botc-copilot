@@ -30,6 +30,10 @@ enum InfoInputType {
   /// 选 1 名玩家 + 选 1 个角色名（如 Ravenkeeper）。
   playerPlusCharacter,
 
+  /// 选 1 名玩家（夜间行动目标，如 Monk 保护 / Butler 主人 / Poisoner 下毒）。
+  /// payload: {"playerId": n}
+  singlePlayerTarget,
+
   /// 自由文本（其余角色的通用兜底）。
   freeText,
 }

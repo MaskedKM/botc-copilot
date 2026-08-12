@@ -79,7 +79,7 @@ enum Character {
     team: Team.townsfolk,
     ability: '每个夜晚（除首夜），选择一名除你以外的存活玩家：'
         '恶魔的能力今晚不会杀死他。',
-    infoInputType: InfoInputType.none,
+    infoInputType: InfoInputType.singlePlayerTarget,
   ),
 
   /// 渡鸦守护者：夜晚死亡时选择一名玩家，得知其角色。
@@ -136,7 +136,7 @@ enum Character {
     team: Team.outsider,
     ability: '每个夜晚，选择一名除你以外的玩家作为"主人"：'
         '明天你只能在主人投票时投票。',
-    infoInputType: InfoInputType.none,
+    infoInputType: InfoInputType.singlePlayerTarget,
   ),
 
   /// 醉汉：不知道自己是醉汉，以为自己是一个镇民角色，能力无效。
@@ -173,7 +173,7 @@ enum Character {
     nameEn: 'Poisoner',
     team: Team.minion,
     ability: '每个夜晚，选择一名玩家：他今晚和明天白天中毒（能力失效、信息错误）。',
-    infoInputType: InfoInputType.none,
+    infoInputType: InfoInputType.singlePlayerTarget,
   ),
 
   /// 间谍：每晚查看魔典；可能被判定为善良阵营。

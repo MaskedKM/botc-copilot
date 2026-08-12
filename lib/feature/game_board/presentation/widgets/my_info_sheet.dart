@@ -113,6 +113,7 @@ class MyInfoSheet extends ConsumerWidget {
                       InfoInputFactory.build(
                         character: myRole,
                         players: players,
+                        actingPlayerId: myPlayer.id,
                         onSubmit: (payload) async {
                           final dayRecordId = await ref
                               .read(gameBoardProvider(game.id).notifier)
