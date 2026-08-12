@@ -8,6 +8,7 @@ import 'package:botc_copilot/feature/player_detail/data/behavior_note_repository
 import 'package:botc_copilot/feature/player_detail/data/player_detail_repository.dart';
 import 'package:botc_copilot/feature/player_detail/presentation/player_detail_sheet.dart';
 import 'package:botc_copilot/shared/models/enums.dart';
+import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -18,6 +19,8 @@ class _FakePlayerDetailRepository implements PlayerDetailRepository {
   TrustLevel? trustLevel;
   int claimCalls = 0;
   int trustCalls = 0;
+  bool? lastDeclareIsMine;
+  int declareCalls = 0;
 
   @override
   Future<int> claimRole({
@@ -39,8 +42,11 @@ class _FakePlayerDetailRepository implements PlayerDetailRepository {
     bool isMine = false,
     int? dayNumber,
     int? gameId,
-  }) async =>
-      1;
+  }) async {
+    declareCalls++;
+    lastDeclareIsMine = isMine;
+    return 1;
+  }
 
   @override
   Future<int> setTrustLevel({
@@ -118,7 +124,9 @@ void main() {
       ..claimedRole = null
       ..trustLevel = null
       ..claimCalls = 0
-      ..trustCalls = 0;
+      ..trustCalls = 0
+      ..declareCalls = 0
+      ..lastDeclareIsMine = null;
     poisonRepo.toggleCalls = 0;
   });
 
@@ -131,10 +139,13 @@ void main() {
   }
 
   /// 默认：无声明 / 无信任记录 / 无毒标记。
-  Widget buildSheet() {
+  /// [myPlayerId] 模拟「我的座位」（issue #105）：设为 me.id 时点自己座位
+  /// 应识别「这是我」并以真实角色录入。
+  Widget buildSheet({int? myPlayerId}) {
+    final g = game.copyWith(myPlayerId: Value(myPlayerId));
     return ProviderScope(
       overrides: [
-        gameByIdProvider(1).overrideWith((ref) => Stream.value(game)),
+        gameByIdProvider(1).overrideWith((ref) => Stream.value(g)),
         gamePlayersProvider(1)
             .overrideWith((ref) => Stream.value([me])),
         gameBoardProvider(1)
@@ -267,5 +278,48 @@ void main() {
 
     expect(find.text('丢弃修改？'), findsNothing);
     expect(detailRepo.claimCalls, 0);
+  });
+
+  // issue #105：点自己座位应识别「这是我」，以真实角色直接录入信息。
+  testWidgets('我座位：识别这是我，直接以真实角色录入（无需声明）', (tester) async {
+    useTallSurface(tester);
+    // myPlayerId = me.id → 点 me 座位 = 点自己
+    await tester.pumpWidget(buildSheet(myPlayerId: me.id));
+    await tester.pump();
+
+    // 头部标识真实角色（私密）
+    expect(find.text('这是我 · 真实角色：共情者'), findsOneWidget);
+    // 信息区直接出现（无需先声明角色）——核心修复点
+    expect(find.text('共情者 的信息'), findsOneWidget);
+    // 角色声明区对我座位隐藏（不要求重复声明）
+    expect(find.text('角色声明'), findsNothing);
+  });
+
+  testWidgets('我座位录入信息传 isMine=true', (tester) async {
+    useTallSurface(tester);
+    await tester.pumpWidget(buildSheet(myPlayerId: me.id));
+    await tester.pump();
+
+    // Empath 数字输入的「记录」按钮（默认值 0）
+    await tester.tap(find.text('记录'));
+    await tester.pump(); // declareInfo async 间隙
+    await tester.pump();
+
+    expect(detailRepo.declareCalls, 1);
+    expect(detailRepo.lastDeclareIsMine, isTrue);
+    expect(find.text('我的信息已记录'), findsOneWidget);
+  });
+
+  testWidgets('他人座位行为不变：仍要求先声明角色', (tester) async {
+    useTallSurface(tester);
+    // myPlayerId=null → me 不是「我」
+    await tester.pumpWidget(buildSheet());
+    await tester.pump();
+
+    expect(find.text('这是我 · 真实角色：共情者'), findsNothing);
+    expect(find.text('角色声明'), findsOneWidget);
+    // 未声明时不显示信息录入区
+    expect(find.text('共情者 的信息'), findsNothing);
+    expect(find.text('先声明角色，再录入该角色的信息。'), findsOneWidget);
   });
 }
