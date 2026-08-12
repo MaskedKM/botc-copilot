@@ -80,4 +80,56 @@ void main() {
     expect(players.map((p) => p.seatNumber), [1, 2, 3, 4, 5, 6, 7]);
     expect(players.map((p) => p.name), ['A', 'B', 'C', 'D', 'E', 'F', 'G']);
   });
+
+  test('selectMySeat 记录座位号', () {
+    notifier().selectMySeat(5);
+    expect(state().mySeat, 5);
+  });
+
+  test('selectMySeat(null) 清除已选座位', () {
+    notifier().selectMySeat(5);
+    notifier().selectMySeat(null);
+    expect(state().mySeat, isNull);
+  });
+
+  test('reorderSeat 后 mySeat 跟随同一名玩家移动', () {
+    notifier()
+      ..setPlayerName(0, 'Alice')
+      ..setPlayerName(1, 'Bob')
+      ..setPlayerName(2, 'Carol')
+      ..selectMySeat(1); // Alice 在 1 号
+    // 把 Alice（下标 0）拖到下标 2 → Alice 变为 3 号
+    notifier().reorderSeat(0, 3);
+    expect(state().mySeat, 3);
+  });
+
+  test('setPlayerCount 减少后 mySeat 越界 → 自动清除', () {
+    notifier().selectMySeat(7);
+    notifier().setPlayerCount(5);
+    expect(state().mySeat, isNull);
+    // 未越界则保留
+    notifier().selectMySeat(3);
+    notifier().setPlayerCount(6);
+    expect(state().mySeat, 3);
+  });
+
+  // issue #70：开局选座位 → 立即写 myPlayerId，圆环直接显示金色描边。
+  test('submit 选了座位 → 写入 myPlayerId（圆环可显示金色描边）', () async {
+    notifier().selectRole(Character.empath);
+    notifier().selectMySeat(3);
+
+    final gameId = await notifier().submit();
+
+    final game = await db.gamesDao.getById(gameId);
+    final players = await db.playersDao.watchByGame(gameId).first;
+    final seat3 = players.firstWhere((p) => p.seatNumber == 3);
+    expect(game!.myPlayerId, seat3.id);
+  });
+
+  test('submit 未选座位 → myPlayerId 保持 null（由 MyInfoSheet 兜底）', () async {
+    notifier().selectRole(Character.empath);
+    final gameId = await notifier().submit();
+    final game = await db.gamesDao.getById(gameId);
+    expect(game!.myPlayerId, isNull);
+  });
 }
