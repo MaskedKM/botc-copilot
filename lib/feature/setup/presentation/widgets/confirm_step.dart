@@ -89,52 +89,61 @@ class ConfirmStep extends ConsumerWidget {
           ),
         ),
         const SizedBox(height: 12),
-        // 恶魔 Bluff 录入（仅当我是恶魔时）
+        // 恶魔 Bluff 录入（仅当我是恶魔时；≤6 人局恶魔无 Bluff——官方规则 #113）
         if (state.myRole != null &&
             state.myRole!.team == Team.demon) ...[
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '恶魔 Bluff（选 3 个）',
-                    style: AppTextStyles.headline
-                        .copyWith(color: gameColors.blood),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '说书人给你的 3 个不在场角色。这是推理的关键约束。',
-                    style: AppTextStyles.caption,
-                  ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 4,
-                    children: [
-                      for (final c in Character.values.where(
-                        (c) => c.team != Team.demon,
-                      ))
-                        ChoiceChip(
-                          label: Text(c.nameCn),
-                          selected: state.demonBluffs.contains(c),
-                          onSelected: (_) => ref
-                              .read(setupProvider.notifier)
-                              .toggleBluff(c),
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '已选 ${state.demonBluffs.length}/3',
-                    style: AppTextStyles.caption
-                        .copyWith(color: gameColors.goldBright),
-                  ),
-                ],
+          if (state.playerCount >= 7)
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '恶魔 Bluff（选 3 个）',
+                      style: AppTextStyles.headline
+                          .copyWith(color: gameColors.blood),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '说书人给你的 3 个不在场角色。这是推理的关键约束。',
+                      style: AppTextStyles.caption,
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 4,
+                      children: [
+                        for (final c in Character.values.where(
+                          (c) => c.team != Team.demon,
+                        ))
+                          ChoiceChip(
+                            label: Text(c.nameCn),
+                            selected: state.demonBluffs.contains(c),
+                            onSelected: (_) => ref
+                                .read(setupProvider.notifier)
+                                .toggleBluff(c),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '已选 ${state.demonBluffs.length}/3',
+                      style: AppTextStyles.caption
+                          .copyWith(color: gameColors.goldBright),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          else
+            Card(
+              child: ListTile(
+                leading: Icon(Icons.info_outline, color: gameColors.inkViolet),
+                title: const Text('本局恶魔无 Bluff 信息'),
+                subtitle: const Text('≤6 人局恶魔不知爪牙，亦不获得不在场角色信息。'),
               ),
             ),
-          ),
           const SizedBox(height: 12),
         ],
         Card(

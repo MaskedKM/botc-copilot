@@ -118,7 +118,7 @@ class _NominationEntrySheetState
             ),
             const SizedBox(height: 16),
 
-            // 被提名者（含死人——官方规则死人可被提名；标 ☠ 区分）
+            // 被提名者（官方允许自我提名——Virgin 自证战术；含死人，标 ☠ 区分）
             const Text('被提名者', style: AppTextStyles.headline),
             const SizedBox(height: 8),
             Wrap(
@@ -126,20 +126,20 @@ class _NominationEntrySheetState
               runSpacing: 4,
               children: [
                 for (final p in players)
-                  if (p.id != _nominatorId)
-                    ChoiceChip(
-                      label: Text(
-                        '${p.seatNumber}号 ${p.name}'
-                        '${p.isAlive ? '' : ' ☠'}',
-                      ),
-                      selected: _nomineeId == p.id,
-                      onSelected: NominationRules.hasBeenNominatedToday(
-                        todayNominations,
-                        p.id,
-                      )
-                          ? null // 已被提名过 → 禁用
-                          : (_) => setState(() => _nomineeId = p.id),
+                  ChoiceChip(
+                    label: Text(
+                      '${p.seatNumber}号 ${p.name}'
+                      '${p.isAlive ? '' : ' ☠'}'
+                      '${p.id == _nominatorId ? '（自）' : ''}',
                     ),
+                    selected: _nomineeId == p.id,
+                    onSelected: NominationRules.hasBeenNominatedToday(
+                      todayNominations,
+                      p.id,
+                    )
+                        ? null // 已被提名过 → 禁用
+                        : (_) => setState(() => _nomineeId = p.id),
+                  ),
               ],
             ),
             const SizedBox(height: 16),
