@@ -53,6 +53,9 @@ class _FakePlayerDetailRepository implements PlayerDetailRepository {
     trustLevel = level;
     return 1;
   }
+
+  @override
+  Future<void> deleteDeclaration(int id) async {}
 }
 
 class _FakePoisonRepository implements PoisonRepository {

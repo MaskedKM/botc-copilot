@@ -295,4 +295,49 @@ void main() {
       expect(noms.last.defenseText, isNull);
     });
   });
+
+  group('deleteNomination（误录纠错，issue #83）', () {
+    test('删除提名后死票释放', () async {
+      await repo.addNomination(
+        gameId: gameId,
+        dayRecordId: dayRecordId,
+        nominatorId: players[0].id,
+        nomineeId: players[1].id,
+        votes: votesFor([1, 7]), // 7 号（死）赞成 = 消耗死票
+        players: players,
+        todayNominations: [],
+        allNominations: [],
+      );
+      var all = await db.nominationsDao.watchByGame(gameId).first;
+      expect(NominationRules.deadVoteUsed(all, players[6].id), isTrue);
+
+      await repo.deleteNomination(all.single.id);
+      all = await db.nominationsDao.watchByGame(gameId).first;
+      expect(all, isEmpty);
+      // 死票已释放：实时计算，删后自动正确
+      expect(NominationRules.deadVoteUsed(all, players[6].id), isFalse);
+    });
+
+    test('删除即将死亡者的提名后最高票重算', () {
+      final noms = [
+        nominationWithVotes(nominatorIndex: 0, nomineeIndex: 1, forCount: 5),
+        nominationWithVotes(nominatorIndex: 2, nomineeIndex: 3, forCount: 4),
+      ];
+      // 删除前：5 票者即将死亡
+      expect(
+        (NominationRules.pendingExecution(noms, 6) as PendingExecution)
+            .nomineeId,
+        players[1].id,
+      );
+      // 删除 5 票那条 → 4 票者成为即将死亡
+      final afterDelete = noms
+          .where((n) => n.nomineePlayerId != players[1].id)
+          .toList();
+      expect(
+        (NominationRules.pendingExecution(afterDelete, 6) as PendingExecution)
+            .nomineeId,
+        players[3].id,
+      );
+    });
+  });
 }

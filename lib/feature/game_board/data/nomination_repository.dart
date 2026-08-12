@@ -85,6 +85,13 @@ class NominationRepository {
     );
     return null;
   }
+
+  /// 删除一条提名（误录纠错，issue #83）。
+  ///
+  /// 派生数据（当天最高票 `pendingExecution`、死票 `deadVoteUsed`、
+  /// 提名次数限制）均为**实时计算**，删除后自动正确重算，无需级联。
+  Future<void> deleteNomination(int id) =>
+      _db.nominationsDao.deleteNomination(id);
 }
 
 /// 提名仓库 Provider。

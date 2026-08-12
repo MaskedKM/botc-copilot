@@ -439,7 +439,10 @@ class _RecordedInfoSection extends ConsumerWidget {
           )
         else
           for (final decl in current.reversed.take(5))
-            _InfoRow(decl: decl),
+            _InfoRow(
+              decl: decl,
+              onDelete: () => _confirmDeleteDeclaration(context, ref, decl.id),
+            ),
         if (history.isNotEmpty) ...[
           const SizedBox(height: 12),
           Text(
@@ -449,7 +452,11 @@ class _RecordedInfoSection extends ConsumerWidget {
           ),
           const SizedBox(height: 4),
           for (final decl in history.reversed.take(5))
-            _InfoRow(decl: decl, dimmed: true),
+            _InfoRow(
+              decl: decl,
+              dimmed: true,
+              onDelete: () => _confirmDeleteDeclaration(context, ref, decl.id),
+            ),
         ],
       ],
     );
@@ -458,12 +465,15 @@ class _RecordedInfoSection extends ConsumerWidget {
 
 /// 单条已录入信息行。
 class _InfoRow extends StatelessWidget {
-  const _InfoRow({required this.decl, this.dimmed = false});
+  const _InfoRow({required this.decl, this.dimmed = false, this.onDelete});
 
   final InfoDeclaration decl;
 
   /// 弱化显示（改口历史）：删除线 + 灰色。
   final bool dimmed;
+
+  /// 删除回调（非 null 时显示删除按钮，issue #83 误录纠错）。
+  final Future<void> Function()? onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -488,6 +498,17 @@ class _InfoRow extends StatelessWidget {
                   : AppTextStyles.body,
             ),
           ),
+          if (onDelete != null)
+            IconButton(
+              tooltip: '删除这条信息',
+              iconSize: 18,
+              visualDensity: VisualDensity.compact,
+              icon: Icon(
+                Icons.close,
+                color: context.gameColors.inkViolet,
+              ),
+              onPressed: onDelete,
+            ),
         ],
       ),
     );
@@ -676,5 +697,36 @@ class _BehaviorNoteSectionState extends ConsumerState<_BehaviorNoteSection> {
           ),
       ],
     );
+  }
+}
+
+/// 删除信息声明的二次确认（误录纠错，issue #83）。
+Future<void> _confirmDeleteDeclaration(
+  BuildContext context,
+  WidgetRef ref,
+  int declarationId,
+) async {
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: const Text('删除这条信息？'),
+      content: const Text('删除后该信息不再出现在玩家详情与推理输入中。'
+          '该操作不可撤销。'),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(ctx, false),
+          child: const Text('取消'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(ctx, true),
+          child: const Text('删除'),
+        ),
+      ],
+    ),
+  );
+  if (confirmed ?? false) {
+    await ref
+        .read(playerDetailRepositoryProvider)
+        .deleteDeclaration(declarationId);
   }
 }

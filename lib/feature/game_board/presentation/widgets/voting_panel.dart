@@ -3,6 +3,7 @@ import 'package:botc_copilot/core/theme/game_colors.dart';
 import 'package:botc_copilot/feature/game_board/data/nomination_repository.dart';
 import 'package:botc_copilot/feature/game_board/domain/nomination_rules.dart';
 import 'package:botc_copilot/feature/game_board/presentation/providers/game_board_provider.dart';
+import 'package:botc_copilot/feature/game_board/presentation/widgets/day_panels.dart';
 import 'package:botc_copilot/feature/game_board/presentation/widgets/nomination_entry_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -47,14 +48,37 @@ class VotingPanel extends ConsumerWidget {
               borderRadius: BorderRadius.circular(8),
               border: Border.all(color: gameColors.blood, width: 1),
             ),
-            child: Text(
-              pending is PendingExecution
-                  ? '即将死亡：${pendingNominee?.seatNumber ?? "?"}号 '
-                      '${pendingNominee?.name ?? "?"}'
-                      '（${(pending).forCount} 票，可被更高票替换）'
-                  : '平票 ${(pending as PendingTie).forCount} 票'
-                      ' —— 无人即将死亡，后续须超过此票数',
-              style: AppTextStyles.body.copyWith(color: gameColors.blood),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  pending is PendingExecution
+                      ? '即将死亡：${pendingNominee?.seatNumber ?? "?"}号 '
+                          '${pendingNominee?.name ?? "?"}'
+                          '（${(pending).forCount} 票，可被更高票替换）'
+                      : '平票 ${(pending as PendingTie).forCount} 票'
+                          ' —— 无人即将死亡，后续须超过此票数',
+                  style: AppTextStyles.body.copyWith(color: gameColors.blood),
+                ),
+                // 一键处决（issue #85）：从「即将死亡」直达处决录入
+                if (pending is PendingExecution && pendingNominee != null) ...[
+                  const SizedBox(height: 8),
+                  FilledButton.icon(
+                    onPressed: () => confirmDeath(
+                      context,
+                      ref,
+                      player: pendingNominee,
+                      action: () => ref
+                          .read(gameBoardProvider(gameId).notifier)
+                          .recordExecution(pendingNominee.id),
+                      verb: '处决',
+                      gameId: gameId,
+                    ),
+                    icon: const Icon(Icons.gavel),
+                    label: const Text('记录处决'),
+                  ),
+                ],
+              ],
             ),
           ),
         Expanded(
@@ -113,11 +137,27 @@ class VotingPanel extends ConsumerWidget {
                               ),
                           ],
                         ),
-                        trailing: Icon(
-                          n.passed ? Icons.gavel : Icons.close,
-                          color: n.passed
-                              ? gameColors.blood
-                              : gameColors.inkViolet,
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              n.passed ? Icons.gavel : Icons.close,
+                              color: n.passed
+                                  ? gameColors.blood
+                                  : gameColors.inkViolet,
+                            ),
+                            // 删除误录的提名（issue #83）
+                            IconButton(
+                              tooltip: '删除提名',
+                              icon: Icon(
+                                Icons.delete_outline,
+                                size: 20,
+                                color: gameColors.inkViolet,
+                              ),
+                              onPressed: () =>
+                                  _confirmDeleteNomination(context, ref, n.id),
+                            ),
+                          ],
                         ),
                       ),
                     );
@@ -136,5 +176,37 @@ class VotingPanel extends ConsumerWidget {
         ),
       ],
     );
+  }
+}
+
+/// 删除提名的二次确认（issue #83）。
+///
+/// 说明连带影响：删除后释放其消耗的死票、重算当天最高票（派生数据均为
+/// 实时计算，无需额外级联）。
+Future<void> _confirmDeleteNomination(
+  BuildContext context,
+  WidgetRef ref,
+  int nominationId,
+) async {
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: const Text('删除这条提名？'),
+      content: const Text('删除后将释放其消耗的死票、并重算当天最高票。'
+          '该操作不可撤销。'),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(ctx, false),
+          child: const Text('取消'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(ctx, true),
+          child: const Text('删除'),
+        ),
+      ],
+    ),
+  );
+  if (confirmed ?? false) {
+    await ref.read(nominationRepositoryProvider).deleteNomination(nominationId);
   }
 }

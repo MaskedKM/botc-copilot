@@ -92,6 +92,10 @@ class PlayerDetailRepository {
       ),
     );
   }
+
+  /// 删除一条信息声明（误录纠错，issue #83）。
+  Future<void> deleteDeclaration(int id) =>
+      _db.infoDeclarationsDao.deleteDeclaration(id);
 }
 
 /// 玩家详情仓库 Provider。
