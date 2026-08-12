@@ -77,6 +77,7 @@ abstract final class ContradictionDetector {
     required Map<int, Player> playersById,
     required Map<int, int> dayRecordToDayNumber,
     required int expectedOutsiders,
+    List<PoisonStatus> poisonStatuses = const [],
   }) {
     String labelOf(int playerId) {
       final p = playersById[playerId];
@@ -88,22 +89,43 @@ abstract final class ContradictionDetector {
     for (final c in claims) {
       latestClaim[c.playerId] = c;
     }
-    // 已确认角色：死亡揭示声明 + 掘墓人结果
+    // 已确认角色（issue #82）：仅死亡揭示视为「确认」（村规流程）。
     final confirmedRoles = <int, Character>{}; // playerId → confirmed
     for (final c in claims) {
       if (c.claimType.name == 'revealedOnDeath') {
         confirmedRoles[c.playerId] = c.character;
       }
     }
+    // 掘墓人结果：高可信但**可污染**（醉/毒 / Spy 死后登记为好人 /
+    // Recluse 登记为邪恶）。掘墓人当天被标毒/醉 → 信息不可靠，跳过。
+    final undertakerClaimsList =
+        claims.where((c) => c.character == Character.undertaker).toList();
+    final undertakerPlayerId =
+        undertakerClaimsList.isEmpty ? null : undertakerClaimsList.last.playerId;
+    final undertakerRoles = <int, Character>{}; // 被处决者 → 掘墓人报出的角色
     for (final d in days) {
       if (d.undertakerResultRole != null && d.dayExecutionPlayerId != null) {
-        confirmedRoles[d.dayExecutionPlayerId!] = d.undertakerResultRole!;
+        final tainted = undertakerPlayerId != null &&
+            poisonStatuses.any(
+              (p) =>
+                  p.playerId == undertakerPlayerId &&
+                  p.dayNumber == d.dayNumber &&
+                  p.isActive,
+            );
+        if (!tainted) {
+          undertakerRoles[d.dayExecutionPlayerId!] = d.undertakerResultRole!;
+        }
       }
     }
 
     return [
       ..._duplicateRoleClaims(latestClaim, labelOf),
-      ..._confirmedRoleConflicts(latestClaim, confirmedRoles, labelOf),
+      ..._confirmedRoleConflicts(
+        latestClaim,
+        confirmedRoles,
+        undertakerRoles,
+        labelOf,
+      ),
       ..._outsiderCountAnomaly(latestClaim, expectedOutsiders, labelOf),
       ..._empathMismatch(
         declarations,
@@ -146,16 +168,24 @@ abstract final class ContradictionDetector {
     ];
   }
 
-  /// 规则 2：新声明与已确认角色冲突。
+  /// 规则 2：新声明与「已确认 / 高可信」角色冲突。
+  ///
+  /// - 死亡揭示（村规确认）冲突 → warning，确定性结论。
+  /// - 掘墓人信息冲突 → info（**可污染**：醉/毒 / Spy 死后登记为好人 /
+  ///   Recluse 登记为邪恶），仅提示可能性，不输出身份结论（issue #82）。
   static List<Contradiction> _confirmedRoleConflicts(
     Map<int, RoleClaim> latestClaim,
     Map<int, Character> confirmedRoles,
+    Map<int, Character> undertakerRoles,
     String Function(int) labelOf,
   ) {
-    return [
-      for (final e in latestClaim.entries)
-        if (confirmedRoles.values.contains(e.value.character) &&
-            !confirmedRoles.containsKey(e.key))
+    final result = <Contradiction>[];
+    for (final e in latestClaim.entries) {
+      if (e.value.claimType.name == 'revealedOnDeath') continue;
+      // 死亡揭示（村规确认）冲突
+      if (confirmedRoles.values.contains(e.value.character) &&
+          !confirmedRoles.containsKey(e.key)) {
+        result.add(
           Contradiction(
             type: ContradictionType.confirmedRoleConflict,
             playerIds: [
@@ -166,10 +196,34 @@ abstract final class ContradictionDetector {
             ],
             description:
                 '${labelOf(e.key)} 声明 ${e.value.character.nameCn}，'
-                '但该角色已被确认在他人身上（掘墓人/死亡揭示）。',
+                '但该角色已被死亡揭示确认在他人身上（村规确认）。',
             severity: ContradictionSeverity.warning,
           ),
-    ];
+        );
+      }
+      // 掘墓人信息冲突（可污染，仅提示）
+      if (undertakerRoles.values.contains(e.value.character) &&
+          !undertakerRoles.containsKey(e.key) &&
+          !confirmedRoles.containsKey(e.key)) {
+        result.add(
+          Contradiction(
+            type: ContradictionType.confirmedRoleConflict,
+            playerIds: [
+              e.key,
+              ...undertakerRoles.entries
+                  .where((c) => c.value == e.value.character)
+                  .map((c) => c.key),
+            ],
+            description:
+                '${labelOf(e.key)} 声明 ${e.value.character.nameCn}，'
+                '与掘墓人报出的角色冲突。掘墓人信息可能被毒/醉污染，'
+                '或 Spy 死后登记为好人 / Recluse 登记为邪恶。',
+            severity: ContradictionSeverity.info,
+          ),
+        );
+      }
+    }
+    return result;
   }
 
   /// 规则 3：外来者声明数超过配置应有数量。

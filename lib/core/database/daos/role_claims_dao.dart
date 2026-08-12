@@ -22,7 +22,10 @@ class RoleClaimsDao extends DatabaseAccessor<AppDatabase>
         dayRecords,
         dayRecords.id.equalsExp(roleClaims.dayRecordId),
       ),
-    ])..where(dayRecords.gameId.equals(gameId));
+    ])
+      ..where(dayRecords.gameId.equals(gameId))
+      // 显式按 id 升序，保证「后者覆盖前者」取最新声明语义稳定（review）
+      ..orderBy([OrderingTerm.asc(roleClaims.id)]);
     return query.watch().map(
           (rows) => rows.map((r) => r.readTable(roleClaims)).toList(),
         );
