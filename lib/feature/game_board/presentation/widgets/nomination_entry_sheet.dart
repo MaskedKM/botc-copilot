@@ -5,6 +5,9 @@ import 'package:botc_copilot/core/theme/game_colors.dart';
 import 'package:botc_copilot/feature/game_board/data/nomination_repository.dart';
 import 'package:botc_copilot/feature/game_board/domain/nomination_rules.dart';
 import 'package:botc_copilot/feature/game_board/presentation/providers/game_board_provider.dart';
+import 'package:botc_copilot/feature/game_board/presentation/widgets/day_panels.dart';
+import 'package:botc_copilot/feature/player_detail/data/ability_repository.dart';
+import 'package:botc_copilot/feature/reasoning/data/contradictions_provider.dart';
 import 'package:botc_copilot/shared/widgets/help_tooltip.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -64,6 +67,8 @@ class _NominationEntrySheetState
         [];
     final allNominations =
         ref.watch(gameNominationsProvider(widget.gameId)).valueOrNull ?? [];
+    final claims =
+        ref.watch(gameClaimsProvider(widget.gameId)).valueOrNull ?? [];
 
     final alivePlayers = players.where((p) => p.isAlive).toList();
     final canSubmit = _nominatorId != null &&
@@ -195,6 +200,7 @@ class _NominationEntrySheetState
                         todayNominations: todayNominations,
                         allNominations: allNominations,
                         players: players,
+                        claims: claims,
                         day: day,
                       )
                   : null,
@@ -210,6 +216,7 @@ class _NominationEntrySheetState
     required List<Nomination> todayNominations,
     required List<Nomination> allNominations,
     required List<Player> players,
+    required List<RoleClaim> claims,
     required int day,
   }) async {
     setState(() => _submitting = true);
@@ -247,10 +254,83 @@ class _NominationEntrySheetState
       messenger.showSnackBar(SnackBar(content: Text(error)));
       setState(() => _submitting = false);
     } else {
+      // Virgin 触发场景提示（issue #54 收尾）
+      await _maybeVirginTrigger(claims: claims, players: players);
       navigator.pop();
     }
   }
+
+  /// 命中 Virgin 触发场景时弹窗，交用户确认（醉/毒是否触发由人判断）。
+  Future<void> _maybeVirginTrigger({
+    required List<RoleClaim> claims,
+    required List<Player> players,
+  }) async {
+    final latestClaim = {for (final c in claims) c.playerId: c};
+    final virginId = NominationRules.virginTriggerScenario(
+      nominatorId: _nominatorId!,
+      nomineeId: _nomineeId!,
+      latestClaim: latestClaim,
+      playersById: {for (final p in players) p.id: p},
+    );
+    if (virginId == null) return;
+    final nominator = players.firstWhere((p) => p.id == _nominatorId);
+    final nominee = players.firstWhere((p) => p.id == _nomineeId);
+
+    final action = await showDialog<_VirginAction>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('处女能力可能触发'),
+        content: Text(
+          '${nominee.seatNumber}号 ${nominee.name}（声明处女）首次被镇民 '
+          '${nominator.seatNumber}号 ${nominator.name} 提名。\n'
+          '官方规则：若处女未被毒/醉，提名者立即被处决，当天提名结束。',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, _VirginAction.dismiss),
+            child: const Text('不处理'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, _VirginAction.markOnly),
+            child: const Text('仅标记已用'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, _VirginAction.execute),
+            child: Text('处决 ${nominator.name}'),
+          ),
+        ],
+      ),
+    );
+
+    switch (action) {
+      case _VirginAction.execute:
+        await ref
+            .read(abilityRepositoryProvider)
+            .setAbilityUsed(virginId, used: true);
+        final suggestion = await ref
+            .read(gameBoardProvider(widget.gameId).notifier)
+            .recordExecution(_nominatorId!);
+        if (suggestion != null && context.mounted) {
+          await handleEndSuggestion(
+            context,
+            ref,
+            widget.gameId,
+            suggestion,
+          );
+        }
+      case _VirginAction.markOnly:
+        await ref
+            .read(abilityRepositoryProvider)
+            .setAbilityUsed(virginId, used: true);
+      case _VirginAction.dismiss:
+      case null:
+        break;
+    }
+  }
 }
+
+/// Virgin 触发弹窗的选项。
+enum _VirginAction { dismiss, markOnly, execute }
 
 /// 单个玩家的投票行。
 class _VoteRow extends StatelessWidget {

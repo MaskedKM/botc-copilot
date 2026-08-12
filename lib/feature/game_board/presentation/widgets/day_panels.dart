@@ -194,7 +194,7 @@ Future<void> confirmDeath(
   if (!(confirmed ?? false)) return;
   final suggestion = await action();
   if (suggestion != null && context.mounted) {
-    await _handleEndSuggestion(context, ref, gameId, suggestion);
+    await handleEndSuggestion(context, ref, gameId, suggestion);
   }
 }
 
@@ -243,7 +243,7 @@ Future<void> _confirmExecution(
 }
 
 /// 处理结束建议：弹 dialog → 用户确认 → 更新状态。
-Future<void> _handleEndSuggestion(
+Future<void> handleEndSuggestion(
   BuildContext context,
   WidgetRef ref,
   int gameId,

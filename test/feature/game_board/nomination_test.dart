@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:botc_copilot/core/constants/character.dart';
 import 'package:botc_copilot/core/constants/script.dart';
 import 'package:botc_copilot/core/database/app_database.dart';
 import 'package:botc_copilot/core/database/database_provider.dart';
@@ -357,6 +358,70 @@ void main() {
             .nomineeId,
         players[3].id,
       );
+    });
+  });
+
+  group('virginTriggerScenario（#54 收尾）', () {
+    RoleClaim rc(int pid, Character c) => RoleClaim(
+          id: pid,
+          playerId: pid,
+          dayRecordId: 1,
+          character: c,
+          claimType: ClaimType.firstClaim,
+        );
+
+    test('Virgin 被镇民提名（能力未用）→ 返回 nomineeId', () {
+      final id = NominationRules.virginTriggerScenario(
+        nominatorId: players[0].id,
+        nomineeId: players[1].id,
+        latestClaim: {
+          players[0].id: rc(players[0].id, Character.chef),
+          players[1].id: rc(players[1].id, Character.virgin),
+        },
+        playersById: {for (final p in players) p.id: p},
+      );
+      expect(id, players[1].id);
+    });
+
+    test('提名者非镇民（爪牙）→ 不触发', () {
+      final id = NominationRules.virginTriggerScenario(
+        nominatorId: players[0].id,
+        nomineeId: players[1].id,
+        latestClaim: {
+          players[0].id: rc(players[0].id, Character.poisoner),
+          players[1].id: rc(players[1].id, Character.virgin),
+        },
+        playersById: {for (final p in players) p.id: p},
+      );
+      expect(id, isNull);
+    });
+
+    test('被提名者非 Virgin → 不触发', () {
+      final id = NominationRules.virginTriggerScenario(
+        nominatorId: players[0].id,
+        nomineeId: players[1].id,
+        latestClaim: {
+          players[0].id: rc(players[0].id, Character.chef),
+          players[1].id: rc(players[1].id, Character.empath),
+        },
+        playersById: {for (final p in players) p.id: p},
+      );
+      expect(id, isNull);
+    });
+
+    test('Virgin 能力已消耗 → 不触发', () async {
+      await db.playersDao.markAbilityUsed(players[1].id, used: true);
+      final updated = await db.playersDao.watchByGame(gameId).first;
+      final id = NominationRules.virginTriggerScenario(
+        nominatorId: players[0].id,
+        nomineeId: players[1].id,
+        latestClaim: {
+          players[0].id: rc(players[0].id, Character.chef),
+          players[1].id: rc(players[1].id, Character.virgin),
+        },
+        playersById: {for (final p in updated) p.id: p},
+      );
+      expect(id, isNull);
     });
   });
 }

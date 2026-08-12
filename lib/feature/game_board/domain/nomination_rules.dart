@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'package:botc_copilot/core/constants/character.dart';
+import 'package:botc_copilot/core/constants/team.dart';
 import 'package:botc_copilot/core/database/app_database.dart';
 
 /// 一票的取值。
@@ -122,6 +124,31 @@ abstract final class NominationRules {
       return PendingExecution(topNominees.single.$1, top);
     }
     return PendingTie(top);
+  }
+
+  /// Virgin 触发场景检测（issue #54 收尾）。
+  ///
+  /// 官方规则：处女首次被镇民提名（且未被毒/醉）时，提名者立即被处决、
+  /// 当天提名结束；能力随之消耗。本函数按玩家**声明**判定是否构成场景：
+  /// - 被提名者最新声明为 Virgin 且能力未消耗（abilityUsed=false）
+  /// - 提名者最新声明为 Townsfolk
+  ///
+  /// 返回被触发 Virgin 的 playerId（即 nominee），否则 null。是否真正
+  /// 触发（醉/毒）由 UI 弹窗交用户确认。
+  static int? virginTriggerScenario({
+    required int nominatorId,
+    required int nomineeId,
+    required Map<int, RoleClaim> latestClaim,
+    required Map<int, Player> playersById,
+  }) {
+    final nomineeClaim = latestClaim[nomineeId];
+    final nominatorClaim = latestClaim[nominatorId];
+    if (nomineeClaim == null || nominatorClaim == null) return null;
+    if (nomineeClaim.character != Character.virgin) return null;
+    if (nominatorClaim.character.team != Team.townsfolk) return null;
+    final nominee = playersById[nomineeId];
+    if (nominee == null || nominee.abilityUsed) return null;
+    return nomineeId;
   }
 }
 
