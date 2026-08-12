@@ -12,6 +12,7 @@ import 'package:botc_copilot/feature/player_detail/data/player_detail_repository
 import 'package:botc_copilot/feature/player_detail/domain/info_payload_formatter.dart';
 import 'package:botc_copilot/feature/player_detail/presentation/widgets/info_input_factory.dart';
 import 'package:botc_copilot/shared/models/enums.dart';
+import 'package:botc_copilot/shared/reliability.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -66,6 +67,8 @@ class _PlayerDetailSheetState extends ConsumerState<PlayerDetailSheet> {
   TrustLevel _draftTrust = TrustLevel.unknown;
   bool _poisonTouched = false;
   bool _draftPoison = false;
+  bool _drunkTouched = false;
+  bool _draftDrunk = false;
 
   bool _saving = false;
 
@@ -74,16 +77,19 @@ class _PlayerDetailSheetState extends ConsumerState<PlayerDetailSheet> {
     required Character? initialRole,
     required TrustLevel initialTrust,
     required bool initialPoison,
+    required bool initialDrunk,
   }) =>
       (_roleTouched && _draftRole != initialRole) ||
       (_trustTouched && _draftTrust != initialTrust) ||
-      (_poisonTouched && _draftPoison != initialPoison);
+      (_poisonTouched && _draftPoison != initialPoison) ||
+      (_drunkTouched && _draftDrunk != initialDrunk);
 
   /// 提交所有草稿变更到 DB，完成后关闭。
   Future<void> _save({
     required Character? initialRole,
     required TrustLevel initialTrust,
     required bool initialPoison,
+    required bool initialDrunk,
     required int day,
   }) async {
     setState(() => _saving = true);
@@ -110,12 +116,19 @@ class _PlayerDetailSheetState extends ConsumerState<PlayerDetailSheet> {
           level: _draftTrust,
         );
       }
-      // 醉/毒（toggleStatus：草稿与初始不同时翻转一次即到位）
+      // 毒（按天，toggleStatus：草稿与初始不同时翻转一次即到位）
       if (_poisonTouched && _draftPoison != initialPoison) {
         await poisonRepo.toggleStatus(
           gameId: widget.gameId,
           playerId: widget.player.id,
           dayNumber: day,
+        );
+      }
+      // 疑似醉汉（整局身份，#109）
+      if (_drunkTouched && _draftDrunk != initialDrunk) {
+        await repo.setSuspectedDrunk(
+          widget.player.id,
+          suspected: _draftDrunk,
         );
       }
     } finally {
@@ -189,16 +202,24 @@ class _PlayerDetailSheetState extends ConsumerState<PlayerDetailSheet> {
     final initialPoison = statuses.any(
       (p) => p.playerId == playerId && p.dayNumber == day && p.isActive,
     );
+    // 疑似醉汉（整局身份，#109）：取已保存值（players 流为最新）
+    final initialDrunk = players
+            .where((p) => p.id == playerId)
+            .firstOrNull
+            ?.suspectedDrunk ??
+        false;
 
     // 显示值：触动后取草稿，否则取来源值。
     final displayRole = _roleTouched ? _draftRole : initialRole;
     final displayTrust = _trustTouched ? _draftTrust : initialTrust;
     final displayPoison = _poisonTouched ? _draftPoison : initialPoison;
+    final displayDrunk = _drunkTouched ? _draftDrunk : initialDrunk;
 
     final dirty = _isDirty(
       initialRole: initialRole,
       initialTrust: initialTrust,
       initialPoison: initialPoison,
+      initialDrunk: initialDrunk,
     );
 
     return PopScope(
@@ -300,9 +321,11 @@ class _PlayerDetailSheetState extends ConsumerState<PlayerDetailSheet> {
                 ),
               const SizedBox(height: 16),
               // 分组按有效角色（我座位=myRole；草稿不改分组，避免误导）。
+              // 可靠性圆点叠加整局「疑似醉汉」overlay（#109）。
               _RecordedInfoSection(
                 playerId: playerId,
                 currentRole: effectiveRole,
+                authorSuspectedDrunk: initialDrunk,
               ),
               const SizedBox(height: 16),
               _PoisonSection(
@@ -311,6 +334,14 @@ class _PlayerDetailSheetState extends ConsumerState<PlayerDetailSheet> {
                 onChanged: (v) => setState(() {
                   _poisonTouched = true;
                   _draftPoison = v;
+                }),
+              ),
+              const SizedBox(height: 16),
+              _DrunkSuspicionSection(
+                marked: displayDrunk,
+                onChanged: (v) => setState(() {
+                  _drunkTouched = true;
+                  _draftDrunk = v;
                 }),
               ),
               const SizedBox(height: 16),
@@ -334,6 +365,7 @@ class _PlayerDetailSheetState extends ConsumerState<PlayerDetailSheet> {
                           initialRole: initialRole,
                           initialTrust: initialTrust,
                           initialPoison: initialPoison,
+                          initialDrunk: initialDrunk,
                           day: day,
                         )
                     : null,
@@ -453,12 +485,19 @@ class _InfoInputSection extends ConsumerWidget {
 /// 「改口历史」，弱化显示但不丢失——既避免新旧角色信息混在一起，
 /// 又保留改口轨迹供复盘。
 class _RecordedInfoSection extends ConsumerWidget {
-  const _RecordedInfoSection({required this.playerId, required this.currentRole});
+  const _RecordedInfoSection({
+    required this.playerId,
+    required this.currentRole,
+    required this.authorSuspectedDrunk,
+  });
 
   final int playerId;
 
   /// 当前声明角色（草稿或来源值）；null = 尚未声明，回退为显示全部。
   final Character? currentRole;
+
+  /// 该玩家是否被疑醉（整局 overlay 叠加到信息可靠性圆点，#109）。
+  final bool authorSuspectedDrunk;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -488,6 +527,7 @@ class _RecordedInfoSection extends ConsumerWidget {
           for (final decl in current.reversed.take(5))
             _InfoRow(
               decl: decl,
+              authorSuspectedDrunk: authorSuspectedDrunk,
               onDelete: () => _confirmDeleteDeclaration(context, ref, decl.id),
             ),
         if (history.isNotEmpty) ...[
@@ -502,6 +542,7 @@ class _RecordedInfoSection extends ConsumerWidget {
             _InfoRow(
               decl: decl,
               dimmed: true,
+              authorSuspectedDrunk: authorSuspectedDrunk,
               onDelete: () => _confirmDeleteDeclaration(context, ref, decl.id),
             ),
         ],
@@ -512,12 +553,20 @@ class _RecordedInfoSection extends ConsumerWidget {
 
 /// 单条已录入信息行。
 class _InfoRow extends StatelessWidget {
-  const _InfoRow({required this.decl, this.dimmed = false, this.onDelete});
+  const _InfoRow({
+    required this.decl,
+    this.dimmed = false,
+    this.authorSuspectedDrunk = false,
+    this.onDelete,
+  });
 
   final InfoDeclaration decl;
 
   /// 弱化显示（改口历史）：删除线 + 灰色。
   final bool dimmed;
+
+  /// 作者是否被疑醉（整局 overlay 叠加可靠性圆点，#109）。
+  final bool authorSuspectedDrunk;
 
   /// 删除回调（非 null 时显示删除按钮，issue #83 误录纠错）。
   final Future<void> Function()? onDelete;
@@ -531,7 +580,9 @@ class _InfoRow extends StatelessWidget {
           Icon(
             Icons.circle,
             size: 6,
-            color: context.gameColors.ofReliability(decl.reliability),
+            color: context.gameColors.ofReliability(
+              effectiveReliability(decl.reliability, authorSuspectedDrunk),
+            ),
           ),
           const SizedBox(width: 8),
           Expanded(
@@ -600,7 +651,9 @@ class _TrustSection extends StatelessWidget {
   }
 }
 
-/// 醉/毒标记区（草稿：onChanged 只更新草稿，不写 DB）。
+/// 毒标记区（按天，仅「毒」；草稿：onChanged 只更新草稿，不写 DB）。
+///
+/// 醉汉是整局身份，不在此处——见 [_DrunkSuspicionSection]（#109）。
 class _PoisonSection extends StatelessWidget {
   const _PoisonSection({
     required this.day,
@@ -619,16 +672,58 @@ class _PoisonSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('醉/毒状态', style: AppTextStyles.headline),
+        Text('毒状态（按天）', style: AppTextStyles.headline),
         const SizedBox(height: 8),
         SwitchListTile(
           title: Text(
-            '标记为可能被毒/醉（第 $day 天）',
+            '标记为可能被毒（第 $day 天）',
             style: AppTextStyles.body,
           ),
           subtitle: Text(
-            '醉/毒时玩家「无能力」，其获得的信息可能为假。'
-            '录入信息时若当天有此标记，可靠性自动降为「可能被污染」。',
+            '官方：毒当夜 + 次日白天生效、黄昏解除。被毒者「无能力」，'
+            '其获得的信息可能为假，可靠性自动降为「可能被污染」。',
+            style: AppTextStyles.caption
+                .copyWith(color: gameColors.inkViolet),
+          ),
+          value: marked,
+          activeTrackColor: gameColors.inkViolet,
+          onChanged: onChanged,
+        ),
+      ],
+    );
+  }
+}
+
+/// 疑似醉汉标记区（整局身份推测，#109；草稿：onChanged 只更新草稿）。
+///
+/// 官方：醉汉是整局身份（从头到尾醉酒、自己不知道、信息为假），与按天的毒
+/// 不同。一次标记全局长效，该玩家所有信息（历史 + 未来）按可能不可靠处理。
+class _DrunkSuspicionSection extends StatelessWidget {
+  const _DrunkSuspicionSection({
+    required this.marked,
+    required this.onChanged,
+  });
+
+  final bool marked;
+  final void Function(bool) onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final gameColors = context.gameColors;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('疑似醉汉（整局）', style: AppTextStyles.headline),
+        const SizedBox(height: 8),
+        SwitchListTile(
+          title: Text(
+            '怀疑是醉汉',
+            style: AppTextStyles.body,
+          ),
+          subtitle: Text(
+            '官方：醉汉是整局身份，其所有信息都为假（自己不知道）。'
+            '标记后该玩家全部信息（历史 + 未来）按可能不可靠处理。',
             style: AppTextStyles.caption
                 .copyWith(color: gameColors.inkViolet),
           ),

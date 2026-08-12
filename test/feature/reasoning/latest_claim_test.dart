@@ -20,7 +20,7 @@ Player _player(int id) => Player(
       name: 'P$id',
       seatNumber: id,
       isAlive: true,
-      abilityUsed: false,
+      abilityUsed: false, suspectedDrunk: false,
     );
 
 void main() {

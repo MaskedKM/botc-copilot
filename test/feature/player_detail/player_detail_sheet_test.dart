@@ -21,6 +21,8 @@ class _FakePlayerDetailRepository implements PlayerDetailRepository {
   int trustCalls = 0;
   bool? lastDeclareIsMine;
   int declareCalls = 0;
+  int drunkCalls = 0;
+  bool? lastSuspectedDrunk;
 
   @override
   Future<int> claimRole({
@@ -62,6 +64,13 @@ class _FakePlayerDetailRepository implements PlayerDetailRepository {
 
   @override
   Future<void> deleteDeclaration(int id) async {}
+
+  @override
+  Future<int> setSuspectedDrunk(int playerId, {required bool suspected}) async {
+    drunkCalls++;
+    lastSuspectedDrunk = suspected;
+    return 1;
+  }
 }
 
 class _FakePoisonRepository implements PoisonRepository {
@@ -111,7 +120,7 @@ void main() {
     name: 'A',
     seatNumber: 1,
     isAlive: true,
-    abilityUsed: false,
+    abilityUsed: false, suspectedDrunk: false,
     deathDay: null,
     deathCause: null,
   );
@@ -126,7 +135,9 @@ void main() {
       ..claimCalls = 0
       ..trustCalls = 0
       ..declareCalls = 0
-      ..lastDeclareIsMine = null;
+      ..lastDeclareIsMine = null
+      ..drunkCalls = 0
+      ..lastSuspectedDrunk = null;
     poisonRepo.toggleCalls = 0;
   });
 
@@ -192,7 +203,7 @@ void main() {
     expect(saveAfter.onPressed, isNotNull);
   });
 
-  testWidgets('保存一次性提交角色/信任度/醉毒草稿', (tester) async {
+  testWidgets('保存一次性提交角色/信任度/毒草稿', (tester) async {
     useTallSurface(tester);
     await tester.pumpWidget(buildSheet());
     await tester.pump();
@@ -201,7 +212,7 @@ void main() {
     await tester.pump();
     await tester.tap(find.text('确信好人')); // 信任度草稿
     await tester.pump();
-    await tester.tap(find.byType(SwitchListTile)); // 醉毒草稿
+    await tester.tap(find.text('标记为可能被毒（第 1 天）')); // 毒草稿（#109 拆分）
     await tester.pump();
 
     // 草稿阶段均不写库
@@ -334,5 +345,28 @@ void main() {
     // 未声明时不显示信息录入区
     expect(find.text('共情者 的信息'), findsNothing);
     expect(find.text('先声明角色，再录入该角色的信息。'), findsOneWidget);
+  });
+
+  testWidgets('疑似醉汉整局开关：草稿→保存提交 setSuspectedDrunk（#109）',
+      (tester) async {
+    useTallSurface(tester);
+    await tester.pumpWidget(buildSheet());
+    await tester.pump();
+
+    // 两个 SwitchListTile（毒 + 醉）都应出现，文案区分
+    expect(find.text('标记为可能被毒（第 1 天）'), findsOneWidget);
+    expect(find.text('怀疑是醉汉'), findsOneWidget);
+
+    // 草稿阶段不写库
+    expect(detailRepo.drunkCalls, 0);
+
+    await tester.tap(find.text('怀疑是醉汉'));
+    await tester.pump();
+    await tester.tap(find.text('保存'));
+    await tester.pump();
+    await tester.pump();
+
+    expect(detailRepo.drunkCalls, 1);
+    expect(detailRepo.lastSuspectedDrunk, isTrue);
   });
 }

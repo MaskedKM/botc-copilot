@@ -16,7 +16,7 @@ Player _player(int id, int seat, String name) => Player(
       name: name,
       seatNumber: seat,
       isAlive: true,
-      abilityUsed: false,
+      abilityUsed: false, suspectedDrunk: false,
     );
 
 const _outsiderChars = [
