@@ -117,6 +117,14 @@ void main() {
     expect(summaries, contains('报掘墓人：被处决者是 投毒者'));
     // 掘墓人信息不再走通用 infoDeclaration 通道（避免重复展示，#106）
     expect(summaries, isNot(contains('报 掘墓人')));
+    // 时序：掘墓人信息属夜间获知，排在当日处决之前（#106 review）
+    final undertakerIdx = events
+        .indexWhere((e) => e.type == TimelineEventType.undertakerResult);
+    final execIdx = events
+        .indexWhere((e) => e.type == TimelineEventType.execution);
+    expect(undertakerIdx, greaterThanOrEqualTo(0));
+    expect(execIdx, greaterThanOrEqualTo(0));
+    expect(undertakerIdx, lessThan(execIdx));
   });
 
   test('多天排序正确 + 无人死亡事件', () async {

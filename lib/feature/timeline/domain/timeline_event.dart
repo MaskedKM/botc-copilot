@@ -122,6 +122,19 @@ abstract final class TimelineBuilder {
                 type: TimelineEventType.nightDeath,
                 summary: '夜晚无人死亡',
               ),
+            // 掘墓人信息（issue #106：掘墓人次夜得知前日处决者角色，属夜间
+            // 获知信息，故置于夜晚区块之后；原 DayRecord.undertakerResultRole
+            // 在生产环境无写入方，是死代码，改读 info_declarations）
+            for (final decl in declarations.where(
+              (d) =>
+                  d.characterType == Character.undertaker &&
+                  dayRecordToDayNumber[d.dayRecordId] == day.dayNumber,
+            ))
+              TimelineEvent(
+                type: TimelineEventType.undertakerResult,
+                summary: undertakerSummary(decl),
+                playerId: decl.playerId,
+              ),
             // 角色声明（该天的）
             for (final claim in claims.where(
               (c) => dayRecordToDayNumber[c.dayRecordId] == day.dayNumber,
@@ -180,18 +193,6 @@ abstract final class TimelineBuilder {
                 type: TimelineEventType.behaviorNote,
                 summary: '${nameOf(note.playerId)}：${note.note}',
                 playerId: note.playerId,
-              ),
-            // 掘墓人信息（issue #106：改读 info_declarations；原 DayRecord
-            // 字段 undertakerResultRole 在生产环境无写入方，是死代码）
-            for (final decl in declarations.where(
-              (d) =>
-                  d.characterType == Character.undertaker &&
-                  dayRecordToDayNumber[d.dayRecordId] == day.dayNumber,
-            ))
-              TimelineEvent(
-                type: TimelineEventType.undertakerResult,
-                summary: undertakerSummary(decl),
-                playerId: decl.playerId,
               ),
           ],
         ),
