@@ -1,5 +1,6 @@
 import 'package:botc_copilot/core/database/app_database.dart';
 import 'package:botc_copilot/core/database/database_provider.dart';
+import 'package:botc_copilot/feature/game_board/data/nomination_repository.dart';
 import 'package:botc_copilot/feature/game_board/presentation/providers/game_board_provider.dart';
 import 'package:botc_copilot/feature/game_board/data/poison_repository.dart';
 import 'package:botc_copilot/feature/player_detail/data/behavior_note_repository.dart';
@@ -29,7 +30,8 @@ final _declarationsProvider =
 
 /// 某局的时间线数据（按天分组）。
 ///
-/// 组合四个流：任一变化都触发重建（声明/信息录入后时间线立即刷新），
+/// 组合多个流（days/players/claims/declarations/nominations/poison/behavior）：
+/// 任一变化都触发重建（声明/信息录入后时间线立即刷新），
 /// 数据源均为小数据量，全量重算开销可忽略。
 final timelineProvider =
     Provider.family<AsyncValue<List<TimelineDay>>, int>((ref, gameId) {
@@ -37,12 +39,15 @@ final timelineProvider =
   final players = ref.watch(gamePlayersProvider(gameId));
   final claims = ref.watch(_claimsProvider(gameId));
   final declarations = ref.watch(_declarationsProvider(gameId));
+  // nominations 与 claims/declarations 同级 watch：须在 loading gate 之前
+  // 订阅，否则首帧（loading 提前 return）不会订阅它，冷读会拿到空列表。
+  final nominations = ref.watch(gameNominationsProvider(gameId));
 
   // 任一在加载/出错 → 整体跟随
   if (days.isLoading || players.isLoading) {
     return const AsyncValue.loading();
   }
-  final error = [days, players, claims, declarations]
+  final error = [days, players, claims, declarations, nominations]
       .where((a) => a.hasError)
       .firstOrNull;
   if (error != null) {
@@ -65,6 +70,7 @@ final timelineProvider =
           [],
       behaviorNotes:
           ref.watch(gameBehaviorNotesProvider(gameId)).valueOrNull ?? [],
+      nominations: nominations.valueOrNull ?? [],
     ),
   );
 });
