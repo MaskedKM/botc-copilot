@@ -235,13 +235,21 @@ class _PlayerDetailSheetState extends ConsumerState<PlayerDetailSheet> {
                 }),
               ),
               const SizedBox(height: 16),
-              if (displayRole != null)
+              // 信息录入只对已保存的声明角色开放：草稿角色未保存就录入，
+              // 丢弃后会留下「从未声明过的角色」的孤儿信息记录。
+              if (initialRole != null)
                 _InfoInputSection(
                   gameId: widget.gameId,
                   playerId: playerId,
                   day: day,
-                  character: displayRole,
+                  character: initialRole,
                   players: players,
+                )
+              else if (displayRole != null)
+                Text(
+                  '点「保存」确认声明后，即可录入 ${displayRole.nameCn} 的信息。',
+                  style: AppTextStyles.caption
+                      .copyWith(color: context.gameColors.inkViolet),
                 )
               else
                 Text(
@@ -250,9 +258,10 @@ class _PlayerDetailSheetState extends ConsumerState<PlayerDetailSheet> {
                       .copyWith(color: context.gameColors.inkViolet),
                 ),
               const SizedBox(height: 16),
+              // 分组按实际保存的声明角色（草稿不改分组，避免误导）。
               _RecordedInfoSection(
                 playerId: playerId,
-                currentRole: displayRole,
+                currentRole: initialRole,
               ),
               const SizedBox(height: 16),
               _PoisonSection(
