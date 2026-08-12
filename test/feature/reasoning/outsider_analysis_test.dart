@@ -21,11 +21,13 @@ OutsiderCountAnalysis analyze(
   int playerCount,
   List<RoleClaim> claims, {
   Character? myRole,
+  int? myPlayerId,
 }) =>
     analyzeOutsiderCount(
       playerCount: playerCount,
       claims: claims,
       myRole: myRole,
+      myPlayerId: myPlayerId,
     );
 
 void main() {
@@ -218,6 +220,27 @@ void main() {
         _claim(3, Character.butler), // 外来者
       ]);
       expect(a.claimedOutsiders, 1);
+    });
+  });
+
+  group('我的真实身份注入（#107）', () {
+    test('我是真实外来者（Saint）→ 计入', () {
+      // 7 人局 base=0；我是 Saint，无公开声明 → 注入后 claimed=1
+      final a = analyze(7, [], myRole: Character.saint, myPlayerId: 1);
+      expect(a.claimedOutsiders, 1);
+      expect(a.deviation, OutsiderDeviation.partial); // 0 < 1 < 2
+    });
+
+    test('Drunk（myRole=被告知镇民）→ 不计入，保留 under 信号', () {
+      // 9 人局 base=2；我是 Drunk，被告知是 Empath（镇民）→ 不计入
+      final a = analyze(9, [], myRole: Character.empath, myPlayerId: 1);
+      expect(a.claimedOutsiders, 0);
+      expect(a.deviation, OutsiderDeviation.under); // 0 < 2 → 提示可能 Drunk
+    });
+
+    test('myRole 为空 → 不注入（行为不变）', () {
+      final a = analyze(9, [], myRole: null, myPlayerId: 1);
+      expect(a.claimedOutsiders, 0);
     });
   });
 }

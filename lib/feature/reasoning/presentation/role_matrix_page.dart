@@ -62,6 +62,8 @@ class _RoleMatrixPageState extends ConsumerState<RoleMatrixPage> {
       players: players,
       claims: claims,
       demonBluffs: bluffs,
+      myPlayerId: game?.myPlayerId,
+      myRole: game?.myRole,
     );
     // 默认精简：只保留有声明 / Bluff / 有确认的列
     final columns = _showAll
@@ -105,6 +107,7 @@ class _RoleMatrixPageState extends ConsumerState<RoleMatrixPage> {
                   _legend(gameColors.goldBright, '当前声明'),
                   _legend(gameColors.inkViolet, '曾声明（改口）'),
                   _legend(gameColors.trustConfirmedGood, '已确认'),
+                  _legend(gameColors.goldBright, '我的角色（私密）', Icons.stars),
                   _legend(gameColors.blood, '冲突（多人声明）'),
                   _legend(gameColors.trustSuspect, '恶魔 Bluff'),
                 ],
@@ -128,15 +131,18 @@ class _RoleMatrixPageState extends ConsumerState<RoleMatrixPage> {
     );
   }
 
-  Widget _legend(Color color, String label) {
+  Widget _legend(Color color, String label, [IconData? icon]) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Container(
-          width: 10,
-          height: 10,
-          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-        ),
+        icon != null
+            ? Icon(icon, size: 12, color: color)
+            : Container(
+                width: 10,
+                height: 10,
+                decoration:
+                    BoxDecoration(color: color, shape: BoxShape.circle),
+              ),
         const SizedBox(width: 4),
         Text(label, style: AppTextStyles.caption),
       ],
@@ -246,6 +252,10 @@ class _MatrixTable extends StatelessWidget {
           gameColors.trustConfirmedGood.withValues(alpha: 0.4),
           Icons.verified,
         ),
+      MatrixCellState.myRole => (
+          gameColors.goldBright.withValues(alpha: 0.5),
+          Icons.stars,
+        ),
       _ => (null, null),
     };
 
@@ -262,6 +272,7 @@ class _MatrixTable extends StatelessWidget {
                     : gameColors.goldBright,
                 MatrixCellState.changed => gameColors.inkViolet,
                 MatrixCellState.confirmed => gameColors.trustConfirmedGood,
+                MatrixCellState.myRole => gameColors.goldBright,
                 _ => null,
               },
             )
