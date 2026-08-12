@@ -203,6 +203,7 @@ void main() {
           gameId: 1,
           dayNumber: 2,
           nightDeathPlayerId: null,
+          nightConfirmed: true,
           dayExecutionPlayerId: null,
           undertakerResultRole: null,
           notes: '',
@@ -218,6 +219,29 @@ void main() {
     expect(result[0].description, contains('Monk'));
   });
 
+  test('规则5：未确认的夜晚（预建记录）不报警（issue #77）', () {
+    final result = ContradictionDetector.detect(
+      claims: [],
+      declarations: [],
+      days: [
+        DayRecord(
+          id: 1,
+          gameId: 1,
+          dayNumber: 2,
+          nightDeathPlayerId: null,
+          nightConfirmed: false, // 进入第 2 天但夜晚未确认
+          dayExecutionPlayerId: null,
+          undertakerResultRole: null,
+          notes: '',
+        ),
+      ],
+      playersById: players,
+      dayRecordToDayNumber: {1: 2},
+      expectedOutsiders: 0,
+    );
+    expect(result, isEmpty);
+  });
+
   test('规则5：第 1 天无人死亡不报警（恶魔首夜不杀人）', () {
     final result = ContradictionDetector.detect(
       claims: [],
@@ -228,6 +252,7 @@ void main() {
           gameId: 1,
           dayNumber: 1,
           nightDeathPlayerId: null,
+          nightConfirmed: true,
           dayExecutionPlayerId: null,
           undertakerResultRole: null,
           notes: '',
@@ -250,6 +275,7 @@ void main() {
           gameId: 1,
           dayNumber: 2,
           nightDeathPlayerId: null,
+          nightConfirmed: true,
           dayExecutionPlayerId: null,
           undertakerResultRole: null,
           notes: '',

@@ -58,7 +58,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 8;
+  int get schemaVersion => 9;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -93,6 +93,15 @@ class AppDatabase extends _$AppDatabase {
           // v7 → v8：players 加 abilityUsed（一次性能力消耗，issue #54）
           if (from < 8) {
             await m.addColumn(players, players.abilityUsed);
+          }
+          // v8 → v9：day_records 加 nightConfirmed（夜晚结果确认，issue #77）
+          // 存量数据：有 nightDeathPlayerId 的天视为已确认，其余保持未确认。
+          if (from < 9) {
+            await m.addColumn(dayRecords, dayRecords.nightConfirmed);
+            await customStatement(
+              'UPDATE day_records SET night_confirmed = 1 '
+              'WHERE night_death_player_id IS NOT NULL',
+            );
           }
         },
         beforeOpen: (details) async {

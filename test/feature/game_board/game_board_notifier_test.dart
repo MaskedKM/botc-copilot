@@ -60,12 +60,14 @@ void main() {
 
     final day = await db.dayRecordsDao.getByGameAndDay(gameId, 1);
     expect(day!.nightDeathPlayerId, players[2].id);
+    expect(day.nightConfirmed, isTrue); // 确认夜晚（#77）
   });
 
-  test('recordNightDeath(null)：无人死亡只更新记录不标记', () async {
+  test('recordNightDeath(null)：无人死亡确认夜晚，只更新记录不标记', () async {
     await notifier().recordNightDeath(null);
     final day = await db.dayRecordsDao.getByGameAndDay(gameId, 1);
     expect(day!.nightDeathPlayerId, isNull);
+    expect(day.nightConfirmed, isTrue); // 「无人死亡」也确认（#77）
     final updated = await db.playersDao.watchByGame(gameId).first;
     expect(updated.every((p) => p.isAlive), isTrue);
   });

@@ -248,10 +248,13 @@ abstract final class ContradictionDetector {
   /// 规则 5：无人死亡夜晚 → 列出可能性（仅提示，不涉及具体玩家）。
   ///
   /// 第 1 天跳过：官方规则恶魔首夜不杀人，无夜死是常态。
+  /// 仅对**已确认**（nightConfirmed）的天生效，避免预建未录的天误报（#77）。
   static List<Contradiction> _noDeathNights(List<DayRecord> days) {
     return [
       for (final d in days)
-        if (d.nightDeathPlayerId == null && d.dayNumber > 1)
+        if (d.nightDeathPlayerId == null &&
+            d.dayNumber > 1 &&
+            d.nightConfirmed)
           Contradiction(
             type: ContradictionType.noDeathNight,
             playerIds: const [],
