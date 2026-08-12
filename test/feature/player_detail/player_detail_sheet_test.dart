@@ -2,6 +2,7 @@ import 'package:botc_copilot/core/constants/character.dart';
 import 'package:botc_copilot/core/constants/script.dart';
 import 'package:botc_copilot/core/database/app_database.dart';
 import 'package:botc_copilot/core/theme/app_theme.dart';
+import 'package:botc_copilot/core/theme/game_colors.dart';
 import 'package:botc_copilot/feature/game_board/data/poison_repository.dart';
 import 'package:botc_copilot/feature/game_board/presentation/providers/game_board_provider.dart';
 import 'package:botc_copilot/feature/player_detail/data/behavior_note_repository.dart';
@@ -153,7 +154,14 @@ void main() {
   /// [myPlayerId] 模拟「我的座位」（issue #105）：设为 me.id 时点自己座位
   /// 应识别「这是我」并以真实角色录入。
   /// [myRole] 覆盖我的真实角色（默认沿用顶层 game 的 empath）。
-  Widget buildSheet({int? myPlayerId, Character? myRole}) {
+  /// [suspectedDrunk] 模拟玩家已被标「疑似醉汉」（#109，测 overlay 显示）。
+  /// [declarations] 覆盖已录入信息（默认空）。
+  Widget buildSheet({
+    int? myPlayerId,
+    Character? myRole,
+    bool suspectedDrunk = false,
+    List<InfoDeclaration> declarations = const [],
+  }) {
     final g = game.copyWith(
       myPlayerId: Value(myPlayerId),
       myRole: Value(myRole ?? game.myRole),
@@ -161,14 +169,15 @@ void main() {
     return ProviderScope(
       overrides: [
         gameByIdProvider(1).overrideWith((ref) => Stream.value(g)),
-        gamePlayersProvider(1)
-            .overrideWith((ref) => Stream.value([me])),
+        gamePlayersProvider(1).overrideWith(
+          (ref) => Stream.value([me.copyWith(suspectedDrunk: suspectedDrunk)]),
+        ),
         gameBoardProvider(1)
             .overrideWith((ref) => _FakeGameBoardNotifier(ref, 1)),
         playerClaimsProvider(1)
             .overrideWith((ref) => Stream.value(const <RoleClaim>[])),
         playerDeclarationsProvider(1)
-            .overrideWith((ref) => Stream.value(const <InfoDeclaration>[])),
+            .overrideWith((ref) => Stream.value(declarations)),
         latestTrustLevelsProvider(1)
             .overrideWith((ref) => Stream.value(const <int, TrustLevel>{})),
         gamePoisonStatusesProvider(1)
@@ -368,5 +377,32 @@ void main() {
 
     expect(detailRepo.drunkCalls, 1);
     expect(detailRepo.lastSuspectedDrunk, isTrue);
+  });
+
+  testWidgets('疑似醉汉 → 信息圆点叠加为被污染色（#109 overlay）',
+      (tester) async {
+    useTallSurface(tester);
+    final decl = InfoDeclaration(
+      id: 1,
+      playerId: me.id,
+      dayRecordId: 1,
+      characterType: Character.chef,
+      payloadJson: '{"value": 1}',
+      reliability: Reliability.unverified,
+      isMine: false,
+    );
+    // 被疑醉：圆点应取 reliabilityTainted 色（overlay 把 unverified 升级为 tainted）
+    await tester.pumpWidget(
+      buildSheet(suspectedDrunk: true, declarations: [decl]),
+    );
+    await tester.pump();
+    await tester.pump();
+    await tester.pump(); // 等 gamePlayers / declarations 流产出
+    final gc = Theme.of(tester.element(find.byIcon(Icons.circle)))
+        .extension<GameColors>()!;
+    final dot = tester.widget<Icon>(find.byIcon(Icons.circle));
+    expect(dot.color, gc.reliabilityTainted);
+    // 与未验证色不同（紫 vs 橙），overlay 可视
+    expect(gc.reliabilityUnverified, isNot(gc.reliabilityTainted));
   });
 }
