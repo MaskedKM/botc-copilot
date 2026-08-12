@@ -48,6 +48,22 @@ void main() {
     expect(state().playerNames[7], 'H');
   });
 
+  test('setPlayerCount ≤6 清空已选 Bluff（#113 官方规则）', () {
+    notifier().setPlayerCount(9);
+    notifier().toggleBluff(Character.chef);
+    notifier().toggleBluff(Character.empath);
+    expect(state().demonBluffs.length, 2);
+    notifier().setPlayerCount(6); // 降到 ≤6 → 清空
+    expect(state().demonBluffs, isEmpty);
+  });
+
+  test('setPlayerCount ≥7 保留 Bluff（#113）', () {
+    notifier().setPlayerCount(9);
+    notifier().toggleBluff(Character.chef);
+    notifier().setPlayerCount(8); // 仍 ≥7
+    expect(state().demonBluffs.length, 1);
+  });
+
   test('reorderSeat 拖拽换座', () {
     notifier().reorderSeat(0, 3);
     expect(state().playerNames.sublist(0, 3), ['B', 'C', 'A']);

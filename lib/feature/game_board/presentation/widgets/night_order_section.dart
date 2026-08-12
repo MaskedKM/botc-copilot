@@ -133,7 +133,7 @@ class _StepRow extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '${step.character.nameCn} · ${step.action}',
+                  '${step.displayLabel} · ${step.action}',
                   style: AppTextStyles.body,
                 ),
                 if (step.note != null)

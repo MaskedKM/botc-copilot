@@ -37,6 +37,8 @@ class SetupNotifier extends StateNotifier<SetupState> {
         names.add(String.fromCharCode(65 + i));
       }
     }
+    // ≤6 人局恶魔无 Bluff（官方规则）→ 清空已选残留，避免污染小局排除法
+    final bluffs = count < 7 ? const <Character>[] : state.demonBluffs;
     state = state.copyWith(
       playerCount: count,
       playerNames: names,
@@ -44,6 +46,7 @@ class SetupNotifier extends StateNotifier<SetupState> {
       mySeat: (state.mySeat != null && state.mySeat! > count)
           ? () => null
           : null,
+      demonBluffs: bluffs,
     );
   }
 

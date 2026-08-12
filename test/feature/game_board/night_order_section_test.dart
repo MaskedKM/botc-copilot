@@ -37,24 +37,24 @@ void main() {
   });
 
   group('按天数默认选相', () {
-    testWidgets('day 1 → 首夜（含 Butler，不含 Monk）', (tester) async {
+    testWidgets('day 1 → 首夜（含 Chef，不含 Monk）', (tester) async {
       await tester.pumpWidget(_wrap(const NightOrderSection(
         currentDay: 1,
         helpLevel: HelpLevel.beginner,
       )));
       await tester.pump();
-      expect(find.textContaining('管家'), findsOneWidget); // Butler 首夜专属
+      expect(find.textContaining('厨师'), findsOneWidget); // Chef 首夜专属
       expect(find.textContaining('僧侣'), findsNothing); // Monk 后续夜专属
     });
 
-    testWidgets('day 3 → 后续夜（含 Monk，不含 Butler）', (tester) async {
+    testWidgets('day 3 → 后续夜（含 Monk，不含 Chef）', (tester) async {
       await tester.pumpWidget(_wrap(const NightOrderSection(
         currentDay: 3,
         helpLevel: HelpLevel.beginner,
       )));
       await tester.pump();
       expect(find.textContaining('僧侣'), findsOneWidget); // Monk
-      expect(find.textContaining('管家'), findsNothing); // Butler 首夜专属
+      expect(find.textContaining('厨师'), findsNothing); // Chef 首夜专属
     });
   });
 
@@ -81,7 +81,7 @@ void main() {
       // 手动切到首夜（设置 override）
       await tester.tap(find.text('首夜'));
       await tester.pump();
-      expect(find.textContaining('管家'), findsOneWidget);
+      expect(find.textContaining('厨师'), findsOneWidget);
       expect(find.textContaining('僧侣'), findsNothing);
       // 推进天数（3 → 4）：didUpdateWidget 清除 override → 重新跟随后续夜
       await tester.pumpWidget(_wrap(const NightOrderSection(
@@ -90,7 +90,7 @@ void main() {
       )));
       await tester.pump();
       expect(find.textContaining('僧侣'), findsOneWidget); // 回到后续夜
-      expect(find.textContaining('管家'), findsNothing);
+      expect(find.textContaining('厨师'), findsNothing);
     });
   });
 }

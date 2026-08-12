@@ -447,6 +447,19 @@ void main() {
       expect(id, players[1].id);
     });
 
+    test('自我提名（Virgin 自证）：nominator==nominee 触发（#112）', () {
+      // Virgin 自提名：提名者=被提名者=同一人，声明 Virgin（镇民）
+      final id = NominationRules.virginTriggerScenario(
+        nominatorId: players[1].id,
+        nomineeId: players[1].id,
+        latestClaim: {
+          players[1].id: rc(players[1].id, Character.virgin),
+        },
+        playersById: {for (final p in players) p.id: p},
+      );
+      expect(id, players[1].id); // 触发 → 处决自己
+    });
+
     test('提名者非镇民（爪牙）→ 不触发', () {
       final id = NominationRules.virginTriggerScenario(
         nominatorId: players[0].id,
