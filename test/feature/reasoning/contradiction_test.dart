@@ -10,6 +10,7 @@ Player _player(int id, int seat, {int? deathDay}) => Player(
       name: 'P$id',
       seatNumber: seat,
       isAlive: deathDay == null,
+      abilityUsed: false,
       deathDay: deathDay,
       deathCause: deathDay == null ? null : DeathCause.nightKill,
     );

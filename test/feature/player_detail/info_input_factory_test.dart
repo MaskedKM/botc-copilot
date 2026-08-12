@@ -14,6 +14,7 @@ void main() {
         name: '玩家$i',
         seatNumber: i,
         isAlive: true,
+        abilityUsed: false,
       ),
   ];
 

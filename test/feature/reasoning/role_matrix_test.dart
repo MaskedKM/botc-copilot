@@ -10,6 +10,7 @@ Player _player(int id, int seat) => Player(
       name: 'P$id',
       seatNumber: seat,
       isAlive: true,
+      abilityUsed: false,
       deathDay: null,
       deathCause: null,
     );
