@@ -63,6 +63,8 @@ class SetupState {
       };
 
   /// 复制并修改部分字段。
+  ///
+  /// [mySeat] 为哨兵模式：传 `() => null` 显式清除，不传则保留原值。
   SetupState copyWith({
     int? step,
     Script? script,
@@ -70,7 +72,7 @@ class SetupState {
     List<String>? playerNames,
     Character? myRole,
     List<Character>? demonBluffs,
-    int? mySeat,
+    int? Function()? mySeat,
     bool? submitting,
   }) {
     return SetupState(
@@ -80,7 +82,7 @@ class SetupState {
       playerNames: playerNames ?? this.playerNames,
       myRole: myRole ?? this.myRole,
       demonBluffs: demonBluffs ?? this.demonBluffs,
-      mySeat: mySeat ?? this.mySeat,
+      mySeat: mySeat != null ? mySeat() : this.mySeat,
       submitting: submitting ?? this.submitting,
     );
   }

@@ -59,6 +59,11 @@ class ConfirmStep extends ConsumerWidget {
                         hint: const Text('选择你的座位'),
                         isExpanded: true,
                         items: [
+                          // 0 = 不指定（清除已选座位）
+                          const DropdownMenuItem(
+                            value: 0,
+                            child: Text('不指定'),
+                          ),
                           for (var i = 1; i <= state.playerCount; i++)
                             DropdownMenuItem(
                               value: i,
@@ -72,7 +77,7 @@ class ConfirmStep extends ConsumerWidget {
                           if (seat != null) {
                             ref
                                 .read(setupProvider.notifier)
-                                .selectMySeat(seat);
+                                .selectMySeat(seat == 0 ? null : seat);
                           }
                         },
                       ),
