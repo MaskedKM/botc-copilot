@@ -95,6 +95,17 @@ class DayPanel extends ConsumerWidget {
         NominationRules.pendingExecution(todayNominations, aliveCount);
     final pendingId =
         pending is PendingExecution ? pending.nomineeId : null;
+    // 警告文案用：「3号 玩家3（5 票）」
+    String? pendingLabel;
+    if (pending is PendingExecution) {
+      final nominee = players
+          .where((p) => p.id == pending.nomineeId)
+          .firstOrNull;
+      if (nominee != null) {
+        pendingLabel = '${nominee.seatNumber}号 ${nominee.name}'
+            '（${pending.forCount} 票）';
+      }
+    }
 
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -121,6 +132,7 @@ class DayPanel extends ConsumerWidget {
                   player: p,
                   gameId: gameId,
                   pendingId: pendingId,
+                  pendingLabel: pendingLabel,
                   notifier: notifier,
                 ),
               ),
@@ -183,6 +195,7 @@ Future<void> _confirmExecution(
   required Player player,
   required int gameId,
   required int? pendingId,
+  required String? pendingLabel,
   required GameBoardNotifier notifier,
 }) async {
   if (pendingId != null && pendingId != player.id) {
@@ -190,7 +203,7 @@ Future<void> _confirmExecution(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('处决对象非台上即将死亡者'),
-        content: const Text('当前票数最高的即将死亡者不是此人。'
+        content: Text('当前即将死亡的是 ${pendingLabel ?? '另一玩家'}，不是此人。'
             '仍要处决吗？（Virgin 处决提名者等特殊流程可能需要手动覆盖）'),
         actions: [
           TextButton(
@@ -199,7 +212,7 @@ Future<void> _confirmExecution(
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('仍到处决'),
+            child: const Text('仍要处决'),
           ),
         ],
       ),
