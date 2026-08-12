@@ -130,7 +130,11 @@ class GameBoardNotifier extends StateNotifier<GameBoardState> {
       await _revivePreviousDeath(dayId, (d) => d.nightDeathPlayerId);
       await _db.dayRecordsDao.updateDay(
         dayId,
-        DayRecordsCompanion(nightDeathPlayerId: Value(playerId)),
+        DayRecordsCompanion(
+          nightDeathPlayerId: Value(playerId),
+          // 确认夜晚结果（标记死亡或「无人死亡」），消除 null 二义性（#77）。
+          nightConfirmed: const Value(true),
+        ),
       );
       if (playerId != null) {
         await _db.playersDao.markDead(

@@ -94,6 +94,14 @@ class DayRecords extends Table {
   IntColumn get nightDeathPlayerId =>
       integer().nullable().references(Players, #id)();
 
+  /// 夜晚结果是否已确认（issue #77）。
+  ///
+  /// 解决 `nightDeathPlayerId == null` 的二义性（「尚未录入」vs「确认无人
+  /// 死亡」）：预建次日记录时为 false；用户确认夜晚结果（标记死亡或点
+  /// 「无人死亡」）后置 true。矛盾规则、时间线、chip 选中态均以此为准。
+  BoolColumn get nightConfirmed =>
+      boolean().withDefault(const Constant(false))();
+
   /// 白天被处决玩家（无处决为空）。
   @ReferenceName('executionDays')
   IntColumn get dayExecutionPlayerId =>

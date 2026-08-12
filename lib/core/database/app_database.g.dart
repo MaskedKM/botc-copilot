@@ -1208,6 +1208,21 @@ class $DayRecordsTable extends DayRecords
       'REFERENCES players (id)',
     ),
   );
+  static const VerificationMeta _nightConfirmedMeta = const VerificationMeta(
+    'nightConfirmed',
+  );
+  @override
+  late final GeneratedColumn<bool> nightConfirmed = GeneratedColumn<bool>(
+    'night_confirmed',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("night_confirmed" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
   static const VerificationMeta _dayExecutionPlayerIdMeta =
       const VerificationMeta('dayExecutionPlayerId');
   @override
@@ -1246,6 +1261,7 @@ class $DayRecordsTable extends DayRecords
     gameId,
     dayNumber,
     nightDeathPlayerId,
+    nightConfirmed,
     dayExecutionPlayerId,
     undertakerResultRole,
     notes,
@@ -1287,6 +1303,15 @@ class $DayRecordsTable extends DayRecords
         nightDeathPlayerId.isAcceptableOrUnknown(
           data['night_death_player_id']!,
           _nightDeathPlayerIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('night_confirmed')) {
+      context.handle(
+        _nightConfirmedMeta,
+        nightConfirmed.isAcceptableOrUnknown(
+          data['night_confirmed']!,
+          _nightConfirmedMeta,
         ),
       );
     }
@@ -1334,6 +1359,10 @@ class $DayRecordsTable extends DayRecords
         DriftSqlType.int,
         data['${effectivePrefix}night_death_player_id'],
       ),
+      nightConfirmed: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}night_confirmed'],
+      )!,
       dayExecutionPlayerId: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}day_execution_player_id'],
@@ -1380,6 +1409,13 @@ class DayRecord extends DataClass implements Insertable<DayRecord> {
   /// 夜晚死亡玩家（无人死亡为空；TB 单杀，多杀剧本后续扩展）。
   final int? nightDeathPlayerId;
 
+  /// 夜晚结果是否已确认（issue #77）。
+  ///
+  /// 解决 `nightDeathPlayerId == null` 的二义性（「尚未录入」vs「确认无人
+  /// 死亡」）：预建次日记录时为 false；用户确认夜晚结果（标记死亡或点
+  /// 「无人死亡」）后置 true。矛盾规则、时间线、chip 选中态均以此为准。
+  final bool nightConfirmed;
+
   /// 白天被处决玩家（无处决为空）。
   final int? dayExecutionPlayerId;
 
@@ -1393,6 +1429,7 @@ class DayRecord extends DataClass implements Insertable<DayRecord> {
     required this.gameId,
     required this.dayNumber,
     this.nightDeathPlayerId,
+    required this.nightConfirmed,
     this.dayExecutionPlayerId,
     this.undertakerResultRole,
     required this.notes,
@@ -1406,6 +1443,7 @@ class DayRecord extends DataClass implements Insertable<DayRecord> {
     if (!nullToAbsent || nightDeathPlayerId != null) {
       map['night_death_player_id'] = Variable<int>(nightDeathPlayerId);
     }
+    map['night_confirmed'] = Variable<bool>(nightConfirmed);
     if (!nullToAbsent || dayExecutionPlayerId != null) {
       map['day_execution_player_id'] = Variable<int>(dayExecutionPlayerId);
     }
@@ -1428,6 +1466,7 @@ class DayRecord extends DataClass implements Insertable<DayRecord> {
       nightDeathPlayerId: nightDeathPlayerId == null && nullToAbsent
           ? const Value.absent()
           : Value(nightDeathPlayerId),
+      nightConfirmed: Value(nightConfirmed),
       dayExecutionPlayerId: dayExecutionPlayerId == null && nullToAbsent
           ? const Value.absent()
           : Value(dayExecutionPlayerId),
@@ -1448,6 +1487,7 @@ class DayRecord extends DataClass implements Insertable<DayRecord> {
       gameId: serializer.fromJson<int>(json['gameId']),
       dayNumber: serializer.fromJson<int>(json['dayNumber']),
       nightDeathPlayerId: serializer.fromJson<int?>(json['nightDeathPlayerId']),
+      nightConfirmed: serializer.fromJson<bool>(json['nightConfirmed']),
       dayExecutionPlayerId: serializer.fromJson<int?>(
         json['dayExecutionPlayerId'],
       ),
@@ -1464,6 +1504,7 @@ class DayRecord extends DataClass implements Insertable<DayRecord> {
       'gameId': serializer.toJson<int>(gameId),
       'dayNumber': serializer.toJson<int>(dayNumber),
       'nightDeathPlayerId': serializer.toJson<int?>(nightDeathPlayerId),
+      'nightConfirmed': serializer.toJson<bool>(nightConfirmed),
       'dayExecutionPlayerId': serializer.toJson<int?>(dayExecutionPlayerId),
       'undertakerResultRole': serializer.toJson<int?>(
         $DayRecordsTable.$converterundertakerResultRolen.toJson(
@@ -1479,6 +1520,7 @@ class DayRecord extends DataClass implements Insertable<DayRecord> {
     int? gameId,
     int? dayNumber,
     Value<int?> nightDeathPlayerId = const Value.absent(),
+    bool? nightConfirmed,
     Value<int?> dayExecutionPlayerId = const Value.absent(),
     Value<Character?> undertakerResultRole = const Value.absent(),
     String? notes,
@@ -1489,6 +1531,7 @@ class DayRecord extends DataClass implements Insertable<DayRecord> {
     nightDeathPlayerId: nightDeathPlayerId.present
         ? nightDeathPlayerId.value
         : this.nightDeathPlayerId,
+    nightConfirmed: nightConfirmed ?? this.nightConfirmed,
     dayExecutionPlayerId: dayExecutionPlayerId.present
         ? dayExecutionPlayerId.value
         : this.dayExecutionPlayerId,
@@ -1505,6 +1548,9 @@ class DayRecord extends DataClass implements Insertable<DayRecord> {
       nightDeathPlayerId: data.nightDeathPlayerId.present
           ? data.nightDeathPlayerId.value
           : this.nightDeathPlayerId,
+      nightConfirmed: data.nightConfirmed.present
+          ? data.nightConfirmed.value
+          : this.nightConfirmed,
       dayExecutionPlayerId: data.dayExecutionPlayerId.present
           ? data.dayExecutionPlayerId.value
           : this.dayExecutionPlayerId,
@@ -1522,6 +1568,7 @@ class DayRecord extends DataClass implements Insertable<DayRecord> {
           ..write('gameId: $gameId, ')
           ..write('dayNumber: $dayNumber, ')
           ..write('nightDeathPlayerId: $nightDeathPlayerId, ')
+          ..write('nightConfirmed: $nightConfirmed, ')
           ..write('dayExecutionPlayerId: $dayExecutionPlayerId, ')
           ..write('undertakerResultRole: $undertakerResultRole, ')
           ..write('notes: $notes')
@@ -1535,6 +1582,7 @@ class DayRecord extends DataClass implements Insertable<DayRecord> {
     gameId,
     dayNumber,
     nightDeathPlayerId,
+    nightConfirmed,
     dayExecutionPlayerId,
     undertakerResultRole,
     notes,
@@ -1547,6 +1595,7 @@ class DayRecord extends DataClass implements Insertable<DayRecord> {
           other.gameId == this.gameId &&
           other.dayNumber == this.dayNumber &&
           other.nightDeathPlayerId == this.nightDeathPlayerId &&
+          other.nightConfirmed == this.nightConfirmed &&
           other.dayExecutionPlayerId == this.dayExecutionPlayerId &&
           other.undertakerResultRole == this.undertakerResultRole &&
           other.notes == this.notes);
@@ -1557,6 +1606,7 @@ class DayRecordsCompanion extends UpdateCompanion<DayRecord> {
   final Value<int> gameId;
   final Value<int> dayNumber;
   final Value<int?> nightDeathPlayerId;
+  final Value<bool> nightConfirmed;
   final Value<int?> dayExecutionPlayerId;
   final Value<Character?> undertakerResultRole;
   final Value<String> notes;
@@ -1565,6 +1615,7 @@ class DayRecordsCompanion extends UpdateCompanion<DayRecord> {
     this.gameId = const Value.absent(),
     this.dayNumber = const Value.absent(),
     this.nightDeathPlayerId = const Value.absent(),
+    this.nightConfirmed = const Value.absent(),
     this.dayExecutionPlayerId = const Value.absent(),
     this.undertakerResultRole = const Value.absent(),
     this.notes = const Value.absent(),
@@ -1574,6 +1625,7 @@ class DayRecordsCompanion extends UpdateCompanion<DayRecord> {
     required int gameId,
     required int dayNumber,
     this.nightDeathPlayerId = const Value.absent(),
+    this.nightConfirmed = const Value.absent(),
     this.dayExecutionPlayerId = const Value.absent(),
     this.undertakerResultRole = const Value.absent(),
     this.notes = const Value.absent(),
@@ -1584,6 +1636,7 @@ class DayRecordsCompanion extends UpdateCompanion<DayRecord> {
     Expression<int>? gameId,
     Expression<int>? dayNumber,
     Expression<int>? nightDeathPlayerId,
+    Expression<bool>? nightConfirmed,
     Expression<int>? dayExecutionPlayerId,
     Expression<int>? undertakerResultRole,
     Expression<String>? notes,
@@ -1594,6 +1647,7 @@ class DayRecordsCompanion extends UpdateCompanion<DayRecord> {
       if (dayNumber != null) 'day_number': dayNumber,
       if (nightDeathPlayerId != null)
         'night_death_player_id': nightDeathPlayerId,
+      if (nightConfirmed != null) 'night_confirmed': nightConfirmed,
       if (dayExecutionPlayerId != null)
         'day_execution_player_id': dayExecutionPlayerId,
       if (undertakerResultRole != null)
@@ -1607,6 +1661,7 @@ class DayRecordsCompanion extends UpdateCompanion<DayRecord> {
     Value<int>? gameId,
     Value<int>? dayNumber,
     Value<int?>? nightDeathPlayerId,
+    Value<bool>? nightConfirmed,
     Value<int?>? dayExecutionPlayerId,
     Value<Character?>? undertakerResultRole,
     Value<String>? notes,
@@ -1616,6 +1671,7 @@ class DayRecordsCompanion extends UpdateCompanion<DayRecord> {
       gameId: gameId ?? this.gameId,
       dayNumber: dayNumber ?? this.dayNumber,
       nightDeathPlayerId: nightDeathPlayerId ?? this.nightDeathPlayerId,
+      nightConfirmed: nightConfirmed ?? this.nightConfirmed,
       dayExecutionPlayerId: dayExecutionPlayerId ?? this.dayExecutionPlayerId,
       undertakerResultRole: undertakerResultRole ?? this.undertakerResultRole,
       notes: notes ?? this.notes,
@@ -1636,6 +1692,9 @@ class DayRecordsCompanion extends UpdateCompanion<DayRecord> {
     }
     if (nightDeathPlayerId.present) {
       map['night_death_player_id'] = Variable<int>(nightDeathPlayerId.value);
+    }
+    if (nightConfirmed.present) {
+      map['night_confirmed'] = Variable<bool>(nightConfirmed.value);
     }
     if (dayExecutionPlayerId.present) {
       map['day_execution_player_id'] = Variable<int>(
@@ -1662,6 +1721,7 @@ class DayRecordsCompanion extends UpdateCompanion<DayRecord> {
           ..write('gameId: $gameId, ')
           ..write('dayNumber: $dayNumber, ')
           ..write('nightDeathPlayerId: $nightDeathPlayerId, ')
+          ..write('nightConfirmed: $nightConfirmed, ')
           ..write('dayExecutionPlayerId: $dayExecutionPlayerId, ')
           ..write('undertakerResultRole: $undertakerResultRole, ')
           ..write('notes: $notes')
@@ -6343,6 +6403,7 @@ typedef $$DayRecordsTableCreateCompanionBuilder =
       required int gameId,
       required int dayNumber,
       Value<int?> nightDeathPlayerId,
+      Value<bool> nightConfirmed,
       Value<int?> dayExecutionPlayerId,
       Value<Character?> undertakerResultRole,
       Value<String> notes,
@@ -6353,6 +6414,7 @@ typedef $$DayRecordsTableUpdateCompanionBuilder =
       Value<int> gameId,
       Value<int> dayNumber,
       Value<int?> nightDeathPlayerId,
+      Value<bool> nightConfirmed,
       Value<int?> dayExecutionPlayerId,
       Value<Character?> undertakerResultRole,
       Value<String> notes,
@@ -6489,6 +6551,11 @@ class $$DayRecordsTableFilterComposer
 
   ColumnFilters<int> get dayNumber => $composableBuilder(
     column: $table.dayNumber,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get nightConfirmed => $composableBuilder(
+    column: $table.nightConfirmed,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -6667,6 +6734,11 @@ class $$DayRecordsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<bool> get nightConfirmed => $composableBuilder(
+    column: $table.nightConfirmed,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<int> get undertakerResultRole => $composableBuilder(
     column: $table.undertakerResultRole,
     builder: (column) => ColumnOrderings(column),
@@ -6761,6 +6833,11 @@ class $$DayRecordsTableAnnotationComposer
 
   GeneratedColumn<int> get dayNumber =>
       $composableBuilder(column: $table.dayNumber, builder: (column) => column);
+
+  GeneratedColumn<bool> get nightConfirmed => $composableBuilder(
+    column: $table.nightConfirmed,
+    builder: (column) => column,
+  );
 
   GeneratedColumnWithTypeConverter<Character?, int> get undertakerResultRole =>
       $composableBuilder(
@@ -6955,6 +7032,7 @@ class $$DayRecordsTableTableManager
                 Value<int> gameId = const Value.absent(),
                 Value<int> dayNumber = const Value.absent(),
                 Value<int?> nightDeathPlayerId = const Value.absent(),
+                Value<bool> nightConfirmed = const Value.absent(),
                 Value<int?> dayExecutionPlayerId = const Value.absent(),
                 Value<Character?> undertakerResultRole = const Value.absent(),
                 Value<String> notes = const Value.absent(),
@@ -6963,6 +7041,7 @@ class $$DayRecordsTableTableManager
                 gameId: gameId,
                 dayNumber: dayNumber,
                 nightDeathPlayerId: nightDeathPlayerId,
+                nightConfirmed: nightConfirmed,
                 dayExecutionPlayerId: dayExecutionPlayerId,
                 undertakerResultRole: undertakerResultRole,
                 notes: notes,
@@ -6973,6 +7052,7 @@ class $$DayRecordsTableTableManager
                 required int gameId,
                 required int dayNumber,
                 Value<int?> nightDeathPlayerId = const Value.absent(),
+                Value<bool> nightConfirmed = const Value.absent(),
                 Value<int?> dayExecutionPlayerId = const Value.absent(),
                 Value<Character?> undertakerResultRole = const Value.absent(),
                 Value<String> notes = const Value.absent(),
@@ -6981,6 +7061,7 @@ class $$DayRecordsTableTableManager
                 gameId: gameId,
                 dayNumber: dayNumber,
                 nightDeathPlayerId: nightDeathPlayerId,
+                nightConfirmed: nightConfirmed,
                 dayExecutionPlayerId: dayExecutionPlayerId,
                 undertakerResultRole: undertakerResultRole,
                 notes: notes,

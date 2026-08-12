@@ -83,14 +83,14 @@ abstract final class TimelineBuilder {
         TimelineDay(
           dayNumber: day.dayNumber,
           events: [
-            // 夜晚死亡
+            // 夜晚死亡：仅对已确认的天输出，预建未录的天不显示（#77）。
             if (day.nightDeathPlayerId != null)
               TimelineEvent(
                 type: TimelineEventType.nightDeath,
                 summary: '${nameOf(day.nightDeathPlayerId)} 夜晚死亡',
                 playerId: day.nightDeathPlayerId,
               )
-            else
+            else if (day.nightConfirmed)
               const TimelineEvent(
                 type: TimelineEventType.nightDeath,
                 summary: '夜晚无人死亡',

@@ -108,12 +108,26 @@ void main() {
 
   test('多天排序正确 + 无人死亡事件', () async {
     await db.dayRecordsDao.insertDay(
-      DayRecordsCompanion(gameId: Value(gameId), dayNumber: const Value(2)),
+      DayRecordsCompanion(
+        gameId: Value(gameId),
+        dayNumber: const Value(2),
+        nightConfirmed: const Value(true), // 确认无人死亡（#77）
+      ),
     );
     final timeline = await readTimeline();
 
     expect(timeline.map((d) => d.dayNumber), [1, 2]);
     expect(timeline[1].events.single.summary, '夜晚无人死亡');
+  });
+
+  test('未确认的夜晚不显示「无人死亡」（预建记录，issue #77）', () async {
+    await db.dayRecordsDao.insertDay(
+      DayRecordsCompanion(gameId: Value(gameId), dayNumber: const Value(2)),
+      // nightConfirmed 默认 false：进入第 2 天但夜晚未确认
+    );
+    final timeline = await readTimeline();
+    // 第 2 天无任何事件（夜晚未确认 → 不输出「夜晚无人死亡」）
+    expect(timeline[1].events, isEmpty);
   });
 
   test('响应式：录入新声明后时间线自动刷新（PR #29 review 回归）', () async {
