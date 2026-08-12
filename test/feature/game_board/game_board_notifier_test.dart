@@ -123,6 +123,34 @@ void main() {
     expect(updated[4].deathCause, DeathCause.execution);
   });
 
+  // issue #80：处决死人消耗处决额度但不覆盖原死亡信息；撤销不复活死者。
+  test('处决已死玩家：消耗处决额度，原死亡信息不变', () async {
+    // 先夜晚杀死 players[2]
+    await notifier().recordNightDeath(players[2].id);
+    var updated = await db.playersDao.watchByGame(gameId).first;
+    expect(updated[2].deathCause, DeathCause.nightKill);
+
+    // 处决已死的 players[2]
+    await notifier().recordExecution(players[2].id);
+    final day = await db.dayRecordsDao.getByGameAndDay(gameId, 1);
+    expect(day!.dayExecutionPlayerId, players[2].id); // 消耗处决额度
+
+    updated = await db.playersDao.watchByGame(gameId).first;
+    expect(updated[2].deathCause, DeathCause.nightKill); // 未被覆盖
+    expect(updated[2].deathDay, 1);
+  });
+
+  test('撤销对死人的处决：不复活早就死了的人', () async {
+    await notifier().recordNightDeath(players[2].id); // players[2] 夜死
+    await notifier().recordExecution(players[2].id); // 处决死人
+    // 改处决为 players[3] → 撤销对死人的处决
+    await notifier().recordExecution(players[3].id);
+
+    final updated = await db.playersDao.watchByGame(gameId).first;
+    expect(updated[2].isAlive, isFalse); // 仍死，未被复活
+    expect(updated[3].isAlive, isFalse); // 新处决者死
+  });
+
   test('advanceDay：推进天数 + 预建次日记录 + 清空选中', () async {
     notifier().selectPlayer(players[0].id);
     await notifier().advanceDay();

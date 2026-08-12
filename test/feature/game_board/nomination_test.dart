@@ -214,6 +214,25 @@ void main() {
       expect(error, '该玩家今天已被提名过');
     });
 
+    test('今日已处决 → 拒绝提名（#79）', () async {
+      // 标记今日已处决
+      await db.dayRecordsDao.updateDay(
+        dayRecordId,
+        DayRecordsCompanion(dayExecutionPlayerId: Value(players[4].id)),
+      );
+      final error = await repo.addNomination(
+        gameId: gameId,
+        dayRecordId: dayRecordId,
+        nominatorId: players[0].id,
+        nomineeId: players[1].id,
+        votes: votesFor([1, 2, 3]),
+        players: players,
+        todayNominations: [],
+        allNominations: [],
+      );
+      expect(error, '今日已处决，提名阶段已结束');
+    });
+
     test('死票用过后不可再用', () async {
       // 第一次：7 号用死票
       await repo.addNomination(

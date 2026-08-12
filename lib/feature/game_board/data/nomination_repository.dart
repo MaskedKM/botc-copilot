@@ -57,6 +57,11 @@ class NominationRepository {
     if (NominationRules.hasBeenNominatedToday(todayNominations, nomineeId)) {
       return '该玩家今天已被提名过';
     }
+    // 处决已执行 → 当天提名阶段结束（#79，防御纵深）
+    final dayRecord = await _db.dayRecordsDao.getById(dayRecordId);
+    if (dayRecord != null && dayRecord.dayExecutionPlayerId != null) {
+      return '今日已处决，提名阶段已结束';
+    }
     // 死票校验
     for (final v in votes) {
       if (v.isDeadVote &&

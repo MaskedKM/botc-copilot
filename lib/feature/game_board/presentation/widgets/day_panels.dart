@@ -125,9 +125,13 @@ class DayPanel extends ConsumerWidget {
                   dayRecord?.dayExecutionPlayerId == null && dayRecord != null,
               onSelected: (_) => notifier.recordExecution(null),
             ),
-            for (final p in players.where((p) => p.isAlive))
+            for (final p in players)
               ChoiceChip(
-                label: Text('${p.seatNumber}号 ${p.name}'),
+                // 处决候选含死人（处决死人是合法操作，#80）；死者标 ☠
+                label: Text(
+                  '${p.seatNumber}号 ${p.name}'
+                  '${p.isAlive ? '' : ' ☠'}',
+                ),
                 selected: dayRecord?.dayExecutionPlayerId == p.id,
                 onSelected: (_) => _confirmExecution(
                   context,

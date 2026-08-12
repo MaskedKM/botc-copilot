@@ -24,6 +24,10 @@ class DayRecordsDao extends DatabaseAccessor<AppDatabase>
             ))
           .getSingleOrNull();
 
+  /// 按 id 查询每日记录。
+  Future<DayRecord?> getById(int id) =>
+      (select(dayRecords)..where((d) => d.id.equals(id))).getSingleOrNull();
+
   /// 新建每日记录。
   Future<int> insertDay(DayRecordsCompanion entry) =>
       into(dayRecords).insert(entry);

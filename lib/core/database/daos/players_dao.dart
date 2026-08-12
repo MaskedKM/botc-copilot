@@ -26,8 +26,15 @@ class PlayersDao extends DatabaseAccessor<AppDatabase>
       (update(players)..where((p) => p.id.equals(id))).write(entry);
 
   /// 标记死亡（记录死亡天数与原因）。
+  ///
+  /// 已死玩家为 no-op（不覆盖原有 deathDay/deathCause），防止处决死人时
+  /// 抹掉其真实死亡信息（issue #80）。
   Future<int> markDead(int id, int day, DeathCause cause) =>
-      (update(players)..where((p) => p.id.equals(id))).write(
+      (update(players)
+            ..where(
+              (p) => p.id.equals(id) & p.isAlive.equals(true),
+            ))
+          .write(
         PlayersCompanion(
           isAlive: const Value(false),
           deathDay: Value(day),

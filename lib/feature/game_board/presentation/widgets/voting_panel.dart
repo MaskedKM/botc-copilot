@@ -24,9 +24,14 @@ class VotingPanel extends ConsumerWidget {
     final nominations =
         ref.watch(dayNominationsProvider((gameId, day))).valueOrNull ?? [];
     final players = ref.watch(gamePlayersProvider(gameId)).valueOrNull ?? [];
+    final dayRecord =
+        ref.watch(currentDayRecordProvider((gameId, day))).valueOrNull;
     final gameColors = context.gameColors;
 
     final playersById = {for (final p in players) p.id: p};
+
+    // 今日是否已处决（#79：处决后提名阶段结束）
+    final executed = dayRecord?.dayExecutionPlayerId != null;
 
     // 当天「即将死亡」判定（issue #53 最高票累计 + 平票规则）。
     final aliveCount = players.where((p) => p.isAlive).length;
@@ -37,8 +42,24 @@ class VotingPanel extends ConsumerWidget {
 
     return Column(
       children: [
+        // 今日处决已执行（#79）：处决后当天提名阶段结束
+        if (executed)
+          Container(
+            width: double.infinity,
+            margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: gameColors.inkViolet.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: gameColors.inkViolet, width: 1),
+            ),
+            child: Text(
+              '今日处决已执行，提名阶段已结束。',
+              style: AppTextStyles.body.copyWith(color: gameColors.inkViolet),
+            ),
+          )
         // 即将死亡 / 平票提示条
-        if (pending is PendingExecution || pending is PendingTie)
+        else if (pending is PendingExecution || pending is PendingTie)
           Container(
             width: double.infinity,
             margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
@@ -167,11 +188,11 @@ class VotingPanel extends ConsumerWidget {
         Padding(
           padding: const EdgeInsets.all(16),
           child: FilledButton.icon(
-            onPressed: players.isEmpty
+            onPressed: (players.isEmpty || executed)
                 ? null
                 : () => NominationEntrySheet.show(context, gameId: gameId),
             icon: const Icon(Icons.how_to_vote),
-            label: const Text('记录提名'),
+            label: Text(executed ? '今日已处决' : '记录提名'),
           ),
         ),
       ],
