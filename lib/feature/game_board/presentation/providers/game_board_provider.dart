@@ -127,7 +127,7 @@ class GameBoardNotifier extends StateNotifier<GameBoardState> {
   Future<GameEndSuggestion?> recordNightDeath(int? playerId) async {
     final dayId = await _ensureDayRecord(state.currentDay);
     await _db.transaction(() async {
-      await _revivePreviousDeath(dayId, (d) => d.nightDeathPlayerId);
+      await _revivePreviousDeath(dayId, (d) => d.nightDeathPlayerId, (d) => d.dayExecutionPlayerId, DeathCause.nightKill);
       await _db.dayRecordsDao.updateDay(
         dayId,
         DayRecordsCompanion(
@@ -156,7 +156,7 @@ class GameBoardNotifier extends StateNotifier<GameBoardState> {
   Future<GameEndSuggestion?> recordExecution(int? playerId) async {
     final dayId = await _ensureDayRecord(state.currentDay);
     await _db.transaction(() async {
-      await _revivePreviousDeath(dayId, (d) => d.dayExecutionPlayerId);
+      await _revivePreviousDeath(dayId, (d) => d.dayExecutionPlayerId, (d) => d.nightDeathPlayerId, DeathCause.execution);
       await _db.dayRecordsDao.updateDay(
         dayId,
         DayRecordsCompanion(dayExecutionPlayerId: Value(playerId)),
@@ -185,16 +185,30 @@ class GameBoardNotifier extends StateNotifier<GameBoardState> {
   /// 复活当天记录中此前登记的死亡者（撤销/改选时调用）。
   ///
   /// 必须在更新当日记录之前调用，否则取到的是新值。
+  ///
+  /// 仅当该玩家确实死于「本日 + [expectedCause]」时才复活——处决已死
+  /// 玩家时不 markDead，撤销处决不应把早就死了的人复活（#80）。
   Future<void> _revivePreviousDeath(
     int dayId,
     int? Function(DayRecord) getPlayerId,
+    int? Function(DayRecord) otherFieldId,
+    DeathCause expectedCause,
   ) async {
     final day = await _db.dayRecordsDao.getByGameAndDay(
       _gameId,
       state.currentDay,
     );
     final oldId = day != null && day.id == dayId ? getPlayerId(day) : null;
-    if (oldId != null) {
+    if (oldId == null) return;
+    // 跨字段守卫（review M1）：若该玩家同时是「另一类」死亡记录的目标
+    // （如夜杀 A 后又处决 A），撤销本字段不应复活他——另一字段仍生效。
+    if (otherFieldId(day!) == oldId) return;
+    final players = await _db.playersDao.watchByGame(_gameId).first;
+    final prev = players.where((p) => p.id == oldId).firstOrNull;
+    if (prev != null &&
+        !prev.isAlive &&
+        prev.deathCause == expectedCause &&
+        prev.deathDay == state.currentDay) {
       await _db.playersDao.revive(oldId);
     }
   }
