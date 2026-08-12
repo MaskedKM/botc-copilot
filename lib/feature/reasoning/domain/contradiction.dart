@@ -227,7 +227,11 @@ abstract final class ContradictionDetector {
     return result;
   }
 
-  /// 规则 3：外来者声明数超过配置应有数量。
+  /// 规则 3：外来者声明数即便 Baron 在场（+2）也无法解释 → 必有假报。
+  ///
+  /// Baron 感知（issue #59 收紧）：不再对「与 Baron 局一致（claimed == base+2）」
+  /// 误报。仅在 `claimed > base+2` 时报警；`under / partial / baronConsistent`
+  /// 的细致解读交由配置分析面板（SetupAnalysisPanel）。
   static List<Contradiction> _outsiderCountAnomaly(
     Map<int, RoleClaim> latestClaim,
     int expectedOutsiders,
@@ -236,7 +240,8 @@ abstract final class ContradictionDetector {
     final outsiderClaims = latestClaim.entries
         .where((e) => e.value.character.team == Team.outsider)
         .toList();
-    if (outsiderClaims.length <= expectedOutsiders) return [];
+    // Baron 在场最多 base+2；超过即硬矛盾
+    if (outsiderClaims.length <= expectedOutsiders + 2) return [];
     return [
       Contradiction(
         type: ContradictionType.outsiderCountAnomaly,
@@ -244,8 +249,8 @@ abstract final class ContradictionDetector {
         description:
             '声明外来者的有 ${outsiderClaims.map((e) => labelOf(e.key)).join('、')}'
             '（共 ${outsiderClaims.length} 人），'
-            '但本局配置应有 $expectedOutsiders 个外来者。'
-            '可能：Baron 在场改配置（+2）/ 有人假报外来者。',
+            '即便 Baron 在场（+2）最多 ${expectedOutsiders + 2} 个——'
+            '必有假报外来者。',
         severity: ContradictionSeverity.warning,
       ),
     ];
