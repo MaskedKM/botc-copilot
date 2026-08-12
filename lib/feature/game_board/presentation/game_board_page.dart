@@ -137,8 +137,23 @@ class _GameBoardBody extends ConsumerWidget {
                 : () async {
                     final notifier =
                         ref.read(gameBoardProvider(gameId).notifier);
-                    await notifier.advanceDay();
+                    final suggestion = await notifier.advanceDay();
                     if (!context.mounted) return;
+                    if (suggestion != null) {
+                      await handleEndSuggestion(
+                        context,
+                        ref,
+                        gameId,
+                        suggestion,
+                      );
+                      if (!context.mounted) return;
+                      // 对局可能在 handleEndSuggestion 中结束（如市长胜利确认）
+                      final game = await ref
+                          .read(appDatabaseProvider)
+                          .gamesDao
+                          .getById(gameId);
+                      if (game?.status != GameStatus.ongoing) return;
+                    }
                     final advancedDay = ref.read(
                       gameBoardProvider(gameId).select((s) => s.currentDay),
                     );

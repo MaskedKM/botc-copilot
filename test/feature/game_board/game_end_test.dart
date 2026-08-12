@@ -6,6 +6,7 @@ import 'package:botc_copilot/feature/game_board/domain/game_end.dart';
 import 'package:botc_copilot/feature/game_board/presentation/providers/game_board_provider.dart';
 import 'package:botc_copilot/feature/setup/data/setup_repository.dart';
 import 'package:botc_copilot/shared/models/enums.dart';
+import 'package:drift/drift.dart' hide Column, isNull, isNotNull;
 import 'package:drift/native.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -21,6 +22,27 @@ void main() {
     test('被处决者是恶魔 → 善良获胜', () {
       expect(GameEndRules.isGoodWin(executedWasDemon: true), isTrue);
       expect(GameEndRules.isGoodWin(executedWasDemon: false), isFalse);
+    });
+
+    test('市长胜利候选：存活 3 + 当日无人被处决（#88）', () {
+      expect(
+        GameEndRules.isMayorWinCandidate(3, noExecutionToday: true),
+        isTrue,
+      );
+      // 当日有处决 → 不触发（即便 3 人存活）
+      expect(
+        GameEndRules.isMayorWinCandidate(3, noExecutionToday: false),
+        isFalse,
+      );
+      // 非 3 人 → 不触发
+      expect(
+        GameEndRules.isMayorWinCandidate(2, noExecutionToday: true),
+        isFalse,
+      );
+      expect(
+        GameEndRules.isMayorWinCandidate(4, noExecutionToday: true),
+        isFalse,
+      );
     });
   });
 
@@ -103,6 +125,119 @@ void main() {
       }
       final suggestion = await notifier().quickToggleDead(players[4]);
       expect(suggestion, isA<EvilWinCandidate>());
+    });
+
+    // ---- 市长特殊胜利（issue #88）----
+    /// 给某玩家插入市长声明。
+    Future<void> claimMayor(int playerId, int dayRecordId) async {
+      await db.roleClaimsDao.insertClaim(
+        RoleClaimsCompanion(
+          playerId: Value(playerId),
+          dayRecordId: Value(dayRecordId),
+          character: const Value(Character.mayor),
+          claimType: const Value(ClaimType.firstClaim),
+        ),
+      );
+    }
+
+    test('advanceDay：存活 3 + 无处决 + 市长声明 → MayorVictoryCandidate', () async {
+      final players = await db.playersDao.watchByGame(gameId).first;
+      final day1Id = await notifier().ensureCurrentDayRecord();
+      await claimMayor(players[0].id, day1Id);
+      // 杀 players[1..4]（4 人），剩 players[0,5,6] 存活 == 3；市长声明者存活
+      for (final p in players.skip(1).take(4)) {
+        await db.playersDao.markDead(p.id, 1, DeathCause.nightKill);
+      }
+      final suggestion = await notifier().advanceDay();
+      expect(suggestion, isA<MayorVictoryCandidate>());
+      expect((suggestion! as MayorVictoryCandidate).aliveCount, 3);
+    });
+
+    test('advanceDay：市长不在场（无声明 / 非我方）→ 不提示（门控）', () async {
+      final players = await db.playersDao.watchByGame(gameId).first;
+      await notifier().ensureCurrentDayRecord();
+      // myRole = empath（setUp），无人声明市长
+      for (final p in players.skip(1).take(4)) {
+        await db.playersDao.markDead(p.id, 1, DeathCause.nightKill);
+      }
+      final suggestion = await notifier().advanceDay();
+      expect(suggestion, isNull);
+    });
+
+    test('advanceDay：存活 3 但当日有处决 → 不触发市长', () async {
+      final players = await db.playersDao.watchByGame(gameId).first;
+      final day1Id = await notifier().ensureCurrentDayRecord();
+      await claimMayor(players[0].id, day1Id);
+      for (final p in players.skip(1).take(4)) {
+        await db.playersDao.markDead(p.id, 1, DeathCause.nightKill);
+      }
+      // 当日有处决 → dayExecutionPlayerId != null
+      await db.dayRecordsDao.updateDay(
+        day1Id,
+        DayRecordsCompanion(dayExecutionPlayerId: Value(players[5].id)),
+      );
+      final suggestion = await notifier().advanceDay();
+      expect(suggestion, isNull);
+    });
+
+    test('advanceDay：存活 > 3 → 不触发市长', () async {
+      final players = await db.playersDao.watchByGame(gameId).first;
+      final day1Id = await notifier().ensureCurrentDayRecord();
+      await claimMayor(players[0].id, day1Id);
+      // 只杀 3 个（剩 4）
+      for (final p in players.skip(1).take(3)) {
+        await db.playersDao.markDead(p.id, 1, DeathCause.nightKill);
+      }
+      final suggestion = await notifier().advanceDay();
+      expect(suggestion, isNull);
+    });
+
+    test('advanceDay：我的角色是市长也触发门控', () async {
+      final game2 = await SetupRepository(db).createGame(
+        script: Script.troubleBrewing,
+        names: ['A', 'B', 'C', 'D', 'E', 'F', 'G'],
+        myRole: Character.mayor,
+      );
+      final players2 = await db.playersDao.watchByGame(game2).first;
+      final notifier2 = container.read(gameBoardProvider(game2).notifier);
+      await notifier2.ensureCurrentDayRecord();
+      for (final p in players2.skip(1).take(4)) {
+        await db.playersDao.markDead(p.id, 1, DeathCause.nightKill);
+      }
+      final suggestion = await notifier2.advanceDay();
+      expect(suggestion, isA<MayorVictoryCandidate>());
+    });
+
+    test('advanceDay：市长声明已改口 → 不提示（review R3 最新声明）', () async {
+      final players = await db.playersDao.watchByGame(gameId).first;
+      final day1Id = await notifier().ensureCurrentDayRecord();
+      await claimMayor(players[0].id, day1Id); // 先声明市长
+      // 同天改口为共情者（id 更大 = 最新声明）
+      await db.roleClaimsDao.insertClaim(
+        RoleClaimsCompanion(
+          playerId: Value(players[0].id),
+          dayRecordId: Value(day1Id),
+          character: const Value(Character.empath),
+          claimType: const Value(ClaimType.changed),
+        ),
+      );
+      for (final p in players.skip(1).take(4)) {
+        await db.playersDao.markDead(p.id, 1, DeathCause.nightKill);
+      }
+      final suggestion = await notifier().advanceDay();
+      expect(suggestion, isNull); // 最新声明非市长 → 不触发
+    });
+
+    test('advanceDay：市长声明者已死 → 不提示（review R4 存活校验）', () async {
+      final players = await db.playersDao.watchByGame(gameId).first;
+      final day1Id = await notifier().ensureCurrentDayRecord();
+      await claimMayor(players[0].id, day1Id);
+      // 杀 players[0..3]（含市长声明者），剩 [4,5,6] = 3 存活
+      for (final p in players.take(4)) {
+        await db.playersDao.markDead(p.id, 1, DeathCause.nightKill);
+      }
+      final suggestion = await notifier().advanceDay();
+      expect(suggestion, isNull); // 声明者已死 → 死市长无能力
     });
   });
 }

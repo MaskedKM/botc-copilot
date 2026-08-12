@@ -289,10 +289,63 @@ class GameBoardNotifier extends StateNotifier<GameBoardState> {
   }
 
   /// 推进到下一天。
-  Future<void> advanceDay() async {
+  ///
+  /// 返回结束建议：推进前若存活 == 3、当天无人被处决、且市长在场
+  /// （有人声明市长或我的角色是市长）→ [MayorVictoryCandidate]（issue #88）。
+  /// 与邪恶胜（存活 ≤ 2，在 [recordNightDeath] 等死亡记录时触发）天然分离：
+  /// 3 人无处决先触发市长，不会走到 2 人。
+  Future<GameEndSuggestion?> advanceDay() async {
+    final suggestion = await _mayorWinCheck();
     final nextDay = state.currentDay + 1;
     await _ensureDayRecord(nextDay);
     state = state.copyWith(currentDay: nextDay, selectedPlayerId: () => null);
+    return suggestion;
+  }
+
+  /// 市长胜利检测（issue #88）。
+  ///
+  /// 在推进当天时检查：存活 == 3、当天无人被处决、且市长在场。
+  /// 平票 / 不足阈值也算无人被处决（dayExecutionPlayerId 仍为 null）。
+  Future<GameEndSuggestion?> _mayorWinCheck() async {
+    final day = await _db.dayRecordsDao.getByGameAndDay(
+      _gameId,
+      state.currentDay,
+    );
+    final noExecution = day?.dayExecutionPlayerId == null;
+    final players = await _db.playersDao.watchByGame(_gameId).first;
+    final alive = players.where((p) => p.isAlive).length;
+    if (!GameEndRules.isMayorWinCandidate(
+      alive,
+      noExecutionToday: noExecution,
+    )) {
+      return null;
+    }
+    if (!await _mayorInPlay()) return null;
+    return MayorVictoryCandidate(alive);
+  }
+
+  /// 市长是否在场（issue #88 门控，review R3/R4 收紧）。
+  ///
+  /// - 我的角色是市长 → 直接成立（用户自知存活 / 醉毒，对话框二次确认）。
+  /// - 否则取每玩家**最新**声明（watchByGame 按 id 升序，后者覆盖前者），
+  ///   命中最新为市长且该声明者存活——排除「改口后旧声明」与「声明者已死」。
+  Future<bool> _mayorInPlay() async {
+    final game = await _db.gamesDao.getById(_gameId);
+    if (game?.myRole == Character.mayor) return true;
+    final claims = await _db.roleClaimsDao.watchByGame(_gameId).first;
+    final players = await _db.playersDao.watchByGame(_gameId).first;
+    final aliveById = {for (final p in players) p.id: p.isAlive};
+    final latestByPlayer = <int, Character>{};
+    for (final c in claims) {
+      latestByPlayer[c.playerId] = c.character;
+    }
+    for (final entry in latestByPlayer.entries) {
+      if (entry.value == Character.mayor &&
+          (aliveById[entry.key] ?? false)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /// 撤销最近一次推进（仅当天为预建的空记录时，issue #87）。
