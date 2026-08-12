@@ -94,6 +94,7 @@ void main() {
     required List<RoleClaim> claims,
     Character? myRole,
     int? myPlayerId,
+    List<Player>? playersOverride,
   }) {
     final game = Game(
       id: 1,
@@ -108,7 +109,8 @@ void main() {
     return ProviderScope(
       overrides: [
         gameByIdProvider(1).overrideWith((ref) => Stream.value(game)),
-        gamePlayersProvider(1).overrideWith((ref) => Stream.value(players)),
+        gamePlayersProvider(1)
+            .overrideWith((ref) => Stream.value(playersOverride ?? players)),
         gameBoardProvider(1)
             .overrideWith((ref) => _FakeGameBoardNotifier(ref, 1)),
         gameClaimsProvider(1).overrideWith((ref) => Stream.value(claims)),
@@ -207,6 +209,36 @@ void main() {
     ));
     await tester.pumpAndSettle();
 
+    expect(find.text('夜间行动'), findsNothing);
+  });
+
+  testWidgets('前夜已死亡的声称者不出现（死人不再行动）', (tester) async {
+    useTallSurface(tester);
+    // 3 号声明僧侣，但第 1 夜已死（currentDay=2）→ 不应出现
+    final withDead = [
+      for (final p in players)
+        p.id == 3
+            ? Player(
+                id: 3,
+                gameId: 1,
+                name: '玩家3',
+                seatNumber: 3,
+                isAlive: false,
+                abilityUsed: false,
+                deathDay: 1,
+                deathCause: DeathCause.nightKill,
+              )
+            : p,
+    ];
+    await tester.pumpWidget(buildSection(
+      claims: [claim(3, Character.monk)],
+      myRole: Character.soldier,
+      myPlayerId: 1,
+      playersOverride: withDead,
+    ));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('僧侣（3号'), findsNothing);
     expect(find.text('夜间行动'), findsNothing);
   });
 }

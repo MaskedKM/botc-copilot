@@ -53,12 +53,14 @@ class NightActionSection extends ConsumerWidget {
         )
         .toList();
 
-    // 每个可记录角色 → 在场声称者（保持夜序）
+    // 每个可记录角色 → 在场声称者（保持夜序）。
+    // 仅保留存活者 + 当夜死亡者（夜间行动在死亡结算之前发生；前夜已死者不再行动）。
     final entries = <({Player player, Character character})>[];
     for (final step in recordable) {
       final ch = step.character!;
       for (final p in players) {
-        if (latestByPlayer[p.id] == ch) {
+        if ((p.deathDay == null || p.deathDay! >= day) &&
+            latestByPlayer[p.id] == ch) {
           entries.add((player: p, character: ch));
         }
       }

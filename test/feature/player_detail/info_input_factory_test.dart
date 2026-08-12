@@ -22,6 +22,7 @@ void main() {
     Character character,
     void Function(Map<String, Object?>) onSubmit, {
     int? actingPlayerId,
+    List<Player>? playersOverride,
   }) {
     return MaterialApp(
       theme: AppTheme.dark,
@@ -29,7 +30,7 @@ void main() {
         body: SingleChildScrollView(
           child: InfoInputFactory.build(
             character: character,
-            players: players,
+            players: playersOverride ?? players,
             actingPlayerId: actingPlayerId,
             onSubmit: onSubmit,
           ),
@@ -161,7 +162,8 @@ void main() {
     expect(result, {'playerId': 3});
   });
 
-  testWidgets('Poisoner：选 1 名下毒目标（可选任何人）', (tester) async {
+  testWidgets('Poisoner：选 1 名下毒目标（可选任何存活玩家，含自己）',
+      (tester) async {
     Map<String, Object?>? result;
     await tester.pumpWidget(
       buildInput(Character.poisoner, (p) => result = p, actingPlayerId: 1),
@@ -173,6 +175,33 @@ void main() {
     await tester.pump();
     await tester.tap(find.text('记录'));
     expect(result, {'playerId': 2});
+  });
+
+  testWidgets('夜间行动目标排除已死亡玩家', (tester) async {
+    final withDead = [
+      ...players,
+      Player(
+        id: 8,
+        gameId: 1,
+        name: '亡者',
+        seatNumber: 8,
+        isAlive: false,
+        abilityUsed: false,
+        deathDay: 2,
+      ),
+    ];
+    await tester.pumpWidget(
+      buildInput(
+        Character.poisoner,
+        (_) {},
+        actingPlayerId: 1,
+        playersOverride: withDead,
+      ),
+    );
+    // 存活玩家在候选中
+    expect(find.text('2号 玩家2'), findsOneWidget);
+    // 已死亡的 8 号不在候选中
+    expect(find.text('8号 亡者'), findsNothing);
   });
 
   testWidgets('无信息能力角色（Soldier）：显示提示且无记录按钮', (tester) async {

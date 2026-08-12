@@ -400,8 +400,10 @@ class _SinglePlayerInputState extends State<_SinglePlayerInput> {
 
   @override
   Widget build(BuildContext context) {
-    final candidates =
-        widget.players.where((p) => p.id != widget.excludePlayerId).toList();
+    // 夜间行动目标须为存活玩家（Monk 保护 / Butler 主人 / Poisoner 下毒均针对存活者）
+    final candidates = widget.players
+        .where((p) => p.isAlive && p.id != widget.excludePlayerId)
+        .toList();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
