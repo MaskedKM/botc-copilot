@@ -93,6 +93,26 @@ abstract final class NominationRules {
     return list.map(VoteEntry.fromJson).toList();
   }
 
+  /// 快录模式补全：未点者记为反对（issue #84）。
+  ///
+  /// 官方规则：投票 = 举手=赞成 / 不举=非赞成（[Rules_Explanation]）。
+  /// 快录模式只承认赞成：已点 forVote 保留，其余（未点 / 详细模式遗留的
+  /// 反对 / 弃权）一律记为 [Vote.against]——避免切模式后旧弃权静默残留。
+  /// 死票仅赞成消耗（[Vote.forVote] by 死亡玩家才标 isDeadVote）。
+  static List<VoteEntry> fillQuickVotes({
+    required Map<int, Vote> recorded,
+    required List<Player> players,
+  }) {
+    return [
+      for (final p in players)
+        VoteEntry(
+          playerId: p.id,
+          vote: recorded[p.id] == Vote.forVote ? Vote.forVote : Vote.against,
+          isDeadVote: !p.isAlive && recorded[p.id] == Vote.forVote,
+        ),
+    ];
+  }
+
   /// 计算当天「即将死亡」者（官方最高票累计机制，issue #53）。
   ///
   /// 处决不是每次提名独立判断，而是当天累计最高票：

@@ -103,6 +103,70 @@ void main() {
     });
   });
 
+  group('fillQuickVotes（快录补全，issue #84）', () {
+    /// 构造 Player（带可选死亡/abilityUsed）。
+    Player player(int id, {bool alive = true}) => Player(
+          id: id,
+          gameId: gameId,
+          name: 'p$id',
+          seatNumber: id,
+          isAlive: alive,
+          abilityUsed: false,
+        );
+
+    test('空记录 → 全员反对，无死票', () {
+      final ps = [player(1), player(2), player(3)];
+      final votes = NominationRules.fillQuickVotes(
+        recorded: const {},
+        players: ps,
+      );
+      expect(votes, hasLength(3));
+      expect(votes.every((v) => v.vote == Vote.against), isTrue);
+      expect(votes.every((v) => !v.isDeadVote), isTrue);
+    });
+
+    test('点选者记赞成，未点者记反对', () {
+      final ps = [player(1), player(2), player(3)];
+      final votes = NominationRules.fillQuickVotes(
+        recorded: {1: Vote.forVote},
+        players: ps,
+      );
+      final byId = {for (final v in votes) v.playerId: v};
+      expect(byId[1]!.vote, Vote.forVote);
+      expect(byId[2]!.vote, Vote.against);
+      expect(byId[3]!.vote, Vote.against);
+    });
+
+    test('死亡玩家赞成 → 标记死票；死亡未点 → 反对且不消耗死票', () {
+      final ps = [player(1), player(2, alive: false), player(3, alive: false)];
+      final votes = NominationRules.fillQuickVotes(
+        recorded: {2: Vote.forVote}, // 死亡 2 号点赞成 = 消耗死票
+        players: ps,
+      );
+      final byId = {for (final v in votes) v.playerId: v};
+      expect(byId[2]!.vote, Vote.forVote);
+      expect(byId[2]!.isDeadVote, isTrue); // 死亡赞成 = 死票
+      expect(byId[3]!.vote, Vote.against);
+      expect(byId[3]!.isDeadVote, isFalse); // 死亡未点 = 反对，不消耗死票
+    });
+
+    test('详细模式遗留的弃权/反对 → 快录提交时一律归为反对（review R2）', () {
+      final ps = [player(1), player(2), player(3)];
+      final votes = NominationRules.fillQuickVotes(
+        recorded: {
+          1: Vote.forVote,
+          2: Vote.abstain, // 详细模式标记的弃权
+          3: Vote.against,
+        },
+        players: ps,
+      );
+      final byId = {for (final v in votes) v.playerId: v};
+      expect(byId[1]!.vote, Vote.forVote); // 赞成保留
+      expect(byId[2]!.vote, Vote.against); // 弃权 → 归为反对（非静默保留）
+      expect(byId[3]!.vote, Vote.against);
+    });
+  });
+
   group('pendingExecution（最高票替换 + 平票，issue #53）', () {
     test('唯一最高票 → 该被提名者即将死亡', () {
       final noms = [
