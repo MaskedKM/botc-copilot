@@ -1,3 +1,7 @@
+import 'dart:convert';
+
+import 'package:botc_copilot/core/constants/character.dart';
+import 'package:botc_copilot/core/constants/player_setup.dart';
 import 'package:botc_copilot/core/database/app_database.dart';
 import 'package:botc_copilot/core/database/database_provider.dart';
 import 'package:botc_copilot/core/theme/app_text_styles.dart';
@@ -5,6 +9,7 @@ import 'package:botc_copilot/core/theme/game_colors.dart';
 import 'package:botc_copilot/feature/game_board/presentation/providers/game_board_provider.dart';
 import 'package:botc_copilot/feature/player_detail/data/player_detail_repository.dart';
 import 'package:botc_copilot/feature/player_detail/presentation/widgets/info_input_factory.dart';
+import 'package:botc_copilot/shared/game_private.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -144,6 +149,11 @@ class MyInfoSheet extends ConsumerWidget {
                         style: AppTextStyles.caption
                             .copyWith(color: gameColors.inkViolet),
                       ),
+                    // 恶魔私密爪牙名单（7+ 人局，#108）
+                    if (myRole == Character.imp && game.playerCount >= 7) ...[
+                      const SizedBox(height: 16),
+                      _MyMinionsSection(game: game, players: players),
+                    ],
                   ],
                 );
               },
@@ -212,5 +222,65 @@ Future<void> _changeSeatDialog(
         const SnackBar(content: Text('已更换座位')),
       );
     }
+  }
+}
+
+/// 恶魔私密爪牙名单（issue #108）。
+///
+/// 官方：7+ 人局恶魔首夜得知爪牙是谁。多选玩家（排除自己），即时写入
+/// `Games.myMinionIdsJson`。私密——不进公开推理，仅角色矩阵对我私密展示。
+class _MyMinionsSection extends ConsumerWidget {
+  const _MyMinionsSection({required this.game, required this.players});
+
+  final Game game;
+  final List<Player> players;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final gameColors = context.gameColors;
+    final selected = minionIdsOf(game);
+    final expected = PlayerSetup.forCount(game.playerCount).minions;
+    // 候选：除我以外的玩家
+    final candidates =
+        players.where((p) => p.id != game.myPlayerId).toList();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          '我的爪牙（私密，${game.playerCount} 人局应有 $expected 个）',
+          style: AppTextStyles.headline.copyWith(color: gameColors.blood),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          '官方：7+ 人局恶魔首夜得知爪牙。仅你可见，不影响公开推理。',
+          style: AppTextStyles.caption.copyWith(color: gameColors.inkViolet),
+        ),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 4,
+          children: [
+            for (final p in candidates)
+              ChoiceChip(
+                label: Text('${p.seatNumber}号 ${p.name}'),
+                selected: selected.contains(p.id),
+                onSelected: (_) async {
+                  final next = Set<int>.of(selected);
+                  if (next.contains(p.id)) {
+                    next.remove(p.id);
+                  } else {
+                    next.add(p.id);
+                  }
+                  await ref.read(appDatabaseProvider).gamesDao.updateMyMinionIds(
+                        game.id,
+                        jsonEncode(next.toList()),
+                      );
+                },
+              ),
+          ],
+        ),
+      ],
+    );
   }
 }

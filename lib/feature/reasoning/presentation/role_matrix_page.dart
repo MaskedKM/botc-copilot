@@ -7,6 +7,7 @@ import 'package:botc_copilot/core/theme/game_colors.dart';
 import 'package:botc_copilot/feature/game_board/presentation/providers/game_board_provider.dart';
 import 'package:botc_copilot/feature/reasoning/data/contradictions_provider.dart';
 import 'package:botc_copilot/feature/reasoning/domain/role_matrix.dart';
+import 'package:botc_copilot/shared/game_private.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -65,6 +66,9 @@ class _RoleMatrixPageState extends ConsumerState<RoleMatrixPage> {
       myPlayerId: game?.myPlayerId,
       myRole: game?.myRole,
     );
+    // 我的爪牙（仅我是恶魔时，私密标记，#108）
+    final myMinionIds =
+        game != null && game.myRole == Character.imp ? minionIdsOf(game) : const <int>{};
     // 默认精简：只保留有声明 / Bluff / 有确认的列
     final columns = _showAll
         ? allColumns
@@ -110,6 +114,8 @@ class _RoleMatrixPageState extends ConsumerState<RoleMatrixPage> {
                   _legend(gameColors.goldBright, '我的角色（私密）', Icons.stars),
                   _legend(gameColors.blood, '冲突（多人声明）'),
                   _legend(gameColors.trustSuspect, '恶魔 Bluff'),
+                  if (myMinionIds.isNotEmpty)
+                    _legend(gameColors.blood, '我的爪牙（私密）', Icons.security),
                 ],
               ),
             ),
@@ -121,6 +127,7 @@ class _RoleMatrixPageState extends ConsumerState<RoleMatrixPage> {
                     players: players,
                     columns: columns,
                     rows: rows,
+                    myMinionIds: myMinionIds,
                   ),
                 ),
               ),
@@ -155,11 +162,15 @@ class _MatrixTable extends StatelessWidget {
     required this.players,
     required this.columns,
     required this.rows,
+    required this.myMinionIds,
   });
 
   final List<Player> players;
   final List<MatrixColumn> columns;
   final Map<int, MatrixRow> rows;
+
+  /// 恶魔私密爪牙名单（仅我是恶魔时非空，#108）。
+  final Set<int> myMinionIds;
 
   static const double _nameColWidth = 72;
   static const double _cellWidth = 44;
@@ -190,10 +201,30 @@ class _MatrixTable extends StatelessWidget {
               SizedBox(
                 height: _cellHeight,
                 child: Center(
-                  child: Text(
-                    '${p.seatNumber}${p.name}',
-                    style: AppTextStyles.caption,
-                    overflow: TextOverflow.ellipsis,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (myMinionIds.contains(p.id))
+                        Padding(
+                          padding: const EdgeInsets.only(right: 2),
+                          child: Icon(
+                            Icons.security,
+                            size: 10,
+                            color: gameColors.blood,
+                          ),
+                        ),
+                      Flexible(
+                        child: Text(
+                          '${p.seatNumber}${p.name}',
+                          style: AppTextStyles.caption.copyWith(
+                            color: myMinionIds.contains(p.id)
+                                ? gameColors.blood
+                                : null,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
