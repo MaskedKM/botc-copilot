@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:botc_copilot/core/constants/character.dart';
 import 'package:botc_copilot/core/constants/team.dart';
 import 'package:botc_copilot/core/database/app_database.dart';
+import 'package:botc_copilot/feature/player_detail/domain/info_payload_formatter.dart';
 import 'package:botc_copilot/feature/reasoning/domain/latest_claim.dart';
 import 'package:botc_copilot/shared/models/enums.dart';
 
@@ -79,7 +80,6 @@ abstract final class ContradictionDetector {
     required Map<int, Player> playersById,
     required Map<int, int> dayRecordToDayNumber,
     required int expectedOutsiders,
-    List<PoisonStatus> poisonStatuses = const [],
     int? myPlayerId,
     Character? myRole,
   }) {
@@ -107,26 +107,16 @@ abstract final class ContradictionDetector {
       }
     }
     // 掘墓人结果：高可信但**可污染**（醉/毒 / Spy 死后登记为好人 /
-    // Recluse 登记为邪恶）。掘墓人当天被标毒/醉 → 信息不可靠，跳过。
-    final undertakerClaimsList =
-        claims.where((c) => c.character == Character.undertaker).toList();
-    final undertakerPlayerId =
-        undertakerClaimsList.isEmpty ? null : undertakerClaimsList.last.playerId;
-    final undertakerRoles = <int, Character>{}; // 被处决者 → 掘墓人报出的角色
-    for (final d in days) {
-      if (d.undertakerResultRole != null && d.dayExecutionPlayerId != null) {
-        final tainted = undertakerPlayerId != null &&
-            poisonStatuses.any(
-              (p) =>
-                  p.playerId == undertakerPlayerId &&
-                  p.dayNumber == d.dayNumber &&
-                  p.isActive,
-            );
-        if (!tainted) {
-          undertakerRoles[d.dayExecutionPlayerId!] = d.undertakerResultRole!;
-        }
-      }
-    }
+    // Recluse 登记为邪恶）。
+    //
+    // 官方时序（issue #106）：掘墓人「每夜*得知当日被投票处决者的角色」，
+    // 即在第 N+1 夜得知第 N 日的处决，次日报出。掘墓人信息录入于
+    // `info_declarations`（characterType == undertaker），其 dayRecordId
+    // 指向**报告日**，描述的是**前一日的处决**——故按「声明日之前最近一次
+    // 处决」关联被处决者。可靠性直接读 decl.reliability（录入时自动污染
+    // 降级，比按天查毒标记更精确）；possiblyTainted / invalidated 视为不可靠。
+    final undertakerRoles =
+        _undertakerReportedRoles(declarations, days, dayRecordToDayNumber);
 
     return [
       ..._duplicateRoleClaims(latestClaim, labelOf),
@@ -365,5 +355,42 @@ abstract final class ContradictionDetector {
     } on FormatException {
       return null;
     }
+  }
+
+  /// 构造「被处决者 → 掘墓人报出的角色」映射（issue #106）。
+  ///
+  /// 从 `info_declarations` 读掘墓人信息（`DayRecords.undertakerResultRole`
+  /// 字段在生产环境无写入方，是死代码）。每条声明按官方时序关联到**声明日
+  /// 之前最近一次处决**的被处决者。可靠性非 `possiblyTainted` /
+  /// `invalidated` 方可采用。
+  static Map<int, Character> _undertakerReportedRoles(
+    List<InfoDeclaration> declarations,
+    List<DayRecord> days,
+    Map<int, int> dayRecordToDayNumber,
+  ) {
+    if (days.isEmpty) return const {};
+    final sortedDays = [...days]..sort((a, b) => a.dayNumber.compareTo(b.dayNumber));
+    final roles = <int, Character>{};
+    for (final decl in declarations) {
+      if (decl.characterType != Character.undertaker) continue;
+      if (decl.reliability == Reliability.possiblyTainted ||
+          decl.reliability == Reliability.invalidated) {
+        continue;
+      }
+      final reported = InfoPayloadFormatter.characterOf(decl);
+      if (reported == null) continue;
+      final declDay = dayRecordToDayNumber[decl.dayRecordId];
+      if (declDay == null) continue;
+      // 声明日之前最近一次处决（掘墓人在次夜得知前日处决）。
+      DayRecord? latestExec;
+      for (final d in sortedDays) {
+        if (d.dayNumber >= declDay) break;
+        if (d.dayExecutionPlayerId != null) latestExec = d;
+      }
+      if (latestExec != null) {
+        roles[latestExec.dayExecutionPlayerId!] = reported;
+      }
+    }
+    return roles;
   }
 }

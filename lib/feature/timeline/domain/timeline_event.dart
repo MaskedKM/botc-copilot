@@ -1,3 +1,4 @@
+import 'package:botc_copilot/core/constants/character.dart';
 import 'package:botc_copilot/core/database/app_database.dart';
 import 'package:botc_copilot/feature/game_board/domain/nomination_rules.dart';
 import 'package:botc_copilot/feature/player_detail/domain/info_payload_formatter.dart';
@@ -93,6 +94,14 @@ abstract final class TimelineBuilder {
           '（赞成$forCount票，${n.passed ? '通过' : '未通过'}）$defenseSuffix';
     }
 
+    // 掘墓人事件摘要（issue #106）：掘墓人在次夜得知前日被处决者角色。
+    String undertakerSummary(InfoDeclaration decl) {
+      final role = InfoPayloadFormatter.characterOf(decl)?.nameCn ?? '未知';
+      return decl.isMine
+          ? '我（${nameOf(decl.playerId)}）获知掘墓人：被处决者是 $role'
+          : '${nameOf(decl.playerId)} 报掘墓人：被处决者是 $role';
+    }
+
     final sortedDays = [...days]..sort(
         (a, b) => a.dayNumber.compareTo(b.dayNumber),
       );
@@ -124,9 +133,11 @@ abstract final class TimelineBuilder {
                     '${claim.claimType == ClaimType.revealedOnDeath ? '（死亡揭示）' : ''}',
                 playerId: claim.playerId,
               ),
-            // 信息声明（该天的）
+            // 信息声明（该天的；掘墓人信息另作独立事件，避免重复展示）
             for (final decl in declarations.where(
-              (d) => dayRecordToDayNumber[d.dayRecordId] == day.dayNumber,
+              (d) =>
+                  dayRecordToDayNumber[d.dayRecordId] == day.dayNumber &&
+                  d.characterType != Character.undertaker,
             ))
               TimelineEvent(
                 type: TimelineEventType.infoDeclaration,
@@ -170,11 +181,17 @@ abstract final class TimelineBuilder {
                 summary: '${nameOf(note.playerId)}：${note.note}',
                 playerId: note.playerId,
               ),
-            // 掘墓人信息
-            if (day.undertakerResultRole != null)
+            // 掘墓人信息（issue #106：改读 info_declarations；原 DayRecord
+            // 字段 undertakerResultRole 在生产环境无写入方，是死代码）
+            for (final decl in declarations.where(
+              (d) =>
+                  d.characterType == Character.undertaker &&
+                  dayRecordToDayNumber[d.dayRecordId] == day.dayNumber,
+            ))
               TimelineEvent(
                 type: TimelineEventType.undertakerResult,
-                summary: '掘墓人：被处决者是 ${day.undertakerResultRole!.nameCn}',
+                summary: undertakerSummary(decl),
+                playerId: decl.playerId,
               ),
           ],
         ),

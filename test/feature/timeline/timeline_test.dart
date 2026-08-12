@@ -47,7 +47,6 @@ void main() {
         dayNumber: const Value(1),
         nightDeathPlayerId: Value(players[2].id),
         dayExecutionPlayerId: Value(players[4].id),
-        undertakerResultRole: const Value(Character.poisoner),
       ),
     );
   });
@@ -85,6 +84,16 @@ void main() {
         reliability: const Value(Reliability.unverified),
       ),
     );
+    // 掘墓人信息（issue #106：改读 info_declarations）
+    await db.infoDeclarationsDao.insertDeclaration(
+      InfoDeclarationsCompanion(
+        playerId: Value(players[0].id),
+        dayRecordId: Value(day1Id),
+        characterType: const Value(Character.undertaker),
+        payloadJson: const Value('{"character": "poisoner"}'),
+        reliability: const Value(Reliability.unverified),
+      ),
+    );
 
     final timeline = await readTimeline();
 
@@ -105,7 +114,9 @@ void main() {
     expect(summaries, contains('1号 玩家1 声明 厨师'));
     expect(summaries, contains('厨师：1'));
     expect(summaries, contains('5号 玩家5 被处决'));
-    expect(summaries, contains('掘墓人：被处决者是 投毒者'));
+    expect(summaries, contains('报掘墓人：被处决者是 投毒者'));
+    // 掘墓人信息不再走通用 infoDeclaration 通道（避免重复展示，#106）
+    expect(summaries, isNot(contains('报 掘墓人')));
   });
 
   test('多天排序正确 + 无人死亡事件', () async {

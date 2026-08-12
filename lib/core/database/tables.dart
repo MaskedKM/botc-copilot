@@ -107,7 +107,11 @@ class DayRecords extends Table {
   IntColumn get dayExecutionPlayerId =>
       integer().nullable().references(Players, #id)();
 
-  /// 掘墓人报出的被处决者角色。
+  /// @deprecated 掘墓人报出的被处决者角色。
+  ///
+  /// **此列在生产环境无写入方**（issue #106）：掘墓人信息实际录入通道是
+  /// `InfoDeclarations`（characterType == undertaker）。保留此列仅为避免
+  /// schema migration 风险，读取/写入一律走 InfoDeclarations。
   IntColumn get undertakerResultRole => intEnum<Character>().nullable()();
 
   /// 当日备注。
