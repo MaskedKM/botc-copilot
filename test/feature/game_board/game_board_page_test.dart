@@ -29,6 +29,7 @@ void main() {
         name: '玩家$i',
         seatNumber: i,
         isAlive: i != 3, // 3 号已死亡
+        abilityUsed: false,
         deathDay: i == 3 ? 1 : null,
         deathCause: i == 3 ? DeathCause.nightKill : null,
       ),

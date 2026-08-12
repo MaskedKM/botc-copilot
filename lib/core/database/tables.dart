@@ -62,6 +62,14 @@ class Players extends Table {
   /// 死亡原因（存活则为空）。
   TextColumn get deathCause => textEnum<DeathCause>().nullable()();
 
+  /// 一次性能力是否已消耗（issue #54：Virgin / Slayer）。
+  ///
+  /// App 追踪的是玩家**声明**角色的能力状态：Virgin 首次被 Townsfolk
+  /// 提名（且未醉毒）触发后标记；Slayer 使用猜测后标记。Saint 无需此
+  /// 字段（处决时即时判定）。
+  BoolColumn get abilityUsed =>
+      boolean().withDefault(const Constant(false))();
+
   @override
   List<Set<Column<Object>>> get uniqueKeys => [
         // 同一局中座位号唯一。

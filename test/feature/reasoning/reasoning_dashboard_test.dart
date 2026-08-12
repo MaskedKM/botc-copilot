@@ -14,6 +14,7 @@ Player _player(int id, int seat, String name, {bool alive = true}) => Player(
       name: name,
       seatNumber: seat,
       isAlive: alive,
+      abilityUsed: false,
       deathDay: alive ? null : 1,
       deathCause: alive ? null : DeathCause.nightKill,
     );

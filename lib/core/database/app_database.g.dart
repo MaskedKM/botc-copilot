@@ -695,6 +695,21 @@ class $PlayersTable extends Players with TableInfo<$PlayersTable, Player> {
         type: DriftSqlType.string,
         requiredDuringInsert: false,
       ).withConverter<DeathCause?>($PlayersTable.$converterdeathCausen);
+  static const VerificationMeta _abilityUsedMeta = const VerificationMeta(
+    'abilityUsed',
+  );
+  @override
+  late final GeneratedColumn<bool> abilityUsed = GeneratedColumn<bool>(
+    'ability_used',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("ability_used" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -704,6 +719,7 @@ class $PlayersTable extends Players with TableInfo<$PlayersTable, Player> {
     isAlive,
     deathDay,
     deathCause,
+    abilityUsed,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -756,6 +772,15 @@ class $PlayersTable extends Players with TableInfo<$PlayersTable, Player> {
         deathDay.isAcceptableOrUnknown(data['death_day']!, _deathDayMeta),
       );
     }
+    if (data.containsKey('ability_used')) {
+      context.handle(
+        _abilityUsedMeta,
+        abilityUsed.isAcceptableOrUnknown(
+          data['ability_used']!,
+          _abilityUsedMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -799,6 +824,10 @@ class $PlayersTable extends Players with TableInfo<$PlayersTable, Player> {
           data['${effectivePrefix}death_cause'],
         ),
       ),
+      abilityUsed: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}ability_used'],
+      )!,
     );
   }
 
@@ -834,6 +863,13 @@ class Player extends DataClass implements Insertable<Player> {
 
   /// 死亡原因（存活则为空）。
   final DeathCause? deathCause;
+
+  /// 一次性能力是否已消耗（issue #54：Virgin / Slayer）。
+  ///
+  /// App 追踪的是玩家**声明**角色的能力状态：Virgin 首次被 Townsfolk
+  /// 提名（且未醉毒）触发后标记；Slayer 使用猜测后标记。Saint 无需此
+  /// 字段（处决时即时判定）。
+  final bool abilityUsed;
   const Player({
     required this.id,
     required this.gameId,
@@ -842,6 +878,7 @@ class Player extends DataClass implements Insertable<Player> {
     required this.isAlive,
     this.deathDay,
     this.deathCause,
+    required this.abilityUsed,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -859,6 +896,7 @@ class Player extends DataClass implements Insertable<Player> {
         $PlayersTable.$converterdeathCausen.toSql(deathCause),
       );
     }
+    map['ability_used'] = Variable<bool>(abilityUsed);
     return map;
   }
 
@@ -875,6 +913,7 @@ class Player extends DataClass implements Insertable<Player> {
       deathCause: deathCause == null && nullToAbsent
           ? const Value.absent()
           : Value(deathCause),
+      abilityUsed: Value(abilityUsed),
     );
   }
 
@@ -893,6 +932,7 @@ class Player extends DataClass implements Insertable<Player> {
       deathCause: $PlayersTable.$converterdeathCausen.fromJson(
         serializer.fromJson<String?>(json['deathCause']),
       ),
+      abilityUsed: serializer.fromJson<bool>(json['abilityUsed']),
     );
   }
   @override
@@ -908,6 +948,7 @@ class Player extends DataClass implements Insertable<Player> {
       'deathCause': serializer.toJson<String?>(
         $PlayersTable.$converterdeathCausen.toJson(deathCause),
       ),
+      'abilityUsed': serializer.toJson<bool>(abilityUsed),
     };
   }
 
@@ -919,6 +960,7 @@ class Player extends DataClass implements Insertable<Player> {
     bool? isAlive,
     Value<int?> deathDay = const Value.absent(),
     Value<DeathCause?> deathCause = const Value.absent(),
+    bool? abilityUsed,
   }) => Player(
     id: id ?? this.id,
     gameId: gameId ?? this.gameId,
@@ -927,6 +969,7 @@ class Player extends DataClass implements Insertable<Player> {
     isAlive: isAlive ?? this.isAlive,
     deathDay: deathDay.present ? deathDay.value : this.deathDay,
     deathCause: deathCause.present ? deathCause.value : this.deathCause,
+    abilityUsed: abilityUsed ?? this.abilityUsed,
   );
   Player copyWithCompanion(PlayersCompanion data) {
     return Player(
@@ -941,6 +984,9 @@ class Player extends DataClass implements Insertable<Player> {
       deathCause: data.deathCause.present
           ? data.deathCause.value
           : this.deathCause,
+      abilityUsed: data.abilityUsed.present
+          ? data.abilityUsed.value
+          : this.abilityUsed,
     );
   }
 
@@ -953,14 +999,23 @@ class Player extends DataClass implements Insertable<Player> {
           ..write('seatNumber: $seatNumber, ')
           ..write('isAlive: $isAlive, ')
           ..write('deathDay: $deathDay, ')
-          ..write('deathCause: $deathCause')
+          ..write('deathCause: $deathCause, ')
+          ..write('abilityUsed: $abilityUsed')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode =>
-      Object.hash(id, gameId, name, seatNumber, isAlive, deathDay, deathCause);
+  int get hashCode => Object.hash(
+    id,
+    gameId,
+    name,
+    seatNumber,
+    isAlive,
+    deathDay,
+    deathCause,
+    abilityUsed,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -971,7 +1026,8 @@ class Player extends DataClass implements Insertable<Player> {
           other.seatNumber == this.seatNumber &&
           other.isAlive == this.isAlive &&
           other.deathDay == this.deathDay &&
-          other.deathCause == this.deathCause);
+          other.deathCause == this.deathCause &&
+          other.abilityUsed == this.abilityUsed);
 }
 
 class PlayersCompanion extends UpdateCompanion<Player> {
@@ -982,6 +1038,7 @@ class PlayersCompanion extends UpdateCompanion<Player> {
   final Value<bool> isAlive;
   final Value<int?> deathDay;
   final Value<DeathCause?> deathCause;
+  final Value<bool> abilityUsed;
   const PlayersCompanion({
     this.id = const Value.absent(),
     this.gameId = const Value.absent(),
@@ -990,6 +1047,7 @@ class PlayersCompanion extends UpdateCompanion<Player> {
     this.isAlive = const Value.absent(),
     this.deathDay = const Value.absent(),
     this.deathCause = const Value.absent(),
+    this.abilityUsed = const Value.absent(),
   });
   PlayersCompanion.insert({
     this.id = const Value.absent(),
@@ -999,6 +1057,7 @@ class PlayersCompanion extends UpdateCompanion<Player> {
     this.isAlive = const Value.absent(),
     this.deathDay = const Value.absent(),
     this.deathCause = const Value.absent(),
+    this.abilityUsed = const Value.absent(),
   }) : gameId = Value(gameId),
        name = Value(name),
        seatNumber = Value(seatNumber);
@@ -1010,6 +1069,7 @@ class PlayersCompanion extends UpdateCompanion<Player> {
     Expression<bool>? isAlive,
     Expression<int>? deathDay,
     Expression<String>? deathCause,
+    Expression<bool>? abilityUsed,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -1019,6 +1079,7 @@ class PlayersCompanion extends UpdateCompanion<Player> {
       if (isAlive != null) 'is_alive': isAlive,
       if (deathDay != null) 'death_day': deathDay,
       if (deathCause != null) 'death_cause': deathCause,
+      if (abilityUsed != null) 'ability_used': abilityUsed,
     });
   }
 
@@ -1030,6 +1091,7 @@ class PlayersCompanion extends UpdateCompanion<Player> {
     Value<bool>? isAlive,
     Value<int?>? deathDay,
     Value<DeathCause?>? deathCause,
+    Value<bool>? abilityUsed,
   }) {
     return PlayersCompanion(
       id: id ?? this.id,
@@ -1039,6 +1101,7 @@ class PlayersCompanion extends UpdateCompanion<Player> {
       isAlive: isAlive ?? this.isAlive,
       deathDay: deathDay ?? this.deathDay,
       deathCause: deathCause ?? this.deathCause,
+      abilityUsed: abilityUsed ?? this.abilityUsed,
     );
   }
 
@@ -1068,6 +1131,9 @@ class PlayersCompanion extends UpdateCompanion<Player> {
         $PlayersTable.$converterdeathCausen.toSql(deathCause.value),
       );
     }
+    if (abilityUsed.present) {
+      map['ability_used'] = Variable<bool>(abilityUsed.value);
+    }
     return map;
   }
 
@@ -1080,7 +1146,8 @@ class PlayersCompanion extends UpdateCompanion<Player> {
           ..write('seatNumber: $seatNumber, ')
           ..write('isAlive: $isAlive, ')
           ..write('deathDay: $deathDay, ')
-          ..write('deathCause: $deathCause')
+          ..write('deathCause: $deathCause, ')
+          ..write('abilityUsed: $abilityUsed')
           ..write(')'))
         .toString();
   }
@@ -5243,6 +5310,7 @@ typedef $$PlayersTableCreateCompanionBuilder =
       Value<bool> isAlive,
       Value<int?> deathDay,
       Value<DeathCause?> deathCause,
+      Value<bool> abilityUsed,
     });
 typedef $$PlayersTableUpdateCompanionBuilder =
     PlayersCompanion Function({
@@ -5253,6 +5321,7 @@ typedef $$PlayersTableUpdateCompanionBuilder =
       Value<bool> isAlive,
       Value<int?> deathDay,
       Value<DeathCause?> deathCause,
+      Value<bool> abilityUsed,
     });
 
 final class $$PlayersTableReferences
@@ -5441,6 +5510,11 @@ class $$PlayersTableFilterComposer
   get deathCause => $composableBuilder(
     column: $table.deathCause,
     builder: (column) => ColumnWithTypeConverterFilters(column),
+  );
+
+  ColumnFilters<bool> get abilityUsed => $composableBuilder(
+    column: $table.abilityUsed,
+    builder: (column) => ColumnFilters(column),
   );
 
   $$GamesTableFilterComposer get gameId {
@@ -5681,6 +5755,11 @@ class $$PlayersTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<bool> get abilityUsed => $composableBuilder(
+    column: $table.abilityUsed,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$GamesTableOrderingComposer get gameId {
     final $$GamesTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -5736,6 +5815,11 @@ class $$PlayersTableAnnotationComposer
         column: $table.deathCause,
         builder: (column) => column,
       );
+
+  GeneratedColumn<bool> get abilityUsed => $composableBuilder(
+    column: $table.abilityUsed,
+    builder: (column) => column,
+  );
 
   $$GamesTableAnnotationComposer get gameId {
     final $$GamesTableAnnotationComposer composer = $composerBuilder(
@@ -5980,6 +6064,7 @@ class $$PlayersTableTableManager
                 Value<bool> isAlive = const Value.absent(),
                 Value<int?> deathDay = const Value.absent(),
                 Value<DeathCause?> deathCause = const Value.absent(),
+                Value<bool> abilityUsed = const Value.absent(),
               }) => PlayersCompanion(
                 id: id,
                 gameId: gameId,
@@ -5988,6 +6073,7 @@ class $$PlayersTableTableManager
                 isAlive: isAlive,
                 deathDay: deathDay,
                 deathCause: deathCause,
+                abilityUsed: abilityUsed,
               ),
           createCompanionCallback:
               ({
@@ -5998,6 +6084,7 @@ class $$PlayersTableTableManager
                 Value<bool> isAlive = const Value.absent(),
                 Value<int?> deathDay = const Value.absent(),
                 Value<DeathCause?> deathCause = const Value.absent(),
+                Value<bool> abilityUsed = const Value.absent(),
               }) => PlayersCompanion.insert(
                 id: id,
                 gameId: gameId,
@@ -6006,6 +6093,7 @@ class $$PlayersTableTableManager
                 isAlive: isAlive,
                 deathDay: deathDay,
                 deathCause: deathCause,
+                abilityUsed: abilityUsed,
               ),
           withReferenceMapper: (p0) => p0
               .map(

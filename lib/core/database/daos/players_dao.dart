@@ -45,6 +45,12 @@ class PlayersDao extends DatabaseAccessor<AppDatabase>
         ),
       );
 
+  /// 标记一次性能力消耗状态（issue #54：Virgin / Slayer）。
+  Future<int> markAbilityUsed(int id, {required bool used}) =>
+      (update(players)..where((p) => p.id.equals(id))).write(
+        PlayersCompanion(abilityUsed: Value(used)),
+      );
+
   /// 删除玩家。
   Future<int> deletePlayer(int id) =>
       (delete(players)..where((p) => p.id.equals(id))).go();

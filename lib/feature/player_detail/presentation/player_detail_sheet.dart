@@ -4,6 +4,7 @@ import 'package:botc_copilot/core/theme/app_colors.dart';
 import 'package:botc_copilot/core/theme/app_text_styles.dart';
 import 'package:botc_copilot/core/theme/game_colors.dart';
 import 'package:botc_copilot/feature/game_board/data/poison_repository.dart';
+import 'package:botc_copilot/feature/player_detail/data/ability_repository.dart';
 import 'package:botc_copilot/feature/player_detail/data/behavior_note_repository.dart';
 import 'package:botc_copilot/shared/widgets/help_tooltip.dart';
 import 'package:botc_copilot/feature/game_board/presentation/providers/game_board_provider.dart';
@@ -234,6 +235,19 @@ class _PlayerDetailSheetState extends ConsumerState<PlayerDetailSheet> {
                   _draftRole = c;
                 }),
               ),
+              if (initialRole != null &&
+                  (initialRole == Character.virgin ||
+                      initialRole == Character.slayer ||
+                      initialRole == Character.saint)) ...[
+                const SizedBox(height: 16),
+                _AbilitySection(
+                  gameId: widget.gameId,
+                  playerId: playerId,
+                  day: day,
+                  character: initialRole,
+                  players: players,
+                ),
+              ],
               const SizedBox(height: 16),
               // 信息录入只对已保存的声明角色开放：草稿角色未保存就录入，
               // 丢弃后会留下「从未声明过的角色」的孤儿信息记录。
@@ -728,5 +742,173 @@ Future<void> _confirmDeleteDeclaration(
     await ref
         .read(playerDetailRepositoryProvider)
         .deleteDeclaration(declarationId);
+  }
+}
+
+/// 一次性能力区（issue #54：Virgin / Slayer / Saint）。
+///
+/// App 追踪玩家**声明**角色的能力状态，并提供录入动作，不代替裁决隐藏
+/// 信息（是否真为恶魔、是否真被毒由用户确认）。
+class _AbilitySection extends ConsumerStatefulWidget {
+  const _AbilitySection({
+    required this.gameId,
+    required this.playerId,
+    required this.day,
+    required this.character,
+    required this.players,
+  });
+
+  final int gameId;
+  final int playerId;
+  final int day;
+  final Character character;
+  final List<Player> players;
+
+  @override
+  ConsumerState<_AbilitySection> createState() => _AbilitySectionState();
+}
+
+class _AbilitySectionState extends ConsumerState<_AbilitySection> {
+  int? _targetId;
+  bool _targetIsDemon = false;
+  bool _wasPoisoned = false;
+  bool _submitting = false;
+
+  Player? get _live => widget.players
+      .where((p) => p.id == widget.playerId)
+      .firstOrNull;
+
+  @override
+  Widget build(BuildContext context) {
+    final gameColors = context.gameColors;
+    final used = _live?.abilityUsed ?? false;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('一次性能力 · ${widget.character.nameCn}',
+            style: AppTextStyles.headline),
+        const SizedBox(height: 8),
+        switch (widget.character) {
+          Character.virgin => _buildVirgin(used, gameColors),
+          Character.slayer => _buildSlayer(used, gameColors),
+          Character.saint => _buildSaint(gameColors),
+          _ => const SizedBox.shrink(),
+        },
+      ],
+    );
+  }
+
+  /// Virgin：追踪能力消耗。
+  ///
+  /// 官方规则（Wiki · Virgin · Summary）：首次被提名后处女即失去能力，
+  /// **即使提名者未死、即使处女当时被毒/醉**。被毒/醉时能力不触发
+  /// （提名者不被处决），但能力仍已消耗——清醒后再被提名不再触发。
+  Widget _buildVirgin(bool used, GameColors gameColors) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SwitchListTile(
+          title: const Text('能力已消耗'),
+          value: used,
+          activeTrackColor: gameColors.inkViolet,
+          onChanged: (v) => ref
+              .read(abilityRepositoryProvider)
+              .setAbilityUsed(widget.playerId, used: v),
+        ),
+        Text(
+          '官方规则：处女首次被镇民提名时，提名者立即被处决（当天提名结束）。'
+          '被非镇民提名不触发，但能力仍失去。'
+          '被毒/醉时被提名不触发（无人被处决），但能力同样已消耗——'
+          '清醒后再被提名不再触发。',
+          style: AppTextStyles.caption
+              .copyWith(color: gameColors.inkViolet),
+        ),
+      ],
+    );
+  }
+
+  /// Saint：提示（被处决时善良立即战败，处决流程会有提示）。
+  Widget _buildSaint(GameColors gameColors) {
+    return Text(
+      '圣徒被处决时，善良方立即战败。处决此人时 App 会提示「邪恶获胜」。',
+      style: AppTextStyles.caption.copyWith(color: gameColors.blood),
+    );
+  }
+
+  /// Slayer：一次性猜测录入。
+  Widget _buildSlayer(bool used, GameColors gameColors) {
+    if (used) {
+      return Text(
+        '已使用（一次性，不可再用）。即使当时被毒/醉，能力也已永久消耗。',
+        style: AppTextStyles.caption.copyWith(color: gameColors.inkViolet),
+      );
+    }
+    final candidates = widget.players
+        .where((p) => p.id != widget.playerId && p.isAlive)
+        .toList();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('猜测目标是恶魔', style: AppTextStyles.body),
+        const SizedBox(height: 4),
+        DropdownButton<int>(
+          value: _targetId,
+          hint: const Text('选择目标'),
+          isExpanded: true,
+          items: [
+            for (final p in candidates)
+              DropdownMenuItem(
+                value: p.id,
+                child: Text('${p.seatNumber}号 ${p.name}'),
+              ),
+          ],
+          onChanged: (v) => setState(() => _targetId = v),
+        ),
+        CheckboxListTile(
+          dense: true,
+          controlAffinity: ListTileControlAffinity.leading,
+          title: const Text('目标是恶魔'),
+          value: _targetIsDemon,
+          onChanged: (v) => setState(() => _targetIsDemon = v ?? false),
+        ),
+        CheckboxListTile(
+          dense: true,
+          controlAffinity: ListTileControlAffinity.leading,
+          title: const Text('我此刻被毒/醉'),
+          subtitle: const Text('被毒/醉时能力仍永久消耗，但不击杀'),
+          value: _wasPoisoned,
+          onChanged: (v) => setState(() => _wasPoisoned = v ?? false),
+        ),
+        FilledButton(
+          onPressed: (_targetId != null && !_submitting) ? _submitSlayer : null,
+          child: Text(_submitting ? '处理中…' : '使用 Slayer 猜测'),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _submitSlayer() async {
+    setState(() => _submitting = true);
+    final result = await ref.read(abilityRepositoryProvider).recordSlayerGuess(
+          slayerId: widget.playerId,
+          targetId: _targetId!,
+          targetIsDemon: _targetIsDemon,
+          wasPoisoned: _wasPoisoned,
+          day: widget.day,
+        );
+    if (mounted) {
+      setState(() => _submitting = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            result == SlayerGuessResult.killed
+                ? '击杀成功：目标已死亡。若目标为恶魔，游戏结束'
+                    '（善良胜；绯红女在场且存活 ≥5 则恶魔已传承）'
+                : '未击杀（目标非恶魔 或 你被毒/醉），能力已永久消耗',
+          ),
+        ),
+      );
+    }
   }
 }

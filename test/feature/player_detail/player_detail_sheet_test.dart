@@ -105,6 +105,7 @@ void main() {
     name: 'A',
     seatNumber: 1,
     isAlive: true,
+    abilityUsed: false,
     deathDay: null,
     deathCause: null,
   );
