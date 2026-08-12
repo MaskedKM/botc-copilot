@@ -1,7 +1,6 @@
 import 'package:botc_copilot/core/constants/player_setup.dart';
 import 'package:botc_copilot/core/database/app_database.dart';
 import 'package:botc_copilot/core/database/database_provider.dart';
-import 'package:botc_copilot/feature/game_board/data/poison_repository.dart';
 import 'package:botc_copilot/feature/game_board/presentation/providers/game_board_provider.dart';
 import 'package:botc_copilot/feature/reasoning/domain/contradiction.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -37,8 +36,6 @@ final contradictionsProvider = Provider.family<List<Contradiction>, int>(
     final game = ref.watch(gameByIdProvider(gameId)).valueOrNull;
     final expectedOutsiders =
         game != null ? PlayerSetup.forCount(game.playerCount).outsiders : 0;
-    final poisonStatuses =
-        ref.watch(gamePoisonStatusesProvider(gameId)).valueOrNull ?? [];
 
     return ContradictionDetector.detect(
       claims: claims,
@@ -47,7 +44,6 @@ final contradictionsProvider = Provider.family<List<Contradiction>, int>(
       playersById: {for (final p in players) p.id: p},
       dayRecordToDayNumber: {for (final d in days) d.id: d.dayNumber},
       expectedOutsiders: expectedOutsiders,
-      poisonStatuses: poisonStatuses,
       myPlayerId: game?.myPlayerId,
       myRole: game?.myRole,
     );

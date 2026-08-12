@@ -117,65 +117,105 @@ void main() {
     expect(result, isEmpty);
   });
 
-  // issue #82：掘墓人信息可污染，降级为 info，不输出确定性结论。
-  DayRecord _dayWithUndertaker(int executedId, Character reported) =>
-      DayRecord(
-        id: 1,
+  // issue #106：掘墓人信息改读 info_declarations（DayRecord 字段无写入方）。
+  // 官方时序：掘墓人在第 N+1 夜得知第 N 日的处决，故声明落在处决日的次日。
+  DayRecord _executionDay(int id, int dayNumber, int executedId) => DayRecord(
+        id: id,
         gameId: 1,
-        dayNumber: 2,
+        dayNumber: dayNumber,
         nightDeathPlayerId: null,
         nightConfirmed: true,
         dayExecutionPlayerId: executedId,
-        undertakerResultRole: reported,
+        undertakerResultRole: null,
         notes: '',
       );
 
-  test('掘墓人信息冲突 → info（可污染，#82）', () {
+  DayRecord _emptyDay(int id, int dayNumber) => DayRecord(
+        id: id,
+        gameId: 1,
+        dayNumber: dayNumber,
+        nightDeathPlayerId: null,
+        nightConfirmed: true,
+        dayExecutionPlayerId: null,
+        undertakerResultRole: null,
+        notes: '',
+      );
+
+  InfoDeclaration _undertakerDecl(
+    int undertakerPlayerId,
+    int dayRecordId,
+    Character reported, {
+    Reliability reliability = Reliability.unverified,
+  }) =>
+      InfoDeclaration(
+        id: 100,
+        playerId: undertakerPlayerId,
+        dayRecordId: dayRecordId,
+        characterType: Character.undertaker,
+        payloadJson: '{"character": "${reported.name}"}',
+        reliability: reliability,
+        isMine: false,
+      );
+
+  test('掘墓人信息冲突 → info（可污染，#106 改读 declarations）', () {
+    // 第 1 天处决 3 号；1 号（掘墓人）第 2 天报：被处决者是厨师。
+    // 2 号声明厨师 → 与掘墓人报出的角色冲突。
     final result = ContradictionDetector.detect(
-      claims: [
-        _claim(1, Character.undertaker), // 掘墓人
-        _claim(2, Character.chef), // 2 号声明厨师，与掘墓人报出的角色冲突
-      ],
-      declarations: [],
-      days: [_dayWithUndertaker(3, Character.chef)],
+      claims: [_claim(2, Character.chef)],
+      declarations: [_undertakerDecl(1, 2, Character.chef)],
+      days: [_executionDay(1, 1, 3), _emptyDay(2, 2)],
       playersById: players,
-      dayRecordToDayNumber: {1: 2},
+      dayRecordToDayNumber: {1: 1, 2: 2},
       expectedOutsiders: 0,
     );
     final conflict = result
         .where((c) => c.type == ContradictionType.confirmedRoleConflict)
         .single;
     expect(conflict.severity, ContradictionSeverity.info); // 降级
+    expect(conflict.playerIds, containsAll([2, 3])); // 声明者 + 被处决者
     expect(conflict.description, contains('掘墓人'));
     expect(conflict.description, contains('毒'));
   });
 
-  test('掘墓人当天被毒 → 信息不可靠，不触发冲突（#82）', () {
+  test('掘墓人 reliability 为污染 → 信息不可靠，不触发冲突（#106）', () {
     final result = ContradictionDetector.detect(
-      claims: [
-        _claim(1, Character.undertaker),
-        _claim(2, Character.chef),
+      claims: [_claim(2, Character.chef)],
+      declarations: [
+        _undertakerDecl(1, 2, Character.chef,
+            reliability: Reliability.possiblyTainted),
       ],
-      declarations: [],
-      days: [_dayWithUndertaker(3, Character.chef)],
+      days: [_executionDay(1, 1, 3), _emptyDay(2, 2)],
       playersById: players,
-      dayRecordToDayNumber: {1: 2},
+      dayRecordToDayNumber: {1: 1, 2: 2},
       expectedOutsiders: 0,
-      poisonStatuses: const [
-        PoisonStatus(
-          id: 1,
-          gameId: 1,
-          playerId: 1, // 掘墓人第 2 天被毒
-          dayNumber: 2,
-          source: PoisonSource.poisoner,
-          isActive: true,
-        ),
-      ],
     );
     expect(
       result.where((c) => c.type == ContradictionType.confirmedRoleConflict),
       isEmpty,
     );
+  });
+
+  test('掘墓人信息关联声明日之前最近处决（官方时序，#106）', () {
+    // 第 1 天处决 3 号、第 2 天处决 4 号；掘墓人第 3 天报：被处决者是小恶魔。
+    // 官方规则——掘墓人次夜得知当日处决，故应关联第 2 天处决者（4 号）。
+    final result = ContradictionDetector.detect(
+      claims: [_claim(5, Character.imp)],
+      declarations: [_undertakerDecl(1, 3, Character.imp)],
+      days: [
+        _executionDay(1, 1, 3),
+        _executionDay(2, 2, 4),
+        _emptyDay(3, 3),
+      ],
+      playersById: players,
+      dayRecordToDayNumber: {1: 1, 2: 2, 3: 3},
+      expectedOutsiders: 0,
+    );
+    final conflict = result
+        .where((c) => c.type == ContradictionType.confirmedRoleConflict)
+        .single;
+    // 关联第 2 天处决者（4 号），而非第 1 天（3 号）
+    expect(conflict.playerIds, containsAll([5, 4]));
+    expect(conflict.playerIds, isNot(contains(3)));
   });
 
   test('规则3：声明数 > base+2（即便 Baron 也无法解释）→ outsiderCountAnomaly', () {

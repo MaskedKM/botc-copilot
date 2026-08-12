@@ -40,4 +40,20 @@ abstract final class InfoPayloadFormatter {
       _ => character.nameCn,
     };
   }
+
+  /// 解析 payload 中的角色（适用于 undertaker / ravenkeeper 等
+  /// `{"character": "..."}` 结构的声明）。
+  ///
+  /// payload 里的 character 存的是 enum `.name`（如 `'poisoner'`），
+  /// 这里转回 [Character]。无该字段或解析失败返回 null。
+  static Character? characterOf(InfoDeclaration decl) {
+    try {
+      final payload = jsonDecode(decl.payloadJson);
+      if (payload is! Map || payload['character'] is! String) return null;
+      final name = payload['character'] as String;
+      return Character.values.where((c) => c.name == name).firstOrNull;
+    } on FormatException {
+      return null;
+    }
+  }
 }
