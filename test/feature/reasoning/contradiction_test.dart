@@ -86,6 +86,67 @@ void main() {
     expect(result, isEmpty);
   });
 
+  // issue #82：掘墓人信息可污染，降级为 info，不输出确定性结论。
+  DayRecord _dayWithUndertaker(int executedId, Character reported) =>
+      DayRecord(
+        id: 1,
+        gameId: 1,
+        dayNumber: 2,
+        nightDeathPlayerId: null,
+        nightConfirmed: true,
+        dayExecutionPlayerId: executedId,
+        undertakerResultRole: reported,
+        notes: '',
+      );
+
+  test('掘墓人信息冲突 → info（可污染，#82）', () {
+    final result = ContradictionDetector.detect(
+      claims: [
+        _claim(1, Character.undertaker), // 掘墓人
+        _claim(2, Character.chef), // 2 号声明厨师，与掘墓人报出的角色冲突
+      ],
+      declarations: [],
+      days: [_dayWithUndertaker(3, Character.chef)],
+      playersById: players,
+      dayRecordToDayNumber: {1: 2},
+      expectedOutsiders: 0,
+    );
+    final conflict = result
+        .where((c) => c.type == ContradictionType.confirmedRoleConflict)
+        .single;
+    expect(conflict.severity, ContradictionSeverity.info); // 降级
+    expect(conflict.description, contains('掘墓人'));
+    expect(conflict.description, contains('毒'));
+  });
+
+  test('掘墓人当天被毒 → 信息不可靠，不触发冲突（#82）', () {
+    final result = ContradictionDetector.detect(
+      claims: [
+        _claim(1, Character.undertaker),
+        _claim(2, Character.chef),
+      ],
+      declarations: [],
+      days: [_dayWithUndertaker(3, Character.chef)],
+      playersById: players,
+      dayRecordToDayNumber: {1: 2},
+      expectedOutsiders: 0,
+      poisonStatuses: const [
+        PoisonStatus(
+          id: 1,
+          gameId: 1,
+          playerId: 1, // 掘墓人第 2 天被毒
+          dayNumber: 2,
+          source: PoisonSource.poisoner,
+          isActive: true,
+        ),
+      ],
+    );
+    expect(
+      result.where((c) => c.type == ContradictionType.confirmedRoleConflict),
+      isEmpty,
+    );
+  });
+
   test('规则3：外来者声明数 > 配置 → outsiderCountAnomaly', () {
     // 7人局应有 0 外来者，1 人声明外来者即异常
     final result = ContradictionDetector.detect(
