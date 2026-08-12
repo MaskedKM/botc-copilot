@@ -117,8 +117,30 @@ class PlayerDetailRepository {
   }
 
   /// 删除一条信息声明（误录纠错，issue #83）。
-  Future<void> deleteDeclaration(int id) =>
-      _db.infoDeclarationsDao.deleteDeclaration(id);
+  ///
+  /// 若删除的是 Poisoner 声明，且其毒目标当夜无残留毒源（无其他 Poisoner
+  /// 声明 / 手动标毒），则恢复毒目标当夜信息的 reliability（#122 对称）。
+  Future<void> deleteDeclaration(int id) async {
+    final decl = await _db.infoDeclarationsDao.getById(id);
+    await _db.infoDeclarationsDao.deleteDeclaration(id);
+    if (decl != null && decl.characterType == Character.poisoner) {
+      try {
+        final decoded = jsonDecode(decl.payloadJson);
+        if (decoded is Map && decoded['playerId'] is int) {
+          final target = decoded['playerId'] as int;
+          if (!await _db.infoDeclarationsDao
+              .isPlayerPoisonedFromSources(decl.dayRecordId, target)) {
+            await _db.infoDeclarationsDao.restorePlayerDeclarations(
+              decl.dayRecordId,
+              target,
+            );
+          }
+        }
+      } on FormatException {
+        // payload 异常，跳过恢复
+      }
+    }
+  }
 }
 
 /// 玩家详情仓库 Provider。
