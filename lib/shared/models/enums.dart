@@ -43,7 +43,10 @@ enum ClaimType {
   changed('改口'),
 
   /// 死亡时揭示。
-  revealedOnDeath('死亡揭示');
+  revealedOnDeath('死亡揭示'),
+
+  /// 我的真实身份（助手视角，合成注入、不持久化；issue #107）。
+  myRole('真实角色（我）');
 
   const ClaimType(this.nameCn);
 

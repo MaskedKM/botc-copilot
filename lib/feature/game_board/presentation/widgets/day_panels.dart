@@ -277,7 +277,7 @@ Future<void> handleEndSuggestion(
       // Saint 处决 → 邪恶立即获胜（issue #54）。
       // App 按玩家**声明**提示：声明圣徒被处决时弹出邪恶胜确认。
       // 用户否认（如恶魔 bluff 圣徒，实际应善良胜）→ 继续走恶魔确认。
-      if (await _claimedSaint(ref, executedPlayerId)) {
+      if (await _claimedSaint(ref, gameId, executedPlayerId)) {
         if (!context.mounted) return;
         final evilWin = await showDialog<bool>(
           context: context,
@@ -346,14 +346,16 @@ Future<void> _checkEvilWinAfterExecution(
   }
 }
 
-/// 该玩家最新声明的角色是否为圣徒（issue #54 Saint 处决判定）。
-Future<bool> _claimedSaint(WidgetRef ref, int playerId) async {
-  final claims = await ref
-      .read(appDatabaseProvider)
-      .roleClaimsDao
-      .watchByPlayer(playerId)
-      .first;
-  return claims.isNotEmpty && claims.last.character == Character.saint;
+/// 该玩家是否为圣徒（按声明；或我是圣徒被处决——issue #107 注入 myRole）。
+Future<bool> _claimedSaint(WidgetRef ref, int gameId, int playerId) async {
+  final db = ref.read(appDatabaseProvider);
+  final claims = await db.roleClaimsDao.watchByPlayer(playerId).first;
+  if (claims.isNotEmpty && claims.last.character == Character.saint) {
+    return true;
+  }
+  // 我是圣徒（myRole）被处决 → 同样触发（公开声明不含我，须查 myRole）
+  final game = await db.gamesDao.getById(gameId);
+  return game?.myPlayerId == playerId && game?.myRole == Character.saint;
 }
 
 /// 占位面板：投票分析 / 我的推理（后续 issue 实现）。

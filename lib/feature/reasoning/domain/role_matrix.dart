@@ -15,6 +15,9 @@ enum MatrixCellState {
 
   /// 已确认（死亡揭示 / 掘墓人）。
   confirmed,
+
+  /// 我的真实角色（私密，助手视角；issue #107）。
+  myRole,
 }
 
 /// 角色列的聚合信息。
@@ -52,6 +55,8 @@ abstract final class RoleMatrixBuilder {
     required List<Player> players,
     required List<RoleClaim> claims,
     required List<Character> demonBluffs,
+    int? myPlayerId,
+    Character? myRole,
   }) {
     // 每玩家的声明历史（按 id 升序 = 时间序）
     final claimsByPlayer = <int, List<RoleClaim>>{};
@@ -83,6 +88,20 @@ abstract final class RoleMatrixBuilder {
         }
       }
       rows[p.id] = row;
+    }
+
+    // 注入「我的真实角色」（issue #107）：我座位显示 myRole（私密状态），
+    // 并计入对应列（助手视角 myRole 是真相，覆盖任何公开自声明）。
+    if (myPlayerId != null && myRole != null) {
+      rows.putIfAbsent(myPlayerId, () => {})[myRole] =
+          MatrixCellState.myRole;
+      latestByPlayer[myPlayerId] = RoleClaim(
+        id: -1,
+        playerId: myPlayerId,
+        dayRecordId: -1,
+        character: myRole,
+        claimType: ClaimType.myRole,
+      );
     }
 
     // 列：每角色的声明者

@@ -52,6 +52,30 @@ void main() {
     expect(result[0].description, isNot(contains('是爪牙')));
   });
 
+  test('规则1：他人声明我的真实角色 → duplicate（#107 注入 myRole）', () {
+    // 我（1 号）真实是 Chef，无公开声明；2 号声明 Chef → 注入后两人重复
+    final result = ContradictionDetector.detect(
+      claims: [_claim(2, Character.chef)],
+      declarations: [],
+      days: [],
+      playersById: players,
+      dayRecordToDayNumber: {},
+      expectedOutsiders: 0,
+      myPlayerId: 1,
+      myRole: Character.chef,
+    );
+    expect(
+      result.any((c) => c.type == ContradictionType.duplicateRoleClaim),
+      isTrue,
+    );
+    // 描述区分「你的真实角色」与公开声明，且用中性「指向」而非「声明」（R1）
+    final dup = result.firstWhere(
+      (c) => c.type == ContradictionType.duplicateRoleClaim,
+    );
+    expect(dup.description, contains('你的真实角色'));
+    expect(dup.description, isNot(contains('声明')));
+  });
+
   test('规则1：恶魔/爪牙重复声明不算矛盾（邪恶角色唯一性不由声明检测）', () {
     final result = ContradictionDetector.detect(
       claims: [_claim(1, Character.imp), _claim(2, Character.imp)],

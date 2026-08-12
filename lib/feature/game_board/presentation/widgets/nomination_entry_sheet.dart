@@ -8,6 +8,7 @@ import 'package:botc_copilot/feature/game_board/presentation/providers/game_boar
 import 'package:botc_copilot/feature/game_board/presentation/widgets/day_panels.dart';
 import 'package:botc_copilot/feature/player_detail/data/ability_repository.dart';
 import 'package:botc_copilot/feature/reasoning/data/contradictions_provider.dart';
+import 'package:botc_copilot/feature/reasoning/domain/latest_claim.dart';
 import 'package:botc_copilot/shared/widgets/help_tooltip.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -351,7 +352,14 @@ class _NominationEntrySheetState
     required List<RoleClaim> claims,
     required List<Player> players,
   }) async {
-    final latestClaim = {for (final c in claims) c.playerId: c};
+    // 注入「我的真实身份」（issue #107）：我是 Virgin 被提名 / 我是镇民提名
+    // Virgin 时，场景能正确识别。
+    final game = ref.read(gameByIdProvider(widget.gameId)).valueOrNull;
+    final latestClaim = latestClaimWithSelf(
+      claims,
+      myPlayerId: game?.myPlayerId,
+      myRole: game?.myRole,
+    );
     final virginId = NominationRules.virginTriggerScenario(
       nominatorId: _nominatorId!,
       nomineeId: _nomineeId!,

@@ -48,6 +48,8 @@ final contradictionsProvider = Provider.family<List<Contradiction>, int>(
       dayRecordToDayNumber: {for (final d in days) d.id: d.dayNumber},
       expectedOutsiders: expectedOutsiders,
       poisonStatuses: poisonStatuses,
+      myPlayerId: game?.myPlayerId,
+      myRole: game?.myRole,
     );
   },
 );

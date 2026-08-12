@@ -16,5 +16,6 @@ final setupAnalysisProvider =
     playerCount: game.playerCount,
     claims: claims,
     myRole: game.myRole,
+    myPlayerId: game.myPlayerId,
   );
 });

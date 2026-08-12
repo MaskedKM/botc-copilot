@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:botc_copilot/core/constants/character.dart';
 import 'package:botc_copilot/core/constants/team.dart';
 import 'package:botc_copilot/core/database/app_database.dart';
+import 'package:botc_copilot/feature/reasoning/domain/latest_claim.dart';
 import 'package:botc_copilot/shared/models/enums.dart';
 
 /// 矛盾类型（issue #38，5 条检测规则）。
@@ -79,16 +80,24 @@ abstract final class ContradictionDetector {
     required Map<int, int> dayRecordToDayNumber,
     required int expectedOutsiders,
     List<PoisonStatus> poisonStatuses = const [],
+    int? myPlayerId,
+    Character? myRole,
   }) {
+    // 每玩家最新声明，并注入「我的真实身份」（issue #107）——使我座位对
+    // 规则 1/3/4 可见。死亡揭示仍另行计入 confirmedRoles（myRole 不计入）。
+    final latestClaim = latestClaimWithSelf(
+      claims,
+      myPlayerId: myPlayerId,
+      myRole: myRole,
+    );
+
     String labelOf(int playerId) {
       final p = playersById[playerId];
-      return p != null ? '${p.seatNumber}号 ${p.name}' : '?';
-    }
-
-    // 每玩家最新声明（掘墓人/死亡揭示视为确认信息另行处理）
-    final latestClaim = <int, RoleClaim>{};
-    for (final c in claims) {
-      latestClaim[c.playerId] = c;
+      final name = p != null ? '${p.seatNumber}号 ${p.name}' : '?';
+      // 我座位的注入项标 myRole——描述中区分「你的真实角色」与公开声明
+      return latestClaim[playerId]?.claimType == ClaimType.myRole
+          ? '$name（你的真实角色）'
+          : name;
     }
     // 已确认角色（issue #82）：仅死亡揭示视为「确认」（村规流程）。
     final confirmedRoles = <int, Character>{}; // playerId → confirmed
@@ -162,8 +171,8 @@ abstract final class ContradictionDetector {
             type: ContradictionType.duplicateRoleClaim,
             playerIds: e.value,
             description:
-                '${e.value.map(labelOf).join('、')} 都声明是 '
-                '${e.key.nameCn}。同一角色至多 1 个，至少一人的声明不成立。',
+                '${e.value.map(labelOf).join('、')} 均指向 '
+                '${e.key.nameCn}。同一角色至多 1 个，至少一人不成立。',
             severity: ContradictionSeverity.warning,
           ),
     ];
@@ -247,7 +256,7 @@ abstract final class ContradictionDetector {
         type: ContradictionType.outsiderCountAnomaly,
         playerIds: outsiderClaims.map((e) => e.key).toList(),
         description:
-            '声明外来者的有 ${outsiderClaims.map((e) => labelOf(e.key)).join('、')}'
+            '外来者涉及 ${outsiderClaims.map((e) => labelOf(e.key)).join('、')}'
             '（共 ${outsiderClaims.length} 人），'
             '即便 Baron 在场（+2）最多 ${expectedOutsiders + 2} 个——'
             '必有假报外来者。',

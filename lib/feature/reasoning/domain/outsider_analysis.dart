@@ -2,6 +2,7 @@ import 'package:botc_copilot/core/constants/character.dart';
 import 'package:botc_copilot/core/constants/player_setup.dart';
 import 'package:botc_copilot/core/constants/team.dart';
 import 'package:botc_copilot/core/database/app_database.dart';
+import 'package:botc_copilot/feature/reasoning/domain/latest_claim.dart';
 import 'package:botc_copilot/shared/models/enums.dart';
 
 /// 外来者计数偏差类型（issue #59）。
@@ -98,16 +99,19 @@ OutsiderCountAnalysis analyzeOutsiderCount({
   required int playerCount,
   required List<RoleClaim> claims,
   required Character? myRole,
+  int? myPlayerId,
 }) {
   final setup = PlayerSetup.forCount(playerCount);
   final base = setup.outsiders;
   final baronAdj = base + 2;
 
-  // 每玩家最新声明（watchByGame 已按 id 升序，后者覆盖前者）
-  final latest = <int, RoleClaim>{};
-  for (final c in claims) {
-    latest[c.playerId] = c;
-  }
+  // 每玩家最新声明，并注入「我的真实身份」（issue #107）：我是外来者时
+  // 计入（Drunk 除外——其 myRole 为被告知的镇民，保持隐藏，保留 under 信号）。
+  final latest = latestClaimWithSelf(
+    claims,
+    myPlayerId: myPlayerId,
+    myRole: myRole,
+  );
 
   final claimers = <OutsiderClaimer>[];
   for (final c in latest.values) {
