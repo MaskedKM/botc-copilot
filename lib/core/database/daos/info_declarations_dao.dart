@@ -39,6 +39,28 @@ class InfoDeclarationsDao extends DatabaseAccessor<AppDatabase>
       (update(infoDeclarations)..where((i) => i.id.equals(id)))
           .write(InfoDeclarationsCompanion(reliability: Value(reliability)));
 
+  /// 把某玩家当夜已录的信息声明可靠性降级为 possiblyTainted（issue #122）。
+  ///
+  /// 用于 Poisoner 毒目标 / 手动标毒的回溯：中毒者当晚获得的信息为假
+  /// （官方：能力失效、信息错误）。仅降级 verified / unverified；已
+  /// possiblyTainted / invalidated 保持不变（不覆盖更强的判定）。
+  Future<void> taintPlayerDeclarations(int dayRecordId, int playerId) async {
+    final decls = await (select(infoDeclarations)
+          ..where(
+            (i) =>
+                i.dayRecordId.equals(dayRecordId) & i.playerId.equals(playerId),
+          ))
+        .get();
+    for (final d in decls) {
+      if (d.reliability == Reliability.verified ||
+          d.reliability == Reliability.unverified) {
+        await (update(infoDeclarations)..where((i) => i.id.equals(d.id)))
+            .write(const InfoDeclarationsCompanion(
+                reliability: Value(Reliability.possiblyTainted)));
+      }
+    }
+  }
+
   /// 删除信息声明。
   Future<int> deleteDeclaration(int id) =>
       (delete(infoDeclarations)..where((i) => i.id.equals(id))).go();

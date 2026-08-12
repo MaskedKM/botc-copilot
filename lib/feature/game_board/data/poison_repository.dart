@@ -37,6 +37,15 @@ class PoisonRepository {
           source: Value(source),
         ),
       );
+      // 回溯（#122）：手动标毒 → 该玩家当夜已录信息降级（与 Poisoner 目标对称）
+      final dayRecord =
+          await _db.dayRecordsDao.getByGameAndDay(gameId, dayNumber);
+      if (dayRecord != null) {
+        await _db.infoDeclarationsDao.taintPlayerDeclarations(
+          dayRecord.id,
+          playerId,
+        );
+      }
     }
   }
 
