@@ -9,6 +9,7 @@ import 'package:botc_copilot/feature/game_board/domain/nomination_rules.dart';
 import 'package:botc_copilot/shared/widgets/help_tooltip.dart';
 import 'package:botc_copilot/feature/game_board/presentation/providers/game_board_provider.dart';
 import 'package:botc_copilot/feature/game_board/presentation/widgets/end_game_dialog.dart';
+import 'package:botc_copilot/feature/game_board/presentation/widgets/night_order_section.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -70,6 +71,9 @@ class NightPanel extends ConsumerWidget {
           text: '无人死亡可能意味着：Monk 保护成功 / Soldier 能力 / '
               '恶魔自杀传位 / 恶魔被毒。',
         ),
+        const SizedBox(height: 8),
+        // 夜晚行动顺序参考（issue #61）
+        NightOrderSection(currentDay: day, helpLevel: helpLevel),
       ],
     );
   }
