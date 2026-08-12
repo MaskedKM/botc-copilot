@@ -28,6 +28,17 @@ class PoisonRepository {
         await _db.poisonStatusesDao.findByPlayerAndDay(playerId, dayNumber);
     if (hit != null) {
       await _db.poisonStatusesDao.deleteStatus(hit.id);
+      // 取消标毒 → 若无残留毒源（Poisoner 声明）则恢复该玩家当夜信息（#122 对称）
+      final dayRecord =
+          await _db.dayRecordsDao.getByGameAndDay(gameId, dayNumber);
+      if (dayRecord != null &&
+          !await _db.infoDeclarationsDao
+              .isPlayerPoisonedFromSources(dayRecord.id, playerId)) {
+        await _db.infoDeclarationsDao.restorePlayerDeclarations(
+          dayRecord.id,
+          playerId,
+        );
+      }
     } else {
       await _db.poisonStatusesDao.insertStatus(
         PoisonStatusesCompanion(
@@ -37,6 +48,15 @@ class PoisonRepository {
           source: Value(source),
         ),
       );
+      // 回溯（#122）：手动标毒 → 该玩家当夜已录信息降级（与 Poisoner 目标对称）
+      final dayRecord =
+          await _db.dayRecordsDao.getByGameAndDay(gameId, dayNumber);
+      if (dayRecord != null) {
+        await _db.infoDeclarationsDao.taintPlayerDeclarations(
+          dayRecord.id,
+          playerId,
+        );
+      }
     }
   }
 

@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:botc_copilot/core/constants/character.dart';
 import 'package:botc_copilot/core/constants/script.dart';
 import 'package:botc_copilot/core/database/app_database.dart';
+import 'package:botc_copilot/feature/game_board/data/poison_repository.dart';
 import 'package:botc_copilot/feature/player_detail/data/player_detail_repository.dart';
 import 'package:botc_copilot/shared/models/enums.dart';
 import 'package:drift/drift.dart' hide isNotNull;
@@ -103,6 +104,224 @@ void main() {
           await db.trustLogsDao.watchLatestForPlayer(gameId, playerId).first;
       expect(latest!.trustLevel, TrustLevel.demonCandidate);
       expect(latest.dayNumber, 2);
+    });
+  });
+
+  group('declareInfo · Poisoner 毒目标 reliability 联动（#122）', () {
+    late int poisonerId;
+    late int targetId;
+
+    setUp(() async {
+      // 主 setUp 已插入 Alice(playerId)；追加 Bob 作被毒目标
+      await db.playersDao.insertAll([
+        PlayersCompanion(
+          gameId: Value(gameId),
+          name: const Value('Bob'),
+          seatNumber: const Value(2),
+        ),
+      ]);
+      final ps = await db.playersDao.watchByGame(gameId).first;
+      poisonerId = playerId; // Alice 声明 Poisoner
+      targetId = ps.last.id; // Bob 被毒
+    });
+
+    test('目标在 Poisoner 声明后录信息 → possiblyTainted（entry-taint）',
+        () async {
+      await repo.declareInfo(
+        playerId: poisonerId,
+        dayRecordId: dayRecordId,
+        character: Character.poisoner,
+        payload: {'playerId': targetId},
+      );
+      await repo.declareInfo(
+        playerId: targetId,
+        dayRecordId: dayRecordId,
+        character: Character.empath,
+        payload: {'value': 1},
+      );
+      final decls = await db.infoDeclarationsDao.watchByDay(dayRecordId).first;
+      final targetDecl = decls.firstWhere((d) => d.playerId == targetId);
+      expect(targetDecl.reliability, Reliability.possiblyTainted);
+    });
+
+    test('目标在 Poisoner 声明前录信息 → 回溯 possiblyTainted', () async {
+      await repo.declareInfo(
+        playerId: targetId,
+        dayRecordId: dayRecordId,
+        character: Character.empath,
+        payload: {'value': 0},
+      );
+      // 此时未中毒
+      var decls = await db.infoDeclarationsDao.watchByDay(dayRecordId).first;
+      expect(
+        decls.firstWhere((d) => d.playerId == targetId).reliability,
+        Reliability.unverified,
+      );
+      // Poisoner 后录 → 回溯降级
+      await repo.declareInfo(
+        playerId: poisonerId,
+        dayRecordId: dayRecordId,
+        character: Character.poisoner,
+        payload: {'playerId': targetId},
+      );
+      decls = await db.infoDeclarationsDao.watchByDay(dayRecordId).first;
+      expect(
+        decls.firstWhere((d) => d.playerId == targetId).reliability,
+        Reliability.possiblyTainted,
+      );
+    });
+
+    test('taint 不外溢到次日（次夜毒已解，信息不受昨夜毒影响）', () async {
+      await repo.declareInfo(
+        playerId: poisonerId,
+        dayRecordId: dayRecordId,
+        character: Character.poisoner,
+        payload: {'playerId': targetId},
+      );
+      final day2 = await db.dayRecordsDao.insertDay(
+        DayRecordsCompanion(gameId: Value(gameId), dayNumber: const Value(2)),
+      );
+      await repo.declareInfo(
+        playerId: targetId,
+        dayRecordId: day2,
+        character: Character.empath,
+        payload: {'value': 1},
+      );
+      final decls = await db.infoDeclarationsDao.watchByDay(day2).first;
+      expect(decls.single.reliability, Reliability.unverified);
+    });
+
+    test('未被毒者信息 → unverified（不误降）', () async {
+      await repo.declareInfo(
+        playerId: poisonerId,
+        dayRecordId: dayRecordId,
+        character: Character.poisoner,
+        payload: {'playerId': targetId},
+      );
+      // Poisoner 自己录 Chef 信息（未被毒）
+      await repo.declareInfo(
+        playerId: poisonerId,
+        dayRecordId: dayRecordId,
+        character: Character.chef,
+        payload: {'value': 1},
+      );
+      final decls = await db.infoDeclarationsDao.watchByDay(dayRecordId).first;
+      final chefDecl = decls.firstWhere(
+        (d) => d.playerId == poisonerId && d.characterType == Character.chef,
+      );
+      expect(chefDecl.reliability, Reliability.unverified);
+    });
+
+    test('手动标毒 → 该玩家当夜已录信息回溯 possiblyTainted', () async {
+      final poisonRepo = PoisonRepository(db);
+      await repo.declareInfo(
+        playerId: targetId,
+        dayRecordId: dayRecordId,
+        character: Character.empath,
+        payload: {'value': 0},
+      );
+      // 手动标毒（与 Poisoner 声明来源不同，对称回溯）
+      await poisonRepo.toggleStatus(
+        gameId: gameId,
+        playerId: targetId,
+        dayNumber: 1,
+      );
+      final decls = await db.infoDeclarationsDao.watchByDay(dayRecordId).first;
+      expect(
+        decls.firstWhere((d) => d.playerId == targetId).reliability,
+        Reliability.possiblyTainted,
+      );
+    });
+
+    // ── 对称：移除毒源 → 恢复（#122 review） ──
+    test('删除 Poisoner 声明 → 毒目标信息恢复 unverified（无残留毒源）',
+        () async {
+      await repo.declareInfo(
+        playerId: poisonerId,
+        dayRecordId: dayRecordId,
+        character: Character.poisoner,
+        payload: {'playerId': targetId},
+      );
+      await repo.declareInfo(
+        playerId: targetId,
+        dayRecordId: dayRecordId,
+        character: Character.empath,
+        payload: {'value': 1},
+      );
+      var decls = await db.infoDeclarationsDao.watchByDay(dayRecordId).first;
+      final poisonerDeclId = decls
+          .firstWhere((d) => d.characterType == Character.poisoner)
+          .id;
+      expect(
+        decls.firstWhere((d) => d.playerId == targetId).reliability,
+        Reliability.possiblyTainted,
+      );
+
+      await repo.deleteDeclaration(poisonerDeclId);
+      decls = await db.infoDeclarationsDao.watchByDay(dayRecordId).first;
+      expect(
+        decls.firstWhere((d) => d.playerId == targetId).reliability,
+        Reliability.unverified,
+      );
+    });
+
+    test('删除 Poisoner 声明但目标也手动标毒 → 保持 tainted（有残留毒源）',
+        () async {
+      final poisonRepo = PoisonRepository(db);
+      await repo.declareInfo(
+        playerId: poisonerId,
+        dayRecordId: dayRecordId,
+        character: Character.poisoner,
+        payload: {'playerId': targetId},
+      );
+      await poisonRepo.toggleStatus(
+        gameId: gameId,
+        playerId: targetId,
+        dayNumber: 1,
+      );
+      await repo.declareInfo(
+        playerId: targetId,
+        dayRecordId: dayRecordId,
+        character: Character.empath,
+        payload: {'value': 1},
+      );
+      var decls = await db.infoDeclarationsDao.watchByDay(dayRecordId).first;
+      final poisonerDeclId = decls
+          .firstWhere((d) => d.characterType == Character.poisoner)
+          .id;
+
+      await repo.deleteDeclaration(poisonerDeclId);
+      decls = await db.infoDeclarationsDao.watchByDay(dayRecordId).first;
+      // 手动标毒仍在 → 不恢复
+      expect(
+        decls.firstWhere((d) => d.playerId == targetId).reliability,
+        Reliability.possiblyTainted,
+      );
+    });
+
+    test('取消手动标毒 → 信息恢复 unverified（无残留毒源）', () async {
+      final poisonRepo = PoisonRepository(db);
+      await repo.declareInfo(
+        playerId: targetId,
+        dayRecordId: dayRecordId,
+        character: Character.empath,
+        payload: {'value': 0},
+      );
+      await poisonRepo.toggleStatus(
+        gameId: gameId,
+        playerId: targetId,
+        dayNumber: 1,
+      ); // 标毒 → tainted
+      await poisonRepo.toggleStatus(
+        gameId: gameId,
+        playerId: targetId,
+        dayNumber: 1,
+      ); // 取消 → 恢复
+      final decls = await db.infoDeclarationsDao.watchByDay(dayRecordId).first;
+      expect(
+        decls.firstWhere((d) => d.playerId == targetId).reliability,
+        Reliability.unverified,
+      );
     });
   });
 }

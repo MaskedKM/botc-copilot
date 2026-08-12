@@ -41,7 +41,10 @@ class PlayerDetailRepository {
 
   /// 记录信息声明（payload 已按角色的 InfoInputType 编码为 JSON）。
   ///
-  /// 若该玩家当天有生效的醉/毒标记，可靠性自动降级为 possiblyTainted。
+  /// 可靠性自动判定（官方：中毒/醉酒者当晚信息为假）：玩家当晚被毒则降级为
+  /// possiblyTainted。两个来源——(a) 手动标毒 PoisonStatuses；(b) 当夜有
+  /// Poisoner 声明以其为目标（issue #122）。若本条本身是 Poisoner 声明，
+  /// 录入后回溯降级其毒目标当夜已录的信息（覆盖「目标先录、Poisoner 后录」）。
   Future<int> declareInfo({
     required int playerId,
     required int dayRecordId,
@@ -51,20 +54,31 @@ class PlayerDetailRepository {
     int? dayNumber,
     int? gameId,
   }) async {
-    // 自动污染检查：玩家当天被标醉/毒 → 信息不可靠
-    var reliability = Reliability.unverified;
-    if (dayNumber != null && gameId != null) {
-      final statuses =
-          await _db.poisonStatusesDao.watchByGame(gameId).first;
-      final tainted = statuses.any(
-        (p) =>
-            p.playerId == playerId &&
-            p.dayNumber == dayNumber &&
-            p.isActive,
-      );
-      if (tainted) reliability = Reliability.possiblyTainted;
-    }
-    return _db.infoDeclarationsDao.insertDeclaration(
+    // (b) 当夜 Poisoner 是否毒了本玩家（#122）
+    final dayDecls =
+        await _db.infoDeclarationsDao.watchByDay(dayRecordId).first;
+    final poisonerTargeted = dayDecls.any((d) {
+      if (d.characterType != Character.poisoner) return false;
+      try {
+        final decoded = jsonDecode(d.payloadJson);
+        return decoded is Map && decoded['playerId'] == playerId;
+      } on FormatException {
+        return false;
+      }
+    });
+    // (a) 手动标毒
+    final manualTainted = (dayNumber != null && gameId != null) &&
+        (await _db.poisonStatusesDao.watchByGame(gameId).first).any(
+          (s) =>
+              s.playerId == playerId &&
+              s.dayNumber == dayNumber &&
+              s.isActive,
+        );
+    final reliability = (poisonerTargeted || manualTainted)
+        ? Reliability.possiblyTainted
+        : Reliability.unverified;
+
+    final id = await _db.infoDeclarationsDao.insertDeclaration(
       InfoDeclarationsCompanion(
         playerId: Value(playerId),
         dayRecordId: Value(dayRecordId),
@@ -74,6 +88,15 @@ class PlayerDetailRepository {
         isMine: Value(isMine),
       ),
     );
+
+    // 回溯（#122）：本条是 Poisoner 声明 → 毒目标当夜已录信息降级
+    if (character == Character.poisoner && payload['playerId'] is int) {
+      await _db.infoDeclarationsDao.taintPlayerDeclarations(
+        dayRecordId,
+        payload['playerId'] as int,
+      );
+    }
+    return id;
   }
 
   /// 调整信任度（追加一条 trust log）。
@@ -94,8 +117,30 @@ class PlayerDetailRepository {
   }
 
   /// 删除一条信息声明（误录纠错，issue #83）。
-  Future<void> deleteDeclaration(int id) =>
-      _db.infoDeclarationsDao.deleteDeclaration(id);
+  ///
+  /// 若删除的是 Poisoner 声明，且其毒目标当夜无残留毒源（无其他 Poisoner
+  /// 声明 / 手动标毒），则恢复毒目标当夜信息的 reliability（#122 对称）。
+  Future<void> deleteDeclaration(int id) async {
+    final decl = await _db.infoDeclarationsDao.getById(id);
+    await _db.infoDeclarationsDao.deleteDeclaration(id);
+    if (decl != null && decl.characterType == Character.poisoner) {
+      try {
+        final decoded = jsonDecode(decl.payloadJson);
+        if (decoded is Map && decoded['playerId'] is int) {
+          final target = decoded['playerId'] as int;
+          if (!await _db.infoDeclarationsDao
+              .isPlayerPoisonedFromSources(decl.dayRecordId, target)) {
+            await _db.infoDeclarationsDao.restorePlayerDeclarations(
+              decl.dayRecordId,
+              target,
+            );
+          }
+        }
+      } on FormatException {
+        // payload 异常，跳过恢复
+      }
+    }
+  }
 }
 
 /// 玩家详情仓库 Provider。
