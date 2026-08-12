@@ -43,16 +43,10 @@ class NightPanel extends ConsumerWidget {
           children: [
             ChoiceChip(
               label: const Text('无人死亡'),
-<<<<<<< HEAD
-              // 选中态由显式 nightConfirmed 驱动，避免预建记录假选中（#77）。
+              // 选中态由显式 nightConfirmed 驱动（#77）；onSelected gate ongoing（#81）
               selected: dayRecord?.nightConfirmed == true &&
                   dayRecord?.nightDeathPlayerId == null,
-              onSelected: (_) => notifier.recordNightDeath(null),
-=======
-              selected: dayRecord?.nightDeathPlayerId == null &&
-                  dayRecord != null,
               onSelected: ongoing ? (_) => notifier.recordNightDeath(null) : null,
->>>>>>> a88cc92 (fix(game-board): 小修合集 — 结束后只读 / 更换座位 / 推进撤销 (#81 #86 #87))
             ),
             for (final p in players.where((p) => p.isAlive))
               ChoiceChip(

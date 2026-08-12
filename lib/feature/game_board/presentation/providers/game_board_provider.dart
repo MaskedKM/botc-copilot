@@ -308,7 +308,13 @@ class GameBoardNotifier extends StateNotifier<GameBoardState> {
     final hasExec = day.dayExecutionPlayerId != null;
     final hasNoms = (await _db.nominationsDao.watchByDay(day.id).first)
         .isNotEmpty;
-    if (hasNight || hasExec || hasNoms) return false;
+    // 角色声明 / 信息声明以 dayRecordId 级联挂在天记录上（onDelete: cascade），
+    // 删天记录会静默删掉它们——有任意一条都不可回退（review M1）。
+    final hasClaims =
+        (await _db.roleClaimsDao.watchByDay(day.id).first).isNotEmpty;
+    final hasInfo =
+        (await _db.infoDeclarationsDao.watchByDay(day.id).first).isNotEmpty;
+    if (hasNight || hasExec || hasNoms || hasClaims || hasInfo) return false;
     await _db.dayRecordsDao.deleteDay(day.id);
     state = state.copyWith(
       currentDay: state.currentDay - 1,
