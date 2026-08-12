@@ -151,6 +151,20 @@ void main() {
     expect(updated[3].isAlive, isFalse); // 新处决者死
   });
 
+  // review M1：夜杀 A + 处决 A + 改夜杀目标 → A 不应被复活（处决仍生效）
+  test('夜杀+处决同一人后改夜杀目标：不复活（跨字段守卫）', () async {
+    await notifier().recordNightDeath(players[2].id); // 夜杀 players[2]
+    await notifier().recordExecution(players[2].id); // 处决同一人（死人）
+    await notifier().recordNightDeath(players[3].id); // 改夜杀目标
+
+    final updated = await db.playersDao.watchByGame(gameId).first;
+    expect(updated[2].isAlive, isFalse); // 仍死（处决仍指向他）
+    expect(updated[3].isAlive, isFalse); // 新夜杀目标死
+    final day = await db.dayRecordsDao.getByGameAndDay(gameId, 1);
+    expect(day!.nightDeathPlayerId, players[3].id);
+    expect(day.dayExecutionPlayerId, players[2].id);
+  });
+
   test('advanceDay：推进天数 + 预建次日记录 + 清空选中', () async {
     notifier().selectPlayer(players[0].id);
     await notifier().advanceDay();
