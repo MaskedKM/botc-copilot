@@ -5,6 +5,7 @@ import 'package:botc_copilot/core/theme/app_text_styles.dart';
 import 'package:botc_copilot/core/theme/game_colors.dart';
 import 'package:botc_copilot/feature/game_board/data/nomination_repository.dart';
 import 'package:botc_copilot/feature/game_board/domain/game_end.dart';
+import 'package:botc_copilot/feature/game_board/domain/night_death_rules.dart';
 import 'package:botc_copilot/feature/game_board/domain/nomination_rules.dart';
 import 'package:botc_copilot/shared/widgets/help_tooltip.dart';
 import 'package:botc_copilot/feature/game_board/presentation/providers/game_board_provider.dart';
@@ -54,13 +55,13 @@ class NightPanel extends ConsumerWidget {
                 label: Text('${p.seatNumber}号 ${p.name}'),
                 selected: dayRecord?.nightDeathPlayerId == p.id,
                 onSelected: ongoing
-                    ? (_) => confirmDeath(
+                    ? (_) => _confirmNightDeath(
                           context,
                           ref,
                           player: p,
-                          action: () => notifier.recordNightDeath(p.id),
-                          verb: '夜晚死亡',
                           gameId: gameId,
+                          day: day,
+                          notifier: notifier,
                         )
                     : null,
               ),
@@ -356,6 +357,72 @@ Future<bool> _claimedSaint(WidgetRef ref, int gameId, int playerId) async {
   // 我是圣徒（myRole）被处决 → 同样触发（公开声明不含我，须查 myRole）
   final game = await db.gamesDao.getById(gameId);
   return game?.myPlayerId == playerId && game?.myRole == Character.saint;
+}
+
+/// 该玩家的有效角色——用于夜晚死亡规则警告（issue #114）。
+///
+/// 与 [_claimedSaint] 的语义差异是刻意的：警告关注玩家**真实能力**，故
+/// 「我」的座位取 myRole（我已知真实角色）；他人只能看最新公开声明。
+/// （Saint 处决流程按声明提示、由用户确认，沿用 [_claimedSaint] 不变。）
+Future<Character?> _claimedCharacter(
+  WidgetRef ref,
+  int gameId,
+  int playerId,
+) async {
+  final db = ref.read(appDatabaseProvider);
+  // 我是该座位 → 真实角色；他人 → 最新公开声明
+  final game = await db.gamesDao.getById(gameId);
+  if (game?.myPlayerId == playerId) return game?.myRole;
+  final claims = await db.roleClaimsDao.watchByPlayer(playerId).first;
+  return claims.isNotEmpty ? claims.last.character : null;
+}
+
+/// 夜晚死亡规则警告（issue #114）：首夜死亡 / 声明 Soldier 的玩家夜死等。
+///
+/// 警告**不阻止**——毒/醉可解释 Soldier 等场景，村规/实验角色也可能覆盖
+/// 能力。确认后仍走标准 [confirmDeath] 二次确认 + 结束判定。参考 #85 处决
+/// 警告模式。
+Future<void> _confirmNightDeath(
+  BuildContext context,
+  WidgetRef ref, {
+  required Player player,
+  required int gameId,
+  required int day,
+  required GameBoardNotifier notifier,
+}) async {
+  final claimed = await _claimedCharacter(ref, gameId, player.id);
+  final warnings = NightDeathRules.warnings(
+    day: day,
+    claimedCharacter: claimed,
+  );
+  if (warnings.isNotEmpty && context.mounted) {
+    final override = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('规则提示'),
+        content: Text(warnings.join('\n\n')),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('仍要标记'),
+          ),
+        ],
+      ),
+    );
+    if (!(override ?? false)) return;
+  }
+  await confirmDeath(
+    context,
+    ref,
+    player: player,
+    action: () => notifier.recordNightDeath(player.id),
+    verb: '夜晚死亡',
+    gameId: gameId,
+  );
 }
 
 /// 占位面板：投票分析 / 我的推理（后续 issue 实现）。
