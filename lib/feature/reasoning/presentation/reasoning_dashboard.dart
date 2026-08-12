@@ -3,6 +3,7 @@ import 'package:botc_copilot/core/theme/app_text_styles.dart';
 import 'package:botc_copilot/core/theme/game_colors.dart';
 import 'package:botc_copilot/feature/game_board/presentation/providers/game_board_provider.dart';
 import 'package:botc_copilot/feature/player_detail/presentation/player_detail_sheet.dart';
+import 'package:botc_copilot/feature/reasoning/presentation/character_reference_page.dart';
 import 'package:botc_copilot/feature/reasoning/presentation/contradiction_panel.dart';
 import 'package:botc_copilot/feature/reasoning/presentation/role_matrix_page.dart';
 import 'package:botc_copilot/feature/reasoning/presentation/setup_analysis_panel.dart';
@@ -65,11 +66,29 @@ class _ReasoningDashboardState extends ConsumerState<ReasoningDashboard> {
         // 恶魔候选池（置顶，核心视图）
         _DemonPoolSection(pool: demonPool, total: players.length),
         const SizedBox(height: 8),
-        // 声明矩阵入口（issue #40）
-        OutlinedButton.icon(
-          icon: const Icon(Icons.grid_on, size: 16),
-          label: const Text('声明矩阵'),
-          onPressed: () => RoleMatrixPage.show(context, gameId: widget.gameId),
+        // 声明矩阵 + 角色参考入口（issue #40 / #60）
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton.icon(
+                icon: const Icon(Icons.grid_on, size: 16),
+                label: const Text('声明矩阵'),
+                onPressed: () =>
+                    RoleMatrixPage.show(context, gameId: widget.gameId),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: OutlinedButton.icon(
+                icon: const Icon(Icons.menu_book, size: 16),
+                label: const Text('角色参考'),
+                onPressed: () => CharacterReferencePage.show(
+                  context,
+                  gameId: widget.gameId,
+                ),
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: 16),
         // 配置分析：外来者计数 配置 vs 声明（issue #59）
