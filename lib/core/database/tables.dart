@@ -33,6 +33,13 @@ class Games extends Table {
   /// 恶魔的 3 个 Bluff 角色（JSON 数组，仅当我是恶魔时录入）。
   TextColumn get demonBluffsJson => text().nullable()();
 
+  /// 我的爪牙名单（JSON 玩家 id 数组，issue #108）。
+  ///
+  /// 官方：7+ 人局恶魔首夜得知爪牙是谁。这是恶魔**私密知识**——存 Games 列
+  /// （与公开声明的 RoleClaims 隔离），不进矛盾检测/角色矩阵公开侧，仅对我
+  /// 可见（角色矩阵私密标记）。
+  TextColumn get myMinionIdsJson => text().nullable()();
+
   /// 帮助层级（issue #41）。
   TextColumn get helpLevel =>
       textEnum<HelpLevel>().withDefault(const Constant('normal'))();

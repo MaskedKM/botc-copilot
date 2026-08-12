@@ -52,6 +52,11 @@ class GamesDao extends DatabaseAccessor<AppDatabase> with _$GamesDaoMixin {
       (update(games)..where((g) => g.id.equals(id)))
           .write(GamesCompanion(demonBluffsJson: Value(bluffsJson)));
 
+  /// 设置恶魔私密爪牙名单（JSON 玩家 id 数组字符串，issue #108）。
+  Future<int> updateMyMinionIds(int id, String minionIdsJson) =>
+      (update(games)..where((g) => g.id.equals(id)))
+          .write(GamesCompanion(myMinionIdsJson: Value(minionIdsJson)));
+
   /// 删除对局（级联删除玩家/每日记录等）。
   Future<int> deleteGame(int id) =>
       (delete(games)..where((g) => g.id.equals(id))).go();

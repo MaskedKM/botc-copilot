@@ -58,7 +58,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 10;
+  int get schemaVersion => 11;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -106,6 +106,10 @@ class AppDatabase extends _$AppDatabase {
           // v9 → v10：players 加 suspectedDrunk（整局疑似醉汉，issue #109）
           if (from < 10) {
             await m.addColumn(players, players.suspectedDrunk);
+          }
+          // v10 → v11：games 加 myMinionIdsJson（恶魔私密爪牙名单，issue #108）
+          if (from < 11) {
+            await m.addColumn(games, games.myMinionIdsJson);
           }
         },
         beforeOpen: (details) async {
