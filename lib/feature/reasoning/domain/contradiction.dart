@@ -134,7 +134,7 @@ abstract final class ContradictionDetector {
         dayRecordToDayNumber,
         labelOf,
       ),
-      ..._noDeathNights(days),
+      ..._noDeathNights(days, declarations, dayRecordToDayNumber),
     ];
   }
 
@@ -316,7 +316,13 @@ abstract final class ContradictionDetector {
   ///
   /// 第 1 天跳过：官方规则恶魔首夜不杀人，无夜死是常态。
   /// 仅对**已确认**（nightConfirmed）的天生效，避免预建未录的天误报（#77）。
-  static List<Contradiction> _noDeathNights(List<DayRecord> days) {
+  ///
+  /// 联动（#110）：当晚有 Monk 保护记录时，提示优先指向「保护成功」。
+  static List<Contradiction> _noDeathNights(
+    List<DayRecord> days,
+    List<InfoDeclaration> declarations,
+    Map<int, int> dayRecordToDayNumber,
+  ) {
     return [
       for (final d in days)
         if (d.nightDeathPlayerId == null &&
@@ -325,13 +331,29 @@ abstract final class ContradictionDetector {
           Contradiction(
             type: ContradictionType.noDeathNight,
             playerIds: const [],
-            description:
-                '第 ${d.dayNumber} 天夜晚无人死亡。'
-                '可能：Monk 保护成功 / Soldier 免疫 / 恶魔自杀传位 / 恶魔被毒。',
+            description: _noDeathNightDescription(
+              d.dayNumber,
+              declarations
+                  .where(
+                    (decl) =>
+                        decl.characterType == Character.monk &&
+                        dayRecordToDayNumber[decl.dayRecordId] == d.dayNumber,
+                  )
+                  .isNotEmpty,
+            ),
             severity: ContradictionSeverity.info,
             dayNumber: d.dayNumber,
           ),
     ];
+  }
+
+  /// 无人死亡夜晚的提示文案：有 Monk 保护记录时优先指向保护成功（#110）。
+  static String _noDeathNightDescription(int dayNumber, bool hasMonkProtect) {
+    if (hasMonkProtect) {
+      return '第 $dayNumber 天夜晚无人死亡。当晚有僧侣保护记录——很可能是保护成功。';
+    }
+    return '第 $dayNumber 天夜晚无人死亡。'
+        '可能：Monk 保护成功 / Soldier 免疫 / 恶魔自杀传位 / 恶魔被毒。';
   }
 
   /// 座位收缩后的存活邻座（死亡玩家物理移除，两侧并拢）。

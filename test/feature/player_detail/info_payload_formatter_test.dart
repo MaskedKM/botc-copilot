@@ -68,5 +68,36 @@ void main() {
         '共情者：隔壁两人可疑',
       );
     });
+
+    test('夜间行动目标（角色化动词：Monk 保护 / Butler 主人 / Poisoner 下毒）',
+        () {
+      expect(
+        InfoPayloadFormatter.summarize(
+          decl(Character.monk, '{"playerId": 3}'),
+        ),
+        '僧侣：保护 3 号',
+      );
+      expect(
+        InfoPayloadFormatter.summarize(
+          decl(Character.butler, '{"playerId": 5}'),
+        ),
+        '管家：主人 5 号',
+      );
+      expect(
+        InfoPayloadFormatter.summarize(
+          decl(Character.poisoner, '{"playerId": 2}'),
+        ),
+        '投毒者：下毒 2 号',
+      );
+    });
+
+    test('Ravenkeeper：玩家 + 角色（不得丢失玩家）', () {
+      expect(
+        InfoPayloadFormatter.summarize(
+          decl(Character.ravenkeeper, '{"playerId": 5, "character": "spy"}'),
+        ),
+        '渡鸦守护者：5 号 是 间谍',
+      );
+    });
   });
 }

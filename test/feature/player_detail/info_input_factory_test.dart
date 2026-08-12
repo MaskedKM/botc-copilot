@@ -18,14 +18,20 @@ void main() {
       ),
   ];
 
-  Widget buildInput(Character character, void Function(Map<String, Object?>) onSubmit) {
+  Widget buildInput(
+    Character character,
+    void Function(Map<String, Object?>) onSubmit, {
+    int? actingPlayerId,
+    List<Player>? playersOverride,
+  }) {
     return MaterialApp(
       theme: AppTheme.dark,
       home: Scaffold(
         body: SingleChildScrollView(
           child: InfoInputFactory.build(
             character: character,
-            players: players,
+            players: playersOverride ?? players,
+            actingPlayerId: actingPlayerId,
             onSubmit: onSubmit,
           ),
         ),
@@ -136,8 +142,70 @@ void main() {
     expect(result, {'playerId': 5, 'character': 'spy'});
   });
 
-  testWidgets('Monk（无信息能力）：显示提示且无记录按钮', (tester) async {
-    await tester.pumpWidget(buildInput(Character.monk, (_) {}));
+  testWidgets('Monk：选 1 名保护目标（官方规则不能选自己）', (tester) async {
+    Map<String, Object?>? result;
+    await tester.pumpWidget(
+      buildInput(Character.monk, (p) => result = p, actingPlayerId: 1),
+    );
+    // Monk（1号）不能选自己 → 候选无「1号 玩家1」
+    expect(find.text('1号 玩家1'), findsNothing);
+    expect(find.text('3号 玩家3'), findsOneWidget);
+    // 未选时按钮禁用
+    expect(
+      tester.widget<FilledButton>(find.byType(FilledButton)).onPressed,
+      isNull,
+    );
+
+    await tester.tap(find.text('3号 玩家3'));
+    await tester.pump();
+    await tester.tap(find.text('记录'));
+    expect(result, {'playerId': 3});
+  });
+
+  testWidgets('Poisoner：选 1 名下毒目标（可选任何存活玩家，含自己）',
+      (tester) async {
+    Map<String, Object?>? result;
+    await tester.pumpWidget(
+      buildInput(Character.poisoner, (p) => result = p, actingPlayerId: 1),
+    );
+    // Poisoner 可选自己 → 候选含「1号 玩家1」
+    expect(find.text('1号 玩家1'), findsOneWidget);
+
+    await tester.tap(find.text('2号 玩家2'));
+    await tester.pump();
+    await tester.tap(find.text('记录'));
+    expect(result, {'playerId': 2});
+  });
+
+  testWidgets('夜间行动目标排除已死亡玩家', (tester) async {
+    final withDead = [
+      ...players,
+      Player(
+        id: 8,
+        gameId: 1,
+        name: '亡者',
+        seatNumber: 8,
+        isAlive: false,
+        abilityUsed: false,
+        deathDay: 2,
+      ),
+    ];
+    await tester.pumpWidget(
+      buildInput(
+        Character.poisoner,
+        (_) {},
+        actingPlayerId: 1,
+        playersOverride: withDead,
+      ),
+    );
+    // 存活玩家在候选中
+    expect(find.text('2号 玩家2'), findsOneWidget);
+    // 已死亡的 8 号不在候选中
+    expect(find.text('8号 亡者'), findsNothing);
+  });
+
+  testWidgets('无信息能力角色（Soldier）：显示提示且无记录按钮', (tester) async {
+    await tester.pumpWidget(buildInput(Character.soldier, (_) {}));
     expect(find.text('该角色无信息类能力，无需录入。'), findsOneWidget);
     expect(find.text('记录'), findsNothing);
   });

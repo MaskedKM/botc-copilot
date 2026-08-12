@@ -476,6 +476,43 @@ void main() {
     expect(result, isEmpty);
   });
 
+  test('规则5：无人死亡夜晚 + 当晚 Monk 保护记录 → 提示指向保护成功（#110）', () {
+    final result = ContradictionDetector.detect(
+      claims: [_claim(1, Character.monk)],
+      declarations: [
+        InfoDeclaration(
+          id: 1,
+          playerId: 1,
+          dayRecordId: 1,
+          characterType: Character.monk,
+          payloadJson: '{"playerId": 3}',
+          reliability: Reliability.unverified,
+          isMine: false,
+        ),
+      ],
+      days: [
+        DayRecord(
+          id: 1,
+          gameId: 1,
+          dayNumber: 2,
+          nightDeathPlayerId: null,
+          nightConfirmed: true,
+          dayExecutionPlayerId: null,
+          undertakerResultRole: null,
+          notes: '',
+        ),
+      ],
+      playersById: players,
+      dayRecordToDayNumber: {1: 2},
+      expectedOutsiders: 0,
+    );
+    final noDeath = result.firstWhere(
+      (c) => c.type == ContradictionType.noDeathNight,
+    );
+    expect(noDeath.description, contains('僧侣保护'));
+    expect(noDeath.description, contains('保护成功'));
+  });
+
   test('组合：多条规则同时触发', () {
     final result = ContradictionDetector.detect(
       claims: [_claim(1, Character.chef), _claim(2, Character.chef)],
