@@ -4,7 +4,13 @@ import 'package:botc_copilot/feature/reasoning/domain/contradiction.dart';
 import 'package:botc_copilot/shared/models/enums.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-Player _player(int id, int seat, {int? deathDay}) => Player(
+Player _player(
+  int id,
+  int seat, {
+  int? deathDay,
+  DeathCause? deathCause,
+}) =>
+    Player(
       id: id,
       gameId: 1,
       name: 'P$id',
@@ -12,7 +18,8 @@ Player _player(int id, int seat, {int? deathDay}) => Player(
       isAlive: deathDay == null,
       abilityUsed: false,
       deathDay: deathDay,
-      deathCause: deathDay == null ? null : DeathCause.nightKill,
+      deathCause: deathCause ??
+          (deathDay == null ? null : DeathCause.nightKill),
     );
 
 RoleClaim _claim(int playerId, Character c, {ClaimType type = ClaimType.firstClaim}) =>
@@ -252,6 +259,68 @@ void main() {
     );
     expect(result, hasLength(1));
     expect(result[0].playerIds, containsAll([2, 1, 4]));
+  });
+
+  // issue #78：当天被处决者仍是 Empath 邻居；当夜被杀者不是。
+  InfoDeclaration _empathDecl(int playerId, int dayRecordId, int value) =>
+      InfoDeclaration(
+        id: playerId,
+        playerId: playerId,
+        dayRecordId: dayRecordId,
+        characterType: Character.empath,
+        payloadJson: '{"value": $value}',
+        reliability: Reliability.unverified,
+        isMine: false,
+      );
+
+  test('规则4：当天被处决的邻居仍算存活邻居（#78）', () {
+    // 3 号当天被处决（execution）→ Empath 读取时仍存活，邻居仍为 1、3
+    final deadPlayers = {
+      ...players,
+      3: _player(3, 3, deathDay: 2, deathCause: DeathCause.execution),
+    };
+    final result = ContradictionDetector.detect(
+      claims: [
+        _claim(2, Character.empath),
+        _claim(1, Character.chef), // 左邻居好人
+        _claim(3, Character.butler), // 处决的右邻居好人
+        _claim(4, Character.poisoner), // 不会被取为邻居
+      ],
+      declarations: [_empathDecl(2, 10, 1)], // 报 1 个邪恶
+      days: [],
+      playersById: deadPlayers,
+      dayRecordToDayNumber: {10: 2},
+      expectedOutsiders: 1, // 3 号声明 butler（外来者）
+    );
+    // 邻居 1、3 都是好人 → 报 1 邪恶 → mismatch，涉及 2、1、3（非 4）
+    expect(result, hasLength(1));
+    expect(result[0].playerIds, containsAll([2, 1, 3]));
+    expect(result[0].playerIds, isNot(contains(4)));
+  });
+
+  test('规则4：当夜被杀的邻居不算存活邻居（收缩，#78）', () {
+    // 3 号当夜被杀（nightKill）→ Empath 读取时已死，邻居收缩为 1、4。
+    // 给 3 号好人声明（monk）作判别器：若 3 被错误算入，邻居[1,3]皆好人
+    // → 报 1 邪恶会触发 mismatch（非空），从而守住「必须按 cause 排除 nightKill」。
+    final deadPlayers = {
+      ...players,
+      3: _player(3, 3, deathDay: 2, deathCause: DeathCause.nightKill),
+    };
+    final result = ContradictionDetector.detect(
+      claims: [
+        _claim(2, Character.empath),
+        _claim(1, Character.chef), // 左邻居好人
+        _claim(3, Character.monk), // 被杀者：好人（判别器）
+        _claim(4, Character.poisoner), // 收缩后的右邻居邪恶
+      ],
+      declarations: [_empathDecl(2, 10, 1)], // 报 1 个邪恶
+      days: [],
+      playersById: deadPlayers,
+      dayRecordToDayNumber: {10: 2},
+      expectedOutsiders: 0,
+    );
+    // 正确排除 3 → 邻居 1（好）、4（邪）→ 报 1 邪恶 → 匹配，不报警
+    expect(result, isEmpty);
   });
 
   test('规则5：无人死亡夜晚 → noDeathNight 提示', () {

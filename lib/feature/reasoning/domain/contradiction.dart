@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:botc_copilot/core/constants/character.dart';
 import 'package:botc_copilot/core/constants/team.dart';
 import 'package:botc_copilot/core/database/app_database.dart';
+import 'package:botc_copilot/shared/models/enums.dart';
 
 /// 矛盾类型（issue #38，5 条检测规则）。
 enum ContradictionType {
@@ -267,9 +268,17 @@ abstract final class ContradictionDetector {
       final empath = playersById[decl.playerId];
       if (day == null || empath == null) continue;
 
-      // 当天存活者的座位集合（deathDay 为空或 > 当天）
+      // 当天存活者的座位集合（deathDay 为空或 > 当天）。
+      // 当天被处决者仍算存活邻居（处决在 Empath 读取之后），当夜被杀者
+      // 不算（被杀在 Empath 读取之前）——issue #78。
       final aliveThen = playersById.values
-          .where((p) => p.deathDay == null || p.deathDay! > day)
+          .where(
+            (p) =>
+                p.deathDay == null ||
+                p.deathDay! > day ||
+                (p.deathDay == day &&
+                    p.deathCause == DeathCause.execution),
+          )
           .toList();
       final neighbors = _aliveNeighbors(empath, aliveThen);
       if (neighbors.isEmpty) continue;
