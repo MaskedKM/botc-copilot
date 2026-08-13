@@ -236,6 +236,12 @@ class PoisonStatuses extends Table {
 
   /// 当前是否生效（毒只在当夜+次日生效，可解除）。
   BoolColumn get isActive => boolean().withDefault(const Constant(true))();
+
+  @override
+  List<Set<Column<Object>>> get uniqueKeys => [
+        // 同一局同一玩家同一天唯一（#150 R1/B1：防 TOCTOU 重复行）。
+        {gameId, playerId, dayNumber},
+      ];
 }
 
 /// 行为备注表（issue #36）：某玩家当天的自由文本备注。

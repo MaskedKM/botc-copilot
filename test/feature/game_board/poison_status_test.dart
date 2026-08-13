@@ -141,4 +141,28 @@ void main() {
     final decls = await db.infoDeclarationsDao.watchByGame(gameId).first;
     expect(decls[0].reliability, Reliability.unverified);
   });
+
+  // #150 R1/B1：唯一约束兜底——同 (game,player,day) 第二条插入应抛异常。
+  test('poison_statuses 唯一约束：同 (game,player,day) 重复插入抛异常', () async {
+    await db.poisonStatusesDao.insertStatus(
+      PoisonStatusesCompanion(
+        gameId: Value(gameId),
+        playerId: Value(players[0].id),
+        dayNumber: const Value(1),
+        source: const Value(PoisonSource.poisoner),
+      ),
+    );
+    // 直接 DAO 插入绕过 toggleStatus，唯一约束应拦截
+    expect(
+      () => db.poisonStatusesDao.insertStatus(
+        PoisonStatusesCompanion(
+          gameId: Value(gameId),
+          playerId: Value(players[0].id),
+          dayNumber: const Value(1),
+          source: const Value(PoisonSource.poisoner),
+        ),
+      ),
+      throwsA(isA<Object>()),
+    );
+  });
 }
