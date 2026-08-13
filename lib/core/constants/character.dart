@@ -182,7 +182,7 @@ enum Character {
     nameEn: 'Spy',
     team: Team.minion,
     ability: '每个夜晚，你可以查看魔典。你可能被判定为善良阵营，即使你已经死亡。',
-    infoInputType: InfoInputType.none,
+    infoInputType: InfoInputType.freeText,
   ),
 
   /// 绯红女：恶魔死亡且存活玩家≥5时，你成为新恶魔。
