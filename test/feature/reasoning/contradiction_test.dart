@@ -196,11 +196,12 @@ void main() {
   });
 
   test('掘墓人信息关联声明日之前最近处决（官方时序，#106）', () {
-    // 第 1 天处决 3 号、第 2 天处决 4 号；掘墓人第 3 天报：被处决者是小恶魔。
+    // 第 1 天处决 3 号、第 2 天处决 4 号；掘墓人第 3 天报：被处决者是共情者。
     // 官方规则——掘墓人次夜得知当日处决，故应关联第 2 天处决者（4 号）。
+    // 注：用好人角色（共情者）触发冲突——恶魔角色因传承可合法重复，已被 #151 S2 抑制。
     final result = ContradictionDetector.detect(
-      claims: [_claim(5, Character.imp)],
-      declarations: [_undertakerDecl(1, 3, Character.imp)],
+      claims: [_claim(5, Character.empath)],
+      declarations: [_undertakerDecl(1, 3, Character.empath)],
       days: [
         _executionDay(1, 1, 3),
         _executionDay(2, 2, 4),
@@ -216,6 +217,40 @@ void main() {
     // 关联第 2 天处决者（4 号），而非第 1 天（3 号）
     expect(conflict.playerIds, containsAll([5, 4]));
     expect(conflict.playerIds, isNot(contains(3)));
+  });
+
+  // #151 S2：恶魔角色（Imp）传承后可合法重复，掘墓人/确认冲突不报。
+  test('掘墓人报 Imp + 他人声明 Imp → 不报冲突（传承合法，#151 S2）', () {
+    final result = ContradictionDetector.detect(
+      claims: [_claim(5, Character.imp)],
+      declarations: [_undertakerDecl(1, 2, Character.imp)],
+      days: [_executionDay(1, 1, 4), _emptyDay(2, 2)],
+      playersById: players,
+      dayRecordToDayNumber: {1: 1, 2: 2},
+      expectedOutsiders: 0,
+    );
+    expect(
+      result.where((c) => c.type == ContradictionType.confirmedRoleConflict),
+      isEmpty,
+    );
+  });
+
+  // #151 S1：被处决者本人声明与掘墓人对本人的报告冲突（原 skip 漏判）。
+  test('被处决者本人声明 ≠ 掘墓人报告 → 报冲突（#151 S1）', () {
+    // 3 号被处决；掘墓人报其为共情者；3 号自己声明厨师。
+    final result = ContradictionDetector.detect(
+      claims: [_claim(3, Character.chef)],
+      declarations: [_undertakerDecl(1, 2, Character.empath)],
+      days: [_executionDay(1, 1, 3), _emptyDay(2, 2)],
+      playersById: players,
+      dayRecordToDayNumber: {1: 1, 2: 2},
+      expectedOutsiders: 0,
+    );
+    final self = result.where((c) =>
+        c.type == ContradictionType.confirmedRoleConflict &&
+        c.playerIds.contains(3) &&
+        c.playerIds.length == 1);
+    expect(self, isNotEmpty); // 仅 3 号（本人 vs 报告）
   });
 
   test('规则3：声明数 > base+2（即便 Baron 也无法解释）→ outsiderCountAnomaly', () {

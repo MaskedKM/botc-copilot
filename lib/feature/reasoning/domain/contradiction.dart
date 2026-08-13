@@ -187,6 +187,9 @@ abstract final class ContradictionDetector {
     final result = <Contradiction>[];
     for (final e in latestClaim.entries) {
       if (e.value.claimType == ClaimType.revealedOnDeath) continue;
+      // #151 S2：角色唯一公理仅适用好人角色——Imp 传承后 legitimately 存在
+      // 新 Imp，恶魔/爪牙重复不应误报冲突（与 _duplicateRoleClaims 口径一致）。
+      if (!e.value.character.team.isGood) continue;
       // 死亡揭示（村规确认）冲突
       if (confirmedRoles.values.contains(e.value.character) &&
           !confirmedRoles.containsKey(e.key)) {
@@ -222,6 +225,25 @@ abstract final class ContradictionDetector {
             description:
                 '${labelOf(e.key)} 声明 ${e.value.character.nameCn}，'
                 '与掘墓人报出的角色冲突。掘墓人信息可能被毒/醉污染，'
+                '或 Spy 死后登记为好人 / Recluse 登记为邪恶。',
+            severity: ContradictionSeverity.info,
+          ),
+        );
+      }
+      // #151 S1：被处决者本人声明 vs 掘墓人对本人的报告冲突。
+      // 原 cross-player 检查含 !undertakerRoles.containsKey(e.key) 跳过本人，
+      // 漏判「本人声明 X / 掘墓人报其为 Y」的直接冲突（复活 / 早于处决的声明）。
+      final reportedSelf = undertakerRoles[e.key];
+      if (reportedSelf != null &&
+          reportedSelf != e.value.character &&
+          !confirmedRoles.containsKey(e.key)) {
+        result.add(
+          Contradiction(
+            type: ContradictionType.confirmedRoleConflict,
+            playerIds: [e.key],
+            description:
+                '${labelOf(e.key)} 声明 ${e.value.character.nameCn}，'
+                '但掘墓人报出其为 ${reportedSelf.nameCn}。掘墓人信息可能被毒/醉污染，'
                 '或 Spy 死后登记为好人 / Recluse 登记为邪恶。',
             severity: ContradictionSeverity.info,
           ),
