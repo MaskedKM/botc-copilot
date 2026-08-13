@@ -186,6 +186,57 @@ void main() {
     expect(updated[3].isAlive, isFalse); // 新处决者死
   });
 
+  // #154 BUG-1：夜杀+处决同一人后依次清空两字段，玩家不得孤立致死。
+  test('夜杀+处决同一人后清空两者：玩家正确复活（#154 BUG-1）', () async {
+    await notifier().recordNightDeath(players[2].id);
+    await notifier().recordExecution(players[2].id); // markDead no-op，cause 仍 nightKill
+    await notifier().recordNightDeath(null);
+    await notifier().recordExecution(null);
+
+    final updated = await db.playersDao.watchByGame(gameId).first;
+    expect(updated[2].isAlive, isTrue); // 不再孤立致死
+    expect(updated[2].deathDay, isNull);
+    final day = await db.dayRecordsDao.getByGameAndDay(gameId, 1);
+    expect(day!.nightDeathPlayerId, isNull);
+    expect(day.dayExecutionPlayerId, isNull);
+  });
+
+  // #154 review Finding 1：长按致死（无 day-record 字段）+ 处决同一人后清处决，
+  // 玩家应仍死（长按致死是真实死亡，非处决）。删 deathCause 守卫会误复活；
+  // 根治（跨字段重对齐 cause + 保留守卫）正确不复活。
+  test('长按致死+处决同一人后清处决：玩家不复活（#154 review）', () async {
+    // 长按标死（夜阶段 → nightKill，无 day-record 字段）
+    await notifier().quickToggleDead(players[2]);
+    await notifier().recordExecution(players[2].id); // 处决已死者，markDead no-op
+    await notifier().recordExecution(null); // 清处决
+    final updated = await db.playersDao.watchByGame(gameId).first;
+    expect(updated[2].isAlive, isFalse); // 长按致死为真，不复活
+  });
+
+  // #154 BUG-2：复活须同步清 day-record 死亡字段，否则投票面板锁死 / timeline 残留。
+  test('revivePlayer：同步清当天 day-record 死亡字段（#154 BUG-2）', () async {
+    await notifier().recordExecution(players[2].id);
+    var day = await db.dayRecordsDao.getByGameAndDay(gameId, 1);
+    expect(day!.dayExecutionPlayerId, players[2].id);
+
+    await notifier().revivePlayer(players[2].id);
+    final updated = await db.playersDao.watchByGame(gameId).first;
+    expect(updated[2].isAlive, isTrue);
+    day = await db.dayRecordsDao.getByGameAndDay(gameId, 1);
+    expect(day!.dayExecutionPlayerId, isNull); // 不再锁死投票面板
+  });
+
+  test('长按复活已处决者：清 day-record（#154 BUG-2）', () async {
+    await notifier().recordExecution(players[3].id);
+    final dead = (await db.playersDao.watchByGame(gameId).first)
+        .where((p) => p.id == players[3].id)
+        .first;
+    // players[3] 已死 → quickToggleDead 走复活分支
+    await notifier().quickToggleDead(dead);
+    final day = await db.dayRecordsDao.getByGameAndDay(gameId, 1);
+    expect(day!.dayExecutionPlayerId, isNull);
+  });
+
   // review M1：夜杀 A + 处决 A + 改夜杀目标 → A 不应被复活（处决仍生效）
   test('夜杀+处决同一人后改夜杀目标：不复活（跨字段守卫）', () async {
     await notifier().recordNightDeath(players[2].id); // 夜杀 players[2]
