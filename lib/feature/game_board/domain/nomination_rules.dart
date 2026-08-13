@@ -88,9 +88,19 @@ abstract final class NominationRules {
   }
 
   /// 解码投票 JSON。
+  ///
+  /// 损坏 / 非数组 / 元素畸形 → 返回空（不崩投票/面板/时间线，#164 B2）。
   static List<VoteEntry> decodeVotes(String json) {
-    final list = (jsonDecode(json) as List).cast<Map<String, dynamic>>();
-    return list.map(VoteEntry.fromJson).toList();
+    try {
+      final decoded = jsonDecode(json);
+      if (decoded is! List) return const [];
+      return decoded
+          .whereType<Map<String, dynamic>>()
+          .map(VoteEntry.fromJson)
+          .toList();
+    } on Object {
+      return const [];
+    }
   }
 
   /// 快录模式补全：未点者记为反对（issue #84）。
@@ -204,9 +214,12 @@ abstract final class NominationRules {
     if (decls.isEmpty) return null;
     try {
       final decoded = jsonDecode(decls.last.payloadJson);
-      if (decoded is Map) return decoded['playerId'] as int?;
-    } on FormatException {
-      return null;
+      // 类型守卫：playerId 非法类型时 as int? 抛 TypeError 逃逸 catch（#164 review P1）。
+      if (decoded is Map && decoded['playerId'] is int) {
+        return decoded['playerId'] as int;
+      }
+    } on Object {
+      // 损坏 payload：无法判定主人，返回 null（UI 不报）。
     }
     return null;
   }

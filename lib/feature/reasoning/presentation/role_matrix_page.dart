@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:botc_copilot/core/constants/character.dart';
 import 'package:botc_copilot/core/database/app_database.dart';
 import 'package:botc_copilot/core/theme/app_text_styles.dart';
@@ -50,14 +48,8 @@ class _RoleMatrixPageState extends ConsumerState<RoleMatrixPage> {
     final game = ref.watch(gameByIdProvider(widget.gameId)).valueOrNull;
     final gameColors = context.gameColors;
 
-    final bluffs = <Character>[];
-    if (game?.demonBluffsJson != null) {
-      for (final name
-          in (jsonDecode(game!.demonBluffsJson!) as List).cast<String>()) {
-        final c = Character.values.where((c) => c.name == name).firstOrNull;
-        if (c != null) bluffs.add(c);
-      }
-    }
+    // demonBluffsOf 已做类型守卫兜底（#164 review P1），避免内联解析损坏 JSON 致红屏。
+    final bluffs = game != null ? demonBluffsOf(game).toList() : <Character>[];
 
     final (allColumns, rows) = RoleMatrixBuilder.build(
       players: players,

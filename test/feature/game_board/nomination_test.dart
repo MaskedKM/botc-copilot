@@ -96,6 +96,24 @@ void main() {
       expect(NominationRules.threshold(5), 3);
     });
 
+    group('decodeVotes（#164 B2 兜底）', () {
+      test('合法数组 → 解析', () {
+        final votes = NominationRules.decodeVotes(
+          '[{"playerId":1,"vote":"forVote","isDeadVote":false}]',
+        );
+        expect(votes.length, 1);
+        expect(votes[0].playerId, 1);
+      });
+
+      test('损坏 / 非数组 / 元素畸形 → 空，不抛', () {
+        expect(() => NominationRules.decodeVotes('not json'), returnsNormally);
+        expect(NominationRules.decodeVotes('not json'), isEmpty);
+        expect(NominationRules.decodeVotes('123'), isEmpty); // 合法 JSON 非数组
+        expect(NominationRules.decodeVotes('{}'), isEmpty);
+        expect(NominationRules.decodeVotes('[1,2]'), isEmpty); // 元素非 Map
+      });
+    });
+
     test('isPassed：达到阈值才通过', () {
       // 存活 6 人，阈值 3
       expect(NominationRules.isPassed(votesFor([1, 2, 3]), 6), isTrue);
@@ -193,6 +211,25 @@ void main() {
           payloadJson: 'not-json',
           reliability: Reliability.unverified,
           isMine: false,
+        );
+        expect(NominationRules.butlerMasterOf([decl], 5), isNull);
+      });
+
+      // #164 review P1：playerId 合法 JSON 但非 int（字符串）→ as int? 抛
+      // TypeError 逃逸 on FormatException；现类型守卫返回 null，不抛。
+      test('playerId 非法类型（字符串）→ null，不抛', () {
+        final decl = InfoDeclaration(
+          id: 1,
+          playerId: 5,
+          dayRecordId: 1,
+          characterType: Character.butler,
+          payloadJson: '{"playerId": "4"}',
+          reliability: Reliability.unverified,
+          isMine: false,
+        );
+        expect(
+          () => NominationRules.butlerMasterOf([decl], 5),
+          returnsNormally,
         );
         expect(NominationRules.butlerMasterOf([decl], 5), isNull);
       });

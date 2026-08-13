@@ -29,6 +29,32 @@ void main() {
       );
     });
 
+    // #164 B1：损坏 / 非对象 payload 不应抛（详情/时间线/依赖链不崩）。
+    test('损坏 payload → 降级文案，不抛', () {
+      expect(
+        () => InfoPayloadFormatter.summarize(
+          decl(Character.chef, 'not json'),
+          labelFor: labelFor,
+        ),
+        returnsNormally,
+      );
+      expect(
+        InfoPayloadFormatter.summarize(
+          decl(Character.chef, 'not json'),
+          labelFor: labelFor,
+        ),
+        '厨师（数据异常）',
+      );
+      // 合法 JSON 但非对象
+      expect(
+        InfoPayloadFormatter.summarize(
+          decl(Character.chef, '[1,2]'),
+          labelFor: labelFor,
+        ),
+        '厨师（数据异常）',
+      );
+    });
+
     test('双人 + 是/否', () {
       expect(
         InfoPayloadFormatter.summarize(
