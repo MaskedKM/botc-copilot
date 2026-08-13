@@ -164,20 +164,19 @@ abstract final class VotingAnalyzer {
     double anomalyBreakRatio = defaultAnomalyBreakRatio,
   }) {
     final details = _buildDetails(nominations, dayRecordToDayNumber);
-    final aliveIds = <int>{
-      for (final p in players)
-        if (p.isAlive) p.id,
-    };
+    // 聚类候选 = 全部玩家：是否成团由「共同提名数 ≥ minData」把关，
+    // 不按当前存活状态排除——生前有足量投票数据的死者仍属于其投票阵营
+    // （其死亡后无新投票，数据自然冻结，不影响后续）。
+    final allIds = <int>{for (final p in players) p.id};
     final consistency = _buildConsistency(details, players);
     final clusters = _detectClusters(
       consistency: consistency,
-      candidateIds: aliveIds,
+      candidateIds: allIds,
       ratio: clusterRatio,
       minData: clusterMinData,
     );
     final anomalies = _detectAnomalies(
       details: details,
-      aliveIds: aliveIds,
       minHistory: anomalyMinHistory,
       breakRatio: anomalyBreakRatio,
     );
@@ -259,8 +258,9 @@ abstract final class VotingAnalyzer {
     return result;
   }
 
-  /// 高频同投组检测：在存活候选者间，同向比例 ≥ [ratio] 且共同提名数
-  /// ≥ [minData] 的配对连边，取连通分量（≥2 人）。
+  /// 高频同投组检测：在候选者间，同向比例 ≥ [ratio] 且共同提名数
+  /// ≥ [minData] 的配对连边，取连通分量（≥2 人）。候选者为全部玩家，
+  /// 数据不足者（共同提名 < [minData]）自然不成边。
   static List<VoteCluster> _detectClusters({
     required Map<int, Map<int, VoteConsistency>> consistency,
     required Set<int> candidateIds,
@@ -284,6 +284,8 @@ abstract final class VotingAnalyzer {
       return root;
     }
 
+    // 成边的配对（a < b）→ 同向比例，用于 avgRatio
+    final edges = <int, Map<int, double>>{};
     final candidates = candidateIds.toList()..sort();
     for (var i = 0; i < candidates.length; i++) {
       final a = candidates[i];
@@ -295,6 +297,7 @@ abstract final class VotingAnalyzer {
         if (c == null) continue;
         if (c.participatedTogether >= minData && c.ratio >= ratio) {
           parent[find(a)] = find(b);
+          edges.putIfAbsent(a, () => <int, double>{})[b] = c.ratio;
         }
       }
     }
@@ -307,19 +310,19 @@ abstract final class VotingAnalyzer {
     final clusters = <VoteCluster>[];
     for (final members in groups.values) {
       if (members.length < 2) continue;
+      final memberSet = members.toSet();
       members.sort();
-      final ratios = <double>[];
-      for (var i = 0; i < members.length; i++) {
-        for (var j = i + 1; j < members.length; j++) {
-          final c = consistency[members[i]]?[members[j]];
-          if (c != null && c.participatedTogether > 0) {
-            ratios.add(c.ratio);
-          }
-        }
-      }
-      final avg = ratios.isEmpty
+      // avgRatio 仅取实际成边的对，避免把组内未成边的弱关联拉进来。
+      final edgeRatios = <double>[];
+      edges.forEach((a, inner) {
+        if (!memberSet.contains(a)) return;
+        inner.forEach((b, r) {
+          if (memberSet.contains(b)) edgeRatios.add(r);
+        });
+      });
+      final avg = edgeRatios.isEmpty
           ? 0.0
-          : ratios.reduce((a, b) => a + b) / ratios.length;
+          : edgeRatios.reduce((x, y) => x + y) / edgeRatios.length;
       clusters.add(VoteCluster(playerIds: members, avgRatio: avg));
     }
     clusters.sort((a, b) => b.playerIds.length.compareTo(a.playerIds.length));
@@ -328,13 +331,17 @@ abstract final class VotingAnalyzer {
 
   /// 异常投票检测。
   ///
-  /// 按时间序遍历：对每条有「多数立场」（存活参与者赞成/反对众数，平票
-  /// 或无人投票则无）的提名，检查每个存活投票者是否背离多数——若其历史
-  /// （此前有明确多数的提名）跟随率 ≥ [breakRatio] 且样本 ≥ [minHistory]，
-  /// 标记本次为异常。历史在本票处理**之后**更新。
+  /// 按时间序遍历：对每条有「多数立场」（投票时存活者赞成/反对众数，平票
+  /// 或无人投票则无）的提名，检查每个「投票时存活」的投票者是否背离多数
+  /// ——若其历史（此前有明确多数的提名）跟随率 ≥ [breakRatio] 且样本
+  /// ≥ [minHistory]，标记本次为异常。历史在本票处理**之后**更新。
+  ///
+  /// 时间正确性：用每票的 [VoteEntry.isDeadVote]（= 亡者唯一一票）判定
+  /// 「投票时是否存活」，而**非**当前存活状态——否则生前投的票会因玩家
+  /// 后来死亡被误排除，污染多数判定。弃权为中立信号：既不触发异常，也
+  /// 不计入跟随多数的历史。
   static List<VoteAnomaly> _detectAnomalies({
     required List<NominationVoteDetail> details,
-    required Set<int> aliveIds,
     required int minHistory,
     required double breakRatio,
   }) {
@@ -343,11 +350,12 @@ abstract final class VotingAnalyzer {
     final anomalies = <VoteAnomaly>[];
 
     for (final d in details) {
-      final majority = _majorityStance(d, aliveIds);
+      final majority = _majorityStance(d);
       if (majority == null) continue; // 无明确多数，不计入历史也不判定
 
       for (final v in d.votes) {
-        if (!aliveIds.contains(v.playerId)) continue; // 死票：仅详情展示
+        if (v.isDeadVote) continue; // 死票：亡者唯一一票，仅详情展示
+        if (v.vote == Vote.abstain) continue; // 弃权：中立信号，不参与
         final t = total[v.playerId] ?? 0;
         final m = matches[v.playerId] ?? 0;
         final priorRate = t == 0 ? 0.0 : m / t;
@@ -370,13 +378,13 @@ abstract final class VotingAnalyzer {
     return anomalies;
   }
 
-  /// 当次提名的多数立场：存活参与者中赞成/反对的众数。
-  /// 弃权不计入多数判定（弃权作中立信号）；平票或无人 → null。
-  static Vote? _majorityStance(NominationVoteDetail d, Set<int> aliveIds) {
+  /// 当次提名的多数立场：「投票时存活」参与者中赞成/反对的众数。
+  /// 死票（[VoteEntry.isDeadVote]）与弃权均不计入；平票或无人 → null。
+  static Vote? _majorityStance(NominationVoteDetail d) {
     var fors = 0;
     var againsts = 0;
     for (final v in d.votes) {
-      if (!aliveIds.contains(v.playerId)) continue;
+      if (v.isDeadVote) continue;
       if (v.vote == Vote.forVote) {
         fors++;
       } else if (v.vote == Vote.against) {

@@ -191,7 +191,37 @@ void main() {
       expect(a.clusters, isEmpty); // minData 默认 2
     });
 
-    test('死者不参与聚类', () {
+    test('共同提名不足 minData 者不聚类（无论死活）', () {
+      final players = [_player(1, 1), _player(2, 2), _player(3, 3)];
+      final noms = [
+        // nom1：三人都参与
+        _nom(
+          id: 10,
+          dayRecordId: 1,
+          votes: [
+            _v(1, Vote.forVote),
+            _v(2, Vote.forVote),
+            _v(3, Vote.forVote),
+          ],
+        ),
+        // nom2：P3 缺席 → P1-P2 共同 2 次，P3 与任一人仅 1 次
+        _nom(
+          id: 11,
+          dayRecordId: 2,
+          votes: [_v(1, Vote.forVote), _v(2, Vote.forVote)],
+        ),
+      ];
+      final a = VotingAnalyzer.analyze(
+        nominations: noms,
+        players: players,
+        dayRecordToDayNumber: dayOf,
+      );
+      expect(a.clusters.length, 1);
+      expect(a.clusters.single.playerIds, [1, 2]); // P3 数据不足，未成团
+    });
+
+    test('生前投票数据充足的死者仍参与聚类', () {
+      // P3 当前已死，但 nom1/2 时存活（非死票）与 P1/P2 同向投票
       final players = [
         _player(1, 1),
         _player(2, 2),
@@ -205,7 +235,7 @@ void main() {
             votes: [
               _v(1, Vote.forVote),
               _v(2, Vote.forVote),
-              _v(3, Vote.forVote, dead: true),
+              _v(3, Vote.forVote), // isDeadVote=false：生前投的票
             ],
           ),
       ];
@@ -214,9 +244,9 @@ void main() {
         players: players,
         dayRecordToDayNumber: dayOf,
       );
-      // 仅 {1,2} 成团，P3（死）即便两次同向也不在
+      // P3 虽当前已死，其生前投票数据充足 → 与 P1/P2 同组
       expect(a.clusters.length, 1);
-      expect(a.clusters.single.playerIds, [1, 2]);
+      expect(a.clusters.single.playerIds, containsAll([1, 2, 3]));
     });
   });
 
@@ -345,19 +375,33 @@ void main() {
     });
 
     test('死票不参与多数判定', () {
+      // P1/P2 存活；P3 已死（持死票）。若死票计入多数，nom3 会变成
+      // 赞成多数（P2+P3）→ P1 反对被误判为异常；正确行为是死票不计入
+      // → nom3 为 1:1 平票 → 无多数 → 无异常。
       final players = [
         _player(1, 1),
         _player(2, 2),
         _player(3, 3, alive: false),
       ];
-      // 存活 P1 赞成、P2 反对 → 平票（1:1）；死者 P3 赞成被忽略
       final noms = [
+        // nom1,2：P1/P2 赞成 → 多数赞成，P1 建立跟随历史
         _nom(
           id: 10,
           dayRecordId: 1,
+          votes: [_v(1, Vote.forVote), _v(2, Vote.forVote)],
+        ),
+        _nom(
+          id: 11,
+          dayRecordId: 2,
+          votes: [_v(1, Vote.forVote), _v(2, Vote.forVote)],
+        ),
+        // nom3：P1 反对、P2 赞成、P3 死票赞成
+        _nom(
+          id: 12,
+          dayRecordId: 3,
           votes: [
-            _v(1, Vote.forVote),
-            _v(2, Vote.against),
+            _v(1, Vote.against),
+            _v(2, Vote.forVote),
             _v(3, Vote.forVote, dead: true),
           ],
         ),
@@ -367,7 +411,96 @@ void main() {
         players: players,
         dayRecordToDayNumber: dayOf,
       );
-      // 存活 1:1 平票 → 无多数 → 无异常
+      expect(a.anomalies, isEmpty);
+    });
+
+    test('多数判定按「投票时存活」(isDeadVote) 而非当前存活状态', () {
+      // P3 当前已死，但 nom1-3 时存活（非死票）。若误用当前存活状态，
+      // P3 的票被排除 → nom3 退化为 1:1 平票 → 漏掉 P1 的背离。
+      final players = [
+        _player(1, 1),
+        _player(2, 2),
+        _player(3, 3, alive: false),
+      ];
+      final noms = [
+        // nom1,2：多数赞成，P1/P2 赞成，P3（生前）赞成
+        _nom(
+          id: 10,
+          dayRecordId: 1,
+          votes: [
+            _v(1, Vote.forVote),
+            _v(2, Vote.forVote),
+            _v(3, Vote.forVote),
+          ],
+        ),
+        _nom(
+          id: 11,
+          dayRecordId: 2,
+          votes: [
+            _v(1, Vote.forVote),
+            _v(2, Vote.forVote),
+            _v(3, Vote.forVote),
+          ],
+        ),
+        // nom3：多数赞成（P2/P3），P1 突然反对 → 应被标记
+        _nom(
+          id: 12,
+          dayRecordId: 3,
+          votes: [
+            _v(1, Vote.against),
+            _v(2, Vote.forVote),
+            _v(3, Vote.forVote),
+          ],
+        ),
+      ];
+      final a = VotingAnalyzer.analyze(
+        nominations: noms,
+        players: players,
+        dayRecordToDayNumber: dayOf,
+      );
+      expect(a.anomalies.length, 1);
+      expect(a.anomalies.single.voterId, 1);
+      expect(a.anomalies.single.nominationId, 12);
+    });
+
+    test('弃权为中立信号：不触发异常也不计入历史', () {
+      final players = [_player(1, 1), _player(2, 2), _player(3, 3)];
+      final noms = [
+        // nom1,2：多数赞成，P1 跟随 → 历史 2/2
+        _nom(
+          id: 10,
+          dayRecordId: 1,
+          votes: [
+            _v(1, Vote.forVote),
+            _v(2, Vote.forVote),
+            _v(3, Vote.forVote),
+          ],
+        ),
+        _nom(
+          id: 11,
+          dayRecordId: 2,
+          votes: [
+            _v(1, Vote.forVote),
+            _v(2, Vote.forVote),
+            _v(3, Vote.forVote),
+          ],
+        ),
+        // nom3：P1 弃权（多数仍赞成）→ 中立，不应标记为异常
+        _nom(
+          id: 12,
+          dayRecordId: 3,
+          votes: [
+            _v(1, Vote.abstain),
+            _v(2, Vote.forVote),
+            _v(3, Vote.forVote),
+          ],
+        ),
+      ];
+      final a = VotingAnalyzer.analyze(
+        nominations: noms,
+        players: players,
+        dayRecordToDayNumber: dayOf,
+      );
       expect(a.anomalies, isEmpty);
     });
   });

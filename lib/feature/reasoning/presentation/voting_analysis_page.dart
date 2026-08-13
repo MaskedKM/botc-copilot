@@ -3,6 +3,7 @@ import 'package:botc_copilot/core/theme/app_colors.dart';
 import 'package:botc_copilot/core/theme/app_text_styles.dart';
 import 'package:botc_copilot/core/theme/game_colors.dart';
 import 'package:botc_copilot/feature/game_board/domain/nomination_rules.dart';
+import 'package:botc_copilot/feature/game_board/data/nomination_repository.dart';
 import 'package:botc_copilot/feature/game_board/presentation/providers/game_board_provider.dart';
 import 'package:botc_copilot/feature/reasoning/data/voting_analysis_provider.dart';
 import 'package:botc_copilot/feature/reasoning/domain/voting_analysis.dart';
@@ -34,17 +35,23 @@ class VotingAnalysisPage extends ConsumerWidget {
     final analysis = ref.watch(votingAnalysisProvider(gameId));
     final players =
         ref.watch(gamePlayersProvider(gameId)).valueOrNull ?? [];
+    // 区分「加载中」与「确无提名」：provider 在两种情况都返回 null，
+    // 这里用底层提名流的加载态把加载中单独显示为转圈。
+    final nominationsLoading =
+        ref.watch(gameNominationsProvider(gameId).select((a) => a.isLoading));
     final gameColors = context.gameColors;
 
     return Scaffold(
       appBar: AppBar(title: const Text('投票分析')),
       body: SafeArea(
-        child: analysis == null
-            ? _Empty(gameColors: gameColors)
-            : _VotingAnalysisView(
-                analysis: analysis,
-                players: players,
-              ),
+        child: nominationsLoading
+            ? const Center(child: CircularProgressIndicator())
+            : analysis == null
+                ? _Empty(gameColors: gameColors)
+                : _VotingAnalysisView(
+                    analysis: analysis,
+                    players: players,
+                  ),
       ),
     );
   }
@@ -263,7 +270,8 @@ class _ClusterCard extends StatelessWidget {
               for (final id in cluster.playerIds)
                 Chip(
                   label: Text(
-                    '${byId[id]?.seatNumber ?? id}号',
+                    '${byId[id]?.seatNumber ?? id}号'
+                    '${(byId[id]?.isAlive ?? true) ? '' : '☠'}',
                     style: AppTextStyles.caption,
                   ),
                   visualDensity: VisualDensity.compact,
