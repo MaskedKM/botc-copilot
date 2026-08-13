@@ -18,46 +18,51 @@ class PoisonRepository {
   final AppDatabase _db;
 
   /// 切换某玩家当天的醉/毒标记：已存在则删除，不存在则插入。
+  ///
+  /// 整体包事务（#150 R1）：read hit → delete/insert + restore/taint 派生写
+  /// 须原子，否则快速连点 / TOCTOU 可插重复行（叠加 #150 B1 唯一约束兜底）。
   Future<void> toggleStatus({
     required int gameId,
     required int playerId,
     required int dayNumber,
     PoisonSource source = PoisonSource.poisoner,
   }) async {
-    final hit =
-        await _db.poisonStatusesDao.findByPlayerAndDay(playerId, dayNumber);
-    if (hit != null) {
-      await _db.poisonStatusesDao.deleteStatus(hit.id);
-      // 取消标毒 → 若无残留毒源（Poisoner 声明）则恢复该玩家当夜信息（#122 对称）
-      final dayRecord =
-          await _db.dayRecordsDao.getByGameAndDay(gameId, dayNumber);
-      if (dayRecord != null &&
-          !await _db.infoDeclarationsDao
-              .isPlayerPoisonedFromSources(dayRecord.id, playerId)) {
-        await _db.infoDeclarationsDao.restorePlayerDeclarations(
-          dayRecord.id,
-          playerId,
+    await _db.transaction(() async {
+      final hit =
+          await _db.poisonStatusesDao.findByPlayerAndDay(playerId, dayNumber);
+      if (hit != null) {
+        await _db.poisonStatusesDao.deleteStatus(hit.id);
+        // 取消标毒 → 若无残留毒源（Poisoner 声明）则恢复该玩家当夜信息（#122 对称）
+        final dayRecord =
+            await _db.dayRecordsDao.getByGameAndDay(gameId, dayNumber);
+        if (dayRecord != null &&
+            !await _db.infoDeclarationsDao
+                .isPlayerPoisonedFromSources(dayRecord.id, playerId)) {
+          await _db.infoDeclarationsDao.restorePlayerDeclarations(
+            dayRecord.id,
+            playerId,
+          );
+        }
+      } else {
+        await _db.poisonStatusesDao.insertStatus(
+          PoisonStatusesCompanion(
+            gameId: Value(gameId),
+            playerId: Value(playerId),
+            dayNumber: Value(dayNumber),
+            source: Value(source),
+          ),
         );
+        // 回溯（#122）：手动标毒 → 该玩家当夜已录信息降级（与 Poisoner 目标对称）
+        final dayRecord =
+            await _db.dayRecordsDao.getByGameAndDay(gameId, dayNumber);
+        if (dayRecord != null) {
+          await _db.infoDeclarationsDao.taintPlayerDeclarations(
+            dayRecord.id,
+            playerId,
+          );
+        }
       }
-    } else {
-      await _db.poisonStatusesDao.insertStatus(
-        PoisonStatusesCompanion(
-          gameId: Value(gameId),
-          playerId: Value(playerId),
-          dayNumber: Value(dayNumber),
-          source: Value(source),
-        ),
-      );
-      // 回溯（#122）：手动标毒 → 该玩家当夜已录信息降级（与 Poisoner 目标对称）
-      final dayRecord =
-          await _db.dayRecordsDao.getByGameAndDay(gameId, dayNumber);
-      if (dayRecord != null) {
-        await _db.infoDeclarationsDao.taintPlayerDeclarations(
-          dayRecord.id,
-          playerId,
-        );
-      }
-    }
+    });
   }
 
   /// 某玩家当天是否有生效的醉/毒标记（供录入信息时自动降级可靠性）。
