@@ -20,7 +20,8 @@ class InfoDeclarationsDao extends DatabaseAccessor<AppDatabase>
             ..where((i) => i.dayRecordId.equals(dayRecordId)))
           .watch();
 
-  /// 查询某天的全部信息声明（事务内用，drift 事务不支持 .watch，#150 R2）。
+  /// 查询某天的全部信息声明（事务内用——事务内 await stream 的 .first 会挂起，
+  /// 须用 .get，#150 R2）。
   Future<List<InfoDeclaration>> getByDay(int dayRecordId) =>
       (select(infoDeclarations)
             ..where((i) => i.dayRecordId.equals(dayRecordId)))

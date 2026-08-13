@@ -55,7 +55,7 @@ class PlayerDetailRepository {
     int? gameId,
   }) async {
     // 整体包事务（#150 R2）：reliability 决策 → 插入 → 回溯降级须原子。
-    // 用 get 查询（drift 事务不支持 .watch）。
+    // 用 get 查询（事务内 await stream 的 .first 会挂起，须用 .get）。
     return _db.transaction(() async {
       // (b) 当夜 Poisoner 是否毒了本玩家（#122）
       final dayDecls = await _db.infoDeclarationsDao.getByDay(dayRecordId);
@@ -68,7 +68,8 @@ class PlayerDetailRepository {
           return false;
         }
       });
-      // (a) 手动标毒（findByPlayerAndDay 经唯一约束保证单行，#150 B1）
+      // (a) 手动标毒：findByPlayerAndDay 按 (player,day) 查（playerId 全局唯一，
+      // 叠加唯一约束保证单行，getSingleOrNull 不会多行抛异常，#150 B1）。
       final manualTainted = (dayNumber != null && gameId != null) &&
           ((await _db.poisonStatusesDao.findByPlayerAndDay(
                 playerId,
