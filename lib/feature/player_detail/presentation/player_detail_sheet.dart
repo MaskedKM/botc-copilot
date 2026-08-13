@@ -796,11 +796,15 @@ class _InfoRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 2),
       child: Row(
         children: [
-          Icon(
-            Icons.circle,
-            size: 6,
-            color: context.gameColors.ofReliability(
-              effectiveReliability(decl.reliability, authorSuspectedDrunk),
+          // a11y：可靠性圆点需语义标签（#135），不能只靠颜色。
+          Semantics(
+            label: '可靠性：${effectiveReliability(decl.reliability, authorSuspectedDrunk).nameCn}',
+            child: Icon(
+              Icons.circle,
+              size: 6,
+              color: context.gameColors.ofReliability(
+                effectiveReliability(decl.reliability, authorSuspectedDrunk),
+              ),
             ),
           ),
           const SizedBox(width: 8),
