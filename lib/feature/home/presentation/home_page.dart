@@ -67,7 +67,6 @@ class _GameCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final gameColors = context.gameColors;
-    final ongoing = game.status == GameStatus.ongoing;
 
     return Dismissible(
       key: ValueKey('game-${game.id}'),
@@ -99,9 +98,8 @@ class _GameCard extends ConsumerWidget {
             style: AppTextStyles.caption,
           ),
           trailing: _StatusBadge(status: game.status),
-          onTap: ongoing
-              ? () => context.push(AppRoutes.gameBoard(game.id))
-              : null,
+          // 已结束对局亦可点进只读复盘（issue #134）。
+          onTap: () => context.push(AppRoutes.gameBoard(game.id)),
         ),
       ),
     );
