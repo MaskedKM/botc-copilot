@@ -80,7 +80,7 @@ class VotingPanel extends ConsumerWidget {
                           '（${(pending).forCount} 票，可被更高票替换）'
                       : '平票 ${(pending as PendingTie).forCount} 票'
                           ' —— 无人即将死亡，后续须超过此票数',
-                  style: AppTextStyles.body.copyWith(color: gameColors.blood),
+                  style: AppTextStyles.body.copyWith(color: gameColors.bloodBright),
                 ),
                 // 一键处决（issue #85）：从「即将死亡」直达处决录入
                 if (pending is PendingExecution && pendingNominee != null) ...[

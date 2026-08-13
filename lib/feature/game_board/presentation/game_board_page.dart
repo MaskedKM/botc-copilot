@@ -737,7 +737,7 @@ class _QuickActionsSheetState extends ConsumerState<_QuickActionsSheet> {
               ),
               title: Text(
                 widget.player.isAlive ? '标记死亡…' : '复活…',
-                style: TextStyle(color: gameColors.blood),
+                style: TextStyle(color: gameColors.bloodBright),
               ),
               onTap: () {
                 Navigator.of(context).pop();

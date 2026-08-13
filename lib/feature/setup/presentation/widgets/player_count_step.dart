@@ -53,12 +53,12 @@ class PlayerCountStep extends ConsumerWidget {
                     _CountBadge(
                       label: '爪牙',
                       count: setup.minions,
-                      color: gameColors.blood,
+                      color: gameColors.bloodBright,
                     ),
                     _CountBadge(
                       label: '恶魔',
                       count: setup.demons,
-                      color: gameColors.blood,
+                      color: gameColors.bloodBright,
                     ),
                   ],
                 ),

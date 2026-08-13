@@ -40,7 +40,7 @@ class ContradictionPanel extends ConsumerWidget {
                 child: Text(
                   '${contradictions.length}',
                   style: AppTextStyles.caption
-                      .copyWith(color: gameColors.blood),
+                      .copyWith(color: gameColors.bloodBright),
                 ),
               ),
           ],

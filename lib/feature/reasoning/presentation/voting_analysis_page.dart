@@ -383,7 +383,7 @@ class _ConsistencyMatrix extends StatelessWidget {
                         style: AppTextStyles.caption.copyWith(
                           color: row.isAlive
                               ? null
-                              : AppColors.textDisabled,
+                              : AppColors.textPrimary.withValues(alpha: 0.45),
                         ),
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -522,7 +522,7 @@ class _NominationDetailTile extends StatelessWidget {
               style: AppTextStyles.caption.copyWith(
                 color: p == null || p.isAlive
                     ? null
-                    : AppColors.textDisabled,
+                    : AppColors.textPrimary.withValues(alpha: 0.45),
               ),
             ),
           ),

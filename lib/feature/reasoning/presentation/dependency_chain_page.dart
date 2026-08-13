@@ -161,7 +161,7 @@ class _SandboxBar extends StatelessWidget {
           Expanded(
             child: Text(
               '假设中（仅本页试算，不改存档）：${assumedSeats.join('、')} 醉',
-              style: AppTextStyles.caption.copyWith(color: gameColors.blood),
+              style: AppTextStyles.caption.copyWith(color: gameColors.bloodBright),
             ),
           ),
           TextButton(onPressed: onReset, child: const Text('重置')),
