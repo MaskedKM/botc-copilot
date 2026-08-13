@@ -457,4 +457,69 @@ void main() {
         await container.read(latestTrustLevelsProvider(gameId).future);
     expect(levels[players[0].id], TrustLevel.confirmedGood);
   });
+
+  // 等待构造中 fire 的 _restoreState 完成（#154 ISSUE-3）。
+  Future<void> waitForRestore() async {
+    for (var i = 0; i < 50 && !state().initialized; i++) {
+      await Future<void>.delayed(Duration.zero);
+    }
+  }
+
+  test('恢复 currentDay：从 day_records 最大 dayNumber 恢复（#154 ISSUE-3）', () async {
+    // 预建 day 1-3 记录（模拟进行到第 3 天后重启）
+    for (var d = 1; d <= 3; d++) {
+      await db.dayRecordsDao.insertDay(
+        DayRecordsCompanion(gameId: Value(gameId), dayNumber: Value(d)),
+      );
+    }
+    notifier(); // 构造 fire _restoreState
+    await waitForRestore();
+    expect(state().initialized, isTrue);
+    expect(state().currentDay, 3);
+  });
+
+  test('全新局恢复 currentDay=1（无 day 记录，#154 ISSUE-3）', () async {
+    notifier();
+    await waitForRestore();
+    expect(state().initialized, isTrue);
+    expect(state().currentDay, 1);
+  });
+
+  test('revertAdvanceDay：回退清理孤儿注释三表（#154 R-1）', () async {
+    notifier();
+    await waitForRestore();
+    // 推进到第 2 天（空记录）
+    await notifier().advanceDay();
+    expect(state().currentDay, 2);
+    // 在第 2 天设信任度、标毒、加备注（按 gameId+dayNumber 挂载，无 dayRecordId FK）
+    await db.trustLogsDao.insertLog(TrustLogsCompanion(
+      gameId: Value(gameId),
+      playerId: Value(players[0].id),
+      dayNumber: const Value(2),
+      trustLevel: const Value(TrustLevel.confirmedGood),
+    ));
+    await db.poisonStatusesDao.insertStatus(PoisonStatusesCompanion(
+      gameId: Value(gameId),
+      playerId: Value(players[1].id),
+      dayNumber: const Value(2),
+      source: const Value(PoisonSource.poisoner),
+    ));
+    await db.behaviorNotesDao.insertNote(BehaviorNotesCompanion(
+      gameId: Value(gameId),
+      playerId: Value(players[2].id),
+      dayNumber: const Value(2),
+      note: const Value('可疑发言'),
+      createdAt: Value(DateTime(2026, 8, 13)),
+    ));
+    // 回退第 2 天
+    final ok = await notifier().revertAdvanceDay();
+    expect(ok, isTrue);
+    expect(state().currentDay, 1);
+    // 三表第 2 天的记录已清空（不再成孤儿）
+    expect(await db.trustLogsDao.watchByGame(gameId).first, isEmpty);
+    expect(await db.poisonStatusesDao.watchByGame(gameId).first, isEmpty);
+    expect(await db.behaviorNotesDao.watchByGame(gameId).first, isEmpty);
+    // day 2 记录已删
+    expect(await db.dayRecordsDao.getByGameAndDay(gameId, 2), isNull);
+  });
 }

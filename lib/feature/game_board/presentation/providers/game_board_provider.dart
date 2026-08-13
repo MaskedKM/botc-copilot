@@ -7,6 +7,7 @@ import 'package:botc_copilot/feature/game_board/domain/succession.dart';
 import 'package:botc_copilot/shared/models/enums.dart';
 import 'package:drift/drift.dart' hide Column;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:meta/meta.dart';
 
 /// 当前进行中的对局（最近创建的一局 ongoing）。
 final currentGameProvider = StreamProvider<Game?>((ref) {
@@ -85,7 +86,11 @@ final gameHelpLevelProvider = Provider.family<HelpLevel, int>((ref, gameId) {
 /// 对局主界面状态。
 class GameBoardState {
   /// 创建状态。
-  const GameBoardState({this.currentDay = 1, this.selectedPlayerId});
+  const GameBoardState({
+    this.currentDay = 1,
+    this.selectedPlayerId,
+    this.initialized = false,
+  });
 
   /// 当前天数（从 1 开始）。
   final int currentDay;
@@ -93,13 +98,24 @@ class GameBoardState {
   /// 当前选中玩家 id（null = 未选中）。
   final int? selectedPlayerId;
 
+  /// 是否已从数据库恢复 currentDay（#154 ISSUE-3）。
+  ///
+  /// 构造时为 false，[restoreState] 完成后置 true。页面据此显示加载骨架、
+  /// 禁用交互，避免恢复窗口内对错误天数操作。
+  final bool initialized;
+
   /// 复制并修改部分字段。
-  GameBoardState copyWith({int? currentDay, int? Function()? selectedPlayerId}) {
+  GameBoardState copyWith({
+    int? currentDay,
+    int? Function()? selectedPlayerId,
+    bool? initialized,
+  }) {
     return GameBoardState(
       currentDay: currentDay ?? this.currentDay,
       selectedPlayerId: selectedPlayerId != null
           ? selectedPlayerId()
           : this.selectedPlayerId,
+      initialized: initialized ?? this.initialized,
     );
   }
 }
@@ -107,12 +123,43 @@ class GameBoardState {
 /// 对局主界面状态管理。
 class GameBoardNotifier extends StateNotifier<GameBoardState> {
   /// 创建 notifier。
-  GameBoardNotifier(this._ref, this._gameId) : super(const GameBoardState());
+  ///
+  /// currentDay 纯内存、构造起 1——重启 ongoing 对局会回 1（#154 ISSUE-3）。
+  /// 故构造后立即 [restoreState] 从 day_records 最大 dayNumber 异步恢复。
+  GameBoardNotifier(this._ref, this._gameId) : super(const GameBoardState()) {
+    restoreState();
+  }
 
   final Ref _ref;
   final int _gameId;
 
   AppDatabase get _db => _ref.read(appDatabaseProvider);
+
+  /// 从数据库恢复 currentDay（#154 ISSUE-3）。
+  ///
+  /// 取 day_records 最大 dayNumber（advanceDay 恒建记录、revert 删记录，故
+  /// max ≡ 最后 currentDay）。用 `max(currentDay, maxDay)`——恢复**只增不减**，
+  /// 避免恢复期间已 advance 的测试/调用被覆盖。完成后置 initialized=true，页面
+  /// 据此解除加载骨架。全新局 maxDay=null → currentDay 保持 1。
+  ///
+  /// {@template game_board.restoreState}
+  /// 测试桩可 override 跳过 DB IO（widget test 不碰真实 DB），仅标记 initialized。
+  /// {@endtemplate}
+  @visibleForOverriding
+  Future<void> restoreState() async {
+    try {
+      final maxDay = await _db.dayRecordsDao.maxDayNumberForGame(_gameId);
+      if (!mounted) return;
+      final restored = maxDay ?? 1;
+      if (restored > state.currentDay) {
+        state = state.copyWith(currentDay: restored);
+      }
+    } catch (_) {
+      // DB 读失败：保持 currentDay（默认 1），不阻塞界面（#154 review）。
+      if (!mounted) return;
+    }
+    state = state.copyWith(initialized: true);
+  }
 
   /// 选中/取消选中玩家（再次点同一玩家 = 取消）。
   void selectPlayer(int? playerId) {
@@ -605,8 +652,9 @@ class GameBoardNotifier extends StateNotifier<GameBoardState> {
 
   /// 撤销最近一次推进（仅当天为预建的空记录时，issue #87）。
   ///
-  /// 当天一旦有夜晚结果 / 处决 / 提名即视为已使用，不可静默回退。
-  /// 返回是否成功回退。
+  /// 当天一旦有夜晚结果 / 处决 / 提名即视为已使用，不可静默回退。注释三表
+  /// （信任度/毒/备注）按 gameId+dayNumber 挂载、无 dayRecordId FK，删天记录
+  /// 不级联——回退时一并清理，避免孤儿（#154 R-1）。返回是否成功回退。
   Future<bool> revertAdvanceDay() async {
     if (state.currentDay <= 1) return false;
     final day =
@@ -623,7 +671,17 @@ class GameBoardNotifier extends StateNotifier<GameBoardState> {
     final hasInfo =
         (await _db.infoDeclarationsDao.watchByDay(day.id).first).isNotEmpty;
     if (hasNight || hasExec || hasNoms || hasClaims || hasInfo) return false;
-    await _db.dayRecordsDao.deleteDay(day.id);
+    // 回退当天：删天记录 + 清理按 gameId+dayNumber 挂载、无 dayRecordId FK 的
+    // 注释/事件表（信任度/毒/备注/传承），否则它们残留成孤儿——latestTrustLevels
+    // 仍读到「已不存在天」的信任度、毒残留让可靠性恢复链卡死（#154 R-1）。
+    final revertDay = day.dayNumber;
+    await _db.transaction(() async {
+      await _db.trustLogsDao.deleteByGameAndDay(_gameId, revertDay);
+      await _db.poisonStatusesDao.deleteByGameAndDay(_gameId, revertDay);
+      await _db.behaviorNotesDao.deleteByGameAndDay(_gameId, revertDay);
+      await _db.demonInheritancesDao.deleteByGameAndDay(_gameId, revertDay);
+      await _db.dayRecordsDao.deleteDay(day.id);
+    });
     state = state.copyWith(
       currentDay: state.currentDay - 1,
       selectedPlayerId: () => null,

@@ -42,4 +42,15 @@ class DemonInheritancesDao extends DatabaseAccessor<AppDatabase>
   /// 记录一次传承。
   Future<int> insertSuccession(DemonInheritancesCompanion entry) =>
       into(demonInheritances).insert(entry);
+
+  /// 删除某局某天的全部传承事件（回退当天时清理孤儿，#154 R-1）。
+  ///
+  /// DemonInheritances 与 trust/poison/behavior 同样按 gameId+dayNumber 挂载、
+  /// 无 dayRecordId FK，deleteDay 不级联——revertAdvanceDay 须一并清理。
+  Future<int> deleteByGameAndDay(int gameId, int dayNumber) =>
+      (delete(demonInheritances)
+            ..where(
+              (t) => t.gameId.equals(gameId) & t.dayNumber.equals(dayNumber),
+            ))
+          .go();
 }

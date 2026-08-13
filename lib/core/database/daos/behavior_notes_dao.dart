@@ -50,4 +50,13 @@ class BehaviorNotesDao extends DatabaseAccessor<AppDatabase>
   Future<int> deleteNote(int id) {
     return (delete(behaviorNotes)..where((n) => n.id.equals(id))).go();
   }
+
+  /// 删除某局某天的全部备注（回退当天时清理孤儿，#154 R-1）。
+  Future<int> deleteByGameAndDay(int gameId, int dayNumber) {
+    return (delete(behaviorNotes)
+          ..where(
+            (n) => n.gameId.equals(gameId) & n.dayNumber.equals(dayNumber),
+          ))
+        .go();
+  }
 }

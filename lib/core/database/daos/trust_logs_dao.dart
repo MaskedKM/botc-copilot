@@ -42,4 +42,12 @@ class TrustLogsDao extends DatabaseAccessor<AppDatabase>
   /// 删除日志。
   Future<int> deleteLog(int id) =>
       (delete(trustLogs)..where((t) => t.id.equals(id))).go();
+
+  /// 删除某局某天的全部信任度日志（回退当天时清理孤儿，#154 R-1）。
+  Future<int> deleteByGameAndDay(int gameId, int dayNumber) =>
+      (delete(trustLogs)
+            ..where(
+              (t) => t.gameId.equals(gameId) & t.dayNumber.equals(dayNumber),
+            ))
+          .go();
 }
