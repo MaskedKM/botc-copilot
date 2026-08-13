@@ -101,6 +101,111 @@ void main() {
       expect(NominationRules.isPassed(votesFor([1, 2, 3]), 6), isTrue);
       expect(NominationRules.isPassed(votesFor([1, 2]), 6), isFalse);
     });
+
+    group('butlerVoteRestricted（管家投票限制，#115）', () {
+      test('管家赞成 + 主人赞成 → 不限', () {
+        expect(
+          NominationRules.butlerVoteRestricted(
+            butlerVote: Vote.forVote,
+            masterVote: Vote.forVote,
+          ),
+          isFalse,
+        );
+      });
+
+      test('管家赞成 + 主人反对/弃权/未录 → 受限（此票无效）', () {
+        expect(
+          NominationRules.butlerVoteRestricted(
+            butlerVote: Vote.forVote,
+            masterVote: Vote.against,
+          ),
+          isTrue,
+        );
+        expect(
+          NominationRules.butlerVoteRestricted(
+            butlerVote: Vote.forVote,
+            masterVote: Vote.abstain,
+          ),
+          isTrue,
+        );
+        expect(
+          NominationRules.butlerVoteRestricted(
+            butlerVote: Vote.forVote,
+            masterVote: null,
+          ),
+          isTrue,
+        );
+      });
+
+      test('管家非赞成（反对/弃权/未录）→ 不限（管家不举手无约束）', () {
+        expect(
+          NominationRules.butlerVoteRestricted(
+            butlerVote: Vote.against,
+            masterVote: Vote.forVote,
+          ),
+          isFalse,
+        );
+        expect(
+          NominationRules.butlerVoteRestricted(
+            butlerVote: null,
+            masterVote: null,
+          ),
+          isFalse,
+        );
+      });
+    });
+
+    group('butlerMasterOf（管家主人查找，#115）', () {
+      InfoDeclaration butlerDecl(
+        int id,
+        int playerId,
+        int masterId, {
+        int dayRecordId = 1,
+      }) =>
+          InfoDeclaration(
+            id: id,
+            playerId: playerId,
+            dayRecordId: dayRecordId,
+            characterType: Character.butler,
+            payloadJson: '{"playerId": $masterId}',
+            reliability: Reliability.unverified,
+            isMine: false,
+          );
+
+      test('取最新 butler 声明的主人', () {
+        final decls = [
+          butlerDecl(1, 5, 2), // 旧主人 2
+          butlerDecl(2, 5, 4), // 新主人 4
+        ];
+        expect(NominationRules.butlerMasterOf(decls, 5), 4);
+      });
+
+      test('无 butler 声明 → null', () {
+        expect(NominationRules.butlerMasterOf(const [], 5), isNull);
+      });
+
+      test('payload 异常 → null', () {
+        final decl = InfoDeclaration(
+          id: 1,
+          playerId: 5,
+          dayRecordId: 1,
+          characterType: Character.butler,
+          payloadJson: 'not-json',
+          reliability: Reliability.unverified,
+          isMine: false,
+        );
+        expect(NominationRules.butlerMasterOf([decl], 5), isNull);
+      });
+
+      test('只取该管家自己的声明（忽略他人 butler 声明）', () {
+        final decls = [
+          butlerDecl(1, 6, 3),
+          butlerDecl(2, 5, 4),
+        ];
+        expect(NominationRules.butlerMasterOf(decls, 5), 4);
+        expect(NominationRules.butlerMasterOf(decls, 6), 3);
+      });
+    });
   });
 
   group('fillQuickVotes（快录补全，issue #84）', () {
