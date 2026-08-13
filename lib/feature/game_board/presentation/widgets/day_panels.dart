@@ -55,19 +55,31 @@ class NightPanel extends ConsumerWidget {
                   dayRecord?.nightDeathPlayerId == null,
               onSelected: ongoing ? (_) => notifier.recordNightDeath(null) : null,
             ),
-            for (final p in players.where((p) => p.isAlive))
+            // 含当前夜杀目标（夜杀后已死但保留 chip 可见、可点按撤销，#156 S1）；
+            // 往日死者仍排除（不能夜杀已死之人）。
+            for (final p in players.where(
+                (p) => p.isAlive || p.id == dayRecord?.nightDeathPlayerId))
               ChoiceChip(
-                label: Text('${p.seatNumber}号 ${p.name}'),
+                label: Text(
+                    '${p.seatNumber}号 ${p.name}${p.isAlive ? '' : ' ☠'}'),
                 selected: dayRecord?.nightDeathPlayerId == p.id,
                 onSelected: ongoing
-                    ? (_) => _confirmNightDeath(
-                          context,
-                          ref,
-                          player: p,
-                          gameId: gameId,
-                          day: day,
-                          notifier: notifier,
-                        )
+                    ? (selected) {
+                        // 已选中目标再次点按 → 撤销夜杀（recordNightDeath(null)
+                        // 经 _revivePreviousDeath 复活，与「无人死亡」同路径）。
+                        if (!selected) {
+                          notifier.recordNightDeath(null);
+                        } else {
+                          _confirmNightDeath(
+                            context,
+                            ref,
+                            player: p,
+                            gameId: gameId,
+                            day: day,
+                            notifier: notifier,
+                          );
+                        }
+                      }
                     : null,
               ),
           ],

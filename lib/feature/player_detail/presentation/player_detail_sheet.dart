@@ -449,7 +449,9 @@ class _PlayerDetailSheetState extends ConsumerState<PlayerDetailSheet> {
                 gameId: widget.gameId,
                 playerId: playerId,
                 currentRole: effectiveRole,
-                authorSuspectedDrunk: initialDrunk,
+                // #156 BUG-C：用 displayDrunk（含草稿）而非 initialDrunk（保存值），
+                // 拨醉汉开关后可靠性圆点即时联动，无需保存。
+                authorSuspectedDrunk: displayDrunk,
                 readOnly: readOnly,
               ),
               // 恶魔私密爪牙名单（7+ 人局，我=恶魔，#108/#131 迁入）
