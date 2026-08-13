@@ -70,9 +70,10 @@ class _GameBoardBody extends ConsumerWidget {
     final trustLevels =
         ref.watch(latestTrustLevelsProvider(gameId)).valueOrNull ?? {};
 
-    // 玩家流未就绪时不渲染圆环（0 人会违反布局的 5-15 断言）。
+    // 玩家流未就绪 / currentDay 未恢复（#154 ISSUE-3）时不渲染圆环
+    // （0 人会违反布局的 5-15 断言；未恢复天数时禁用交互避免对错误天数操作）。
     final players = playersAsync.valueOrNull;
-    if (players == null || players.isEmpty) {
+    if (players == null || players.isEmpty || !boardState.initialized) {
       return const Scaffold(
         body: Center(child: CircularProgressIndicator()),
       );

@@ -16,6 +16,18 @@ class DayRecordsDao extends DatabaseAccessor<AppDatabase>
         ..orderBy([(d) => OrderingTerm.asc(d.dayNumber)]))
       .watch();
 
+  /// 某局最大的天数（用于重启后恢复 currentDay，#154 ISSUE-3）。
+  ///
+  /// advanceDay 恒建次日记录、revert 删当日记录，故最大 dayNumber ≡ 最后的
+  /// currentDay。无记录时返回 null（调用方回退到 1）。
+  Future<int?> maxDayNumberForGame(int gameId) async {
+    final query = selectOnly(dayRecords)
+      ..where(dayRecords.gameId.equals(gameId))
+      ..addColumns([dayRecords.dayNumber.max()]);
+    final row = await query.getSingleOrNull();
+    return row?.read(dayRecords.dayNumber.max());
+  }
+
   /// 查询某局某天的记录。
   Future<DayRecord?> getByGameAndDay(int gameId, int dayNumber) =>
       (select(dayRecords)

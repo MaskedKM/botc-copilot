@@ -457,4 +457,31 @@ void main() {
         await container.read(latestTrustLevelsProvider(gameId).future);
     expect(levels[players[0].id], TrustLevel.confirmedGood);
   });
+
+  // 等待构造中 fire 的 _restoreState 完成（#154 ISSUE-3）。
+  Future<void> waitForRestore() async {
+    for (var i = 0; i < 50 && !state().initialized; i++) {
+      await Future<void>.delayed(Duration.zero);
+    }
+  }
+
+  test('恢复 currentDay：从 day_records 最大 dayNumber 恢复（#154 ISSUE-3）', () async {
+    // 预建 day 1-3 记录（模拟进行到第 3 天后重启）
+    for (var d = 1; d <= 3; d++) {
+      await db.dayRecordsDao.insertDay(
+        DayRecordsCompanion(gameId: Value(gameId), dayNumber: Value(d)),
+      );
+    }
+    notifier(); // 构造 fire _restoreState
+    await waitForRestore();
+    expect(state().initialized, isTrue);
+    expect(state().currentDay, 3);
+  });
+
+  test('全新局恢复 currentDay=1（无 day 记录，#154 ISSUE-3）', () async {
+    notifier();
+    await waitForRestore();
+    expect(state().initialized, isTrue);
+    expect(state().currentDay, 1);
+  });
 }

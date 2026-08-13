@@ -85,7 +85,11 @@ final gameHelpLevelProvider = Provider.family<HelpLevel, int>((ref, gameId) {
 /// 对局主界面状态。
 class GameBoardState {
   /// 创建状态。
-  const GameBoardState({this.currentDay = 1, this.selectedPlayerId});
+  const GameBoardState({
+    this.currentDay = 1,
+    this.selectedPlayerId,
+    this.initialized = false,
+  });
 
   /// 当前天数（从 1 开始）。
   final int currentDay;
@@ -93,13 +97,24 @@ class GameBoardState {
   /// 当前选中玩家 id（null = 未选中）。
   final int? selectedPlayerId;
 
+  /// 是否已从数据库恢复 currentDay（#154 ISSUE-3）。
+  ///
+  /// 构造时为 false，[_restoreState] 完成后置 true。页面据此显示加载骨架、
+  /// 禁用交互，避免恢复窗口内对错误天数操作。
+  final bool initialized;
+
   /// 复制并修改部分字段。
-  GameBoardState copyWith({int? currentDay, int? Function()? selectedPlayerId}) {
+  GameBoardState copyWith({
+    int? currentDay,
+    int? Function()? selectedPlayerId,
+    bool? initialized,
+  }) {
     return GameBoardState(
       currentDay: currentDay ?? this.currentDay,
       selectedPlayerId: selectedPlayerId != null
           ? selectedPlayerId()
           : this.selectedPlayerId,
+      initialized: initialized ?? this.initialized,
     );
   }
 }
@@ -107,12 +122,33 @@ class GameBoardState {
 /// 对局主界面状态管理。
 class GameBoardNotifier extends StateNotifier<GameBoardState> {
   /// 创建 notifier。
-  GameBoardNotifier(this._ref, this._gameId) : super(const GameBoardState());
+  ///
+  /// currentDay 纯内存、构造起 1——重启 ongoing 对局会回 1（#154 ISSUE-3）。
+  /// 故构造后立即 [_restoreState] 从 day_records 最大 dayNumber 异步恢复。
+  GameBoardNotifier(this._ref, this._gameId) : super(const GameBoardState()) {
+    _restoreState();
+  }
 
   final Ref _ref;
   final int _gameId;
 
   AppDatabase get _db => _ref.read(appDatabaseProvider);
+
+  /// 从数据库恢复 currentDay（#154 ISSUE-3）。
+  ///
+  /// 取 day_records 最大 dayNumber（advanceDay 恒建记录、revert 删记录，故
+  /// max ≡ 最后 currentDay）。用 `max(currentDay, maxDay)`——恢复**只增不减**，
+  /// 避免恢复期间已 advance 的测试/调用被覆盖。完成后置 initialized=true，页面
+  /// 据此解除加载骨架。全新局 maxDay=null → currentDay 保持 1。
+  Future<void> _restoreState() async {
+    final maxDay = await _db.dayRecordsDao.maxDayNumberForGame(_gameId);
+    if (!mounted) return;
+    final restored = maxDay ?? 1;
+    if (restored > state.currentDay) {
+      state = state.copyWith(currentDay: restored);
+    }
+    state = state.copyWith(initialized: true);
+  }
 
   /// 选中/取消选中玩家（再次点同一玩家 = 取消）。
   void selectPlayer(int? playerId) {
