@@ -4,6 +4,7 @@ import 'package:botc_copilot/core/database/database_provider.dart';
 import 'package:go_router/go_router.dart';
 import 'package:botc_copilot/core/theme/app_colors.dart';
 import 'package:botc_copilot/core/theme/app_text_styles.dart';
+import 'package:botc_copilot/core/theme/app_theme.dart';
 import 'package:botc_copilot/core/theme/game_colors.dart';
 import 'package:botc_copilot/feature/game_board/data/poison_repository.dart';
 import 'package:botc_copilot/feature/game_board/domain/game_end.dart';
@@ -505,9 +506,39 @@ class _GameBoardBody extends ConsumerWidget {
           .gamesDao
           .updateHelpLevel(game.id, level);
     }
-    return ref
-        .read(gameBoardProvider(gameId).notifier)
-        .endGame(goodWin: value == 'good_win');
+    // 结束对局是唯一缺确认的破坏操作（#138）→ 二次确认。
+    final goodWin = value == 'good_win';
+    return _confirmEndGame(context, ref, goodWin: goodWin);
+  }
+
+  /// 结束对局二次确认（不可撤销，#138）。
+  Future<void> _confirmEndGame(
+    BuildContext context,
+    WidgetRef ref, {
+    required bool goodWin,
+  }) async {
+    final side = goodWin ? '善良' : '邪恶';
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('结束对局'),
+        content: Text('确认结束对局为$side方获胜？此操作不可撤销。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            style: AppTheme.dangerButtonStyle,
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('确认结束'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed ?? false) {
+      await ref.read(gameBoardProvider(gameId).notifier).endGame(goodWin: goodWin);
+    }
   }
 }
 
