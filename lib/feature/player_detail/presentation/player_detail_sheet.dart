@@ -1,5 +1,9 @@
+import 'dart:convert';
+
 import 'package:botc_copilot/core/constants/character.dart';
+import 'package:botc_copilot/core/constants/player_setup.dart';
 import 'package:botc_copilot/core/database/app_database.dart';
+import 'package:botc_copilot/core/database/database_provider.dart';
 import 'package:botc_copilot/core/theme/app_colors.dart';
 import 'package:botc_copilot/core/theme/app_text_styles.dart';
 import 'package:botc_copilot/core/theme/game_colors.dart';
@@ -13,6 +17,7 @@ import 'package:botc_copilot/feature/game_board/presentation/providers/game_boar
 import 'package:botc_copilot/feature/player_detail/data/player_detail_repository.dart';
 import 'package:botc_copilot/feature/player_detail/domain/info_payload_formatter.dart';
 import 'package:botc_copilot/feature/player_detail/presentation/widgets/info_input_factory.dart';
+import 'package:botc_copilot/shared/game_private.dart';
 import 'package:botc_copilot/shared/models/enums.dart';
 import 'package:botc_copilot/shared/reliability.dart';
 import 'package:flutter/material.dart';
@@ -256,14 +261,32 @@ class _PlayerDetailSheetState extends ConsumerState<PlayerDetailSheet> {
                     ),
                 ],
               ),
-              // 我座位：标识真实角色（私密，区别于公开声明，#105）
+              // 我座位：标识真实角色（私密，区别于公开声明，#105）+ 换座入口（#86/#131）
               if (isMe)
                 Padding(
                   padding: const EdgeInsets.only(top: 6),
-                  child: Text(
-                    '这是我 · 真实角色：${myRole?.nameCn ?? '未设置'}',
-                    style: AppTextStyles.caption
-                        .copyWith(color: context.gameColors.goldBright),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          '这是我 · 真实角色：${myRole?.nameCn ?? '未设置'}',
+                          style: AppTextStyles.caption.copyWith(
+                            color: context.gameColors.goldBright,
+                          ),
+                        ),
+                      ),
+                      if (game?.status == GameStatus.ongoing)
+                        TextButton.icon(
+                          onPressed: () => _changeSeatDialog(
+                            context,
+                            ref,
+                            game!,
+                            players,
+                          ),
+                          icon: const Icon(Icons.swap_horiz, size: 18),
+                          label: const Text('换座'),
+                        ),
+                    ],
                   ),
                 ),
               const SizedBox(height: 16),
@@ -329,6 +352,13 @@ class _PlayerDetailSheetState extends ConsumerState<PlayerDetailSheet> {
                 currentRole: effectiveRole,
                 authorSuspectedDrunk: initialDrunk,
               ),
+              // 恶魔私密爪牙名单（7+ 人局，我=恶魔，#108/#131 迁入）
+              if (isMe &&
+                  myRole == Character.imp &&
+                  (game?.playerCount ?? 0) >= 7) ...[
+                const SizedBox(height: 16),
+                _MyMinionsSection(game: game!, players: players),
+              ],
               const SizedBox(height: 16),
               _PoisonSection(
                 day: day,
@@ -1049,6 +1079,125 @@ class _AbilitySectionState extends ConsumerState<_AbilitySection> {
       const SnackBar(
         content: Text('未击杀（目标非恶魔 或 你被毒/醉），能力已永久消耗'),
       ),
+    );
+  }
+}
+
+/// 更换我的座位（issue #86）：选座 → 二次确认 → 写 myPlayerId。
+///
+/// 从 MyInfoSheet 迁入（#131 统一入口）。
+Future<void> _changeSeatDialog(
+  BuildContext context,
+  WidgetRef ref,
+  Game game,
+  List<Player> players,
+) async {
+  var picked = game.myPlayerId;
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (ctx) => StatefulBuilder(
+      builder: (ctx, setState) => AlertDialog(
+        title: const Text('更换我的座位'),
+        content: Wrap(
+          spacing: 8,
+          runSpacing: 4,
+          children: [
+            for (final p in players)
+              ChoiceChip(
+                label: Text('${p.seatNumber}号 ${p.name}'),
+                selected: picked == p.id,
+                onSelected: (_) => setState(() => picked = p.id),
+              ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed:
+                picked == null ? null : () => Navigator.pop(ctx, true),
+            child: const Text('确认'),
+          ),
+        ],
+      ),
+    ),
+  );
+  final id = picked;
+  if (confirmed == true && id != null && id != game.myPlayerId) {
+    await ref
+        .read(appDatabaseProvider)
+        .gamesDao
+        .updateMyPlayerId(game.id, id);
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('已更换座位')),
+      );
+    }
+  }
+}
+
+/// 恶魔私密爪牙名单（issue #108）。
+///
+/// 官方：7+ 人局恶魔首夜得知爪牙是谁。多选玩家（排除自己），即时写入
+/// `Games.myMinionIdsJson`。私密——不进公开推理，仅角色矩阵对我私密展示。
+///
+/// 从 MyInfoSheet 迁入（#131 统一入口）。
+class _MyMinionsSection extends ConsumerWidget {
+  const _MyMinionsSection({required this.game, required this.players});
+
+  final Game game;
+
+  /// 全部玩家（用于候选）。
+  final List<Player> players;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final gameColors = context.gameColors;
+    final selected = minionIdsOf(game);
+    final expected = PlayerSetup.forCount(game.playerCount).minions;
+    // 候选：除我以外的玩家
+    final candidates =
+        players.where((p) => p.id != game.myPlayerId).toList();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          '我的爪牙（私密，${game.playerCount} 人局应有 $expected 个）',
+          style: AppTextStyles.headline.copyWith(color: gameColors.blood),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          '官方：7+ 人局恶魔首夜得知爪牙。仅你可见，不影响公开推理。',
+          style: AppTextStyles.caption.copyWith(color: gameColors.inkViolet),
+        ),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 4,
+          children: [
+            for (final p in candidates)
+              ChoiceChip(
+                label: Text('${p.seatNumber}号 ${p.name}'),
+                selected: selected.contains(p.id),
+                onSelected: (_) async {
+                  final next = Set<int>.of(selected);
+                  if (next.contains(p.id)) {
+                    next.remove(p.id);
+                  } else {
+                    next.add(p.id);
+                  }
+                  await ref.read(appDatabaseProvider).gamesDao.updateMyMinionIds(
+                        game.id,
+                        jsonEncode(next.toList()),
+                      );
+                },
+              ),
+          ],
+        ),
+      ],
     );
   }
 }

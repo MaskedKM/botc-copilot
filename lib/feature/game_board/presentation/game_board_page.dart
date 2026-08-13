@@ -121,7 +121,7 @@ class _GameBoardBody extends ConsumerWidget {
           IconButton(
             tooltip: '我的信息',
             icon: const Icon(Icons.person_outline),
-            onPressed: () => MyInfoSheet.show(context, game: game),
+            onPressed: () => _openMyInfo(context, ref, game),
           ),
           IconButton(
             tooltip: '事件时间线',
@@ -297,6 +297,40 @@ class _GameBoardBody extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  /// 打开「我的信息」（issue #131 统一入口）。
+  ///
+  /// 已设座位 → 直接进 [PlayerDetailSheet] 的 isMe 分支（含换座 #86、私密
+  /// 爪牙名单 #108）；未设 → 首夜 onboarding 选座弹层，选完顺势打开详情。
+  Future<void> _openMyInfo(
+    BuildContext context,
+    WidgetRef ref,
+    Game game,
+  ) async {
+    final players = ref.read(gamePlayersProvider(gameId)).valueOrNull ?? [];
+    final myPlayer =
+        players.where((p) => p.id == game.myPlayerId).firstOrNull;
+    if (game.myPlayerId != null && myPlayer != null) {
+      await PlayerDetailSheet.show(
+        context,
+        gameId: gameId,
+        player: myPlayer,
+      );
+      return;
+    }
+    final selectedId = await MyInfoSheet.show(context, game: game);
+    if (selectedId != null && context.mounted) {
+      final selected =
+          players.where((p) => p.id == selectedId).firstOrNull;
+      if (selected != null) {
+        await PlayerDetailSheet.show(
+          context,
+          gameId: gameId,
+          player: selected,
+        );
+      }
+    }
   }
 
   Future<void> _quickToggleDead(
