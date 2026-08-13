@@ -41,16 +41,20 @@ class AbilityRepository {
     required bool wasPoisoned,
     required int day,
   }) async {
-    await _db.playersDao.markAbilityUsed(slayerId, used: true);
-    if (targetIsDemon && !wasPoisoned) {
-      await _db.playersDao.markDead(
-        targetId,
-        day,
-        DeathCause.other,
-      );
-      return SlayerGuessResult.killed;
-    }
-    return SlayerGuessResult.missed;
+    // 整体包事务（#150 R4）：markAbilityUsed 与 markDead 须原子——markDead
+    // 失败则能力消耗回滚，保一次性能力语义（否则能力已消耗却未击杀）。
+    return _db.transaction(() async {
+      await _db.playersDao.markAbilityUsed(slayerId, used: true);
+      if (targetIsDemon && !wasPoisoned) {
+        await _db.playersDao.markDead(
+          targetId,
+          day,
+          DeathCause.other,
+        );
+        return SlayerGuessResult.killed;
+      }
+      return SlayerGuessResult.missed;
+    });
   }
 }
 
