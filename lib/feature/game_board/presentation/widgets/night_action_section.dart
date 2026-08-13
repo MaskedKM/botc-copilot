@@ -132,21 +132,29 @@ class _NightActionEntry extends ConsumerWidget {
           players: players,
           actingPlayerId: player.id,
           onSubmit: (payload) async {
-            final notifier = ref.read(gameBoardProvider(gameId).notifier);
-            final dayRecordId = await notifier.ensureCurrentDayRecord();
-            await ref.read(playerDetailRepositoryProvider).declareInfo(
-                  playerId: player.id,
-                  dayRecordId: dayRecordId,
-                  character: character,
-                  payload: payload,
-                  isMine: isMine,
-                  gameId: gameId,
-                  dayNumber: ref.read(gameBoardProvider(gameId)).currentDay,
+            try {
+              final notifier = ref.read(gameBoardProvider(gameId).notifier);
+              final dayRecordId = await notifier.ensureCurrentDayRecord();
+              await ref.read(playerDetailRepositoryProvider).declareInfo(
+                    playerId: player.id,
+                    dayRecordId: dayRecordId,
+                    character: character,
+                    payload: payload,
+                    isMine: isMine,
+                    gameId: gameId,
+                    dayNumber: ref.read(gameBoardProvider(gameId)).currentDay,
+                  );
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(isMine ? '我的信息已记录' : '信息已记录')),
                 );
-            if (context.mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text(isMine ? '我的信息已记录' : '信息已记录')),
-              );
+              }
+            } on Object {
+              // #164 B9：信息写失败兜底提示。
+              if (context.mounted) {
+                ScaffoldMessenger.of(context)
+                    .showSnackBar(const SnackBar(content: Text('保存失败，请重试')));
+              }
             }
           },
         ),

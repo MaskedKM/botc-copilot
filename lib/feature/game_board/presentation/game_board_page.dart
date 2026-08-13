@@ -681,22 +681,30 @@ class _QuickActionsSheetState extends ConsumerState<_QuickActionsSheet> {
   Future<void> _addNote() async {
     final note = _noteController.text.trim();
     if (note.isEmpty) return;
-    await ref.read(behaviorNoteRepositoryProvider).addNote(
-          gameId: _gameId,
-          playerId: widget.player.id,
-          dayNumber: _day,
-          note: note,
+    try {
+      await ref.read(behaviorNoteRepositoryProvider).addNote(
+            gameId: _gameId,
+            playerId: widget.player.id,
+            dayNumber: _day,
+            note: note,
+          );
+      // #164：await 后 controller.clear 须在 mounted 守卫内，否则下拉关闭 sheet
+      // 致 dispose → .clear() 命中已 dispose 抛 FlutterError。
+      if (mounted) {
+        _noteController.clear();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('备注已添加'),
+            duration: Duration(seconds: 1),
+          ),
         );
-    // #164：await 后 controller.clear 须在 mounted 守卫内，否则下拉关闭 sheet
-    // 致 dispose → .clear() 命中已 dispose 抛 FlutterError。
-    if (mounted) {
-      _noteController.clear();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('备注已添加'),
-          duration: Duration(seconds: 1),
-        ),
-      );
+      }
+    } on Object {
+      // #164 B9：备注写失败兜底提示。
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('添加失败，请重试')));
+      }
     }
   }
 
