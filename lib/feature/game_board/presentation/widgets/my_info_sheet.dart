@@ -21,7 +21,7 @@ class MyInfoSheet extends ConsumerWidget {
 
   /// 弹出首夜座位 onboarding；返回用户选定的玩家 id（未选关闭返回 null）。
   static Future<int?> show(BuildContext context, {required Game game}) {
-    return showModalBottomSheet<int?>(
+    return showModalBottomSheet<int>(
       context: context,
       isScrollControlled: true,
       builder: (_) => Padding(

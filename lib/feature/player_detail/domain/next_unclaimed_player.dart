@@ -23,8 +23,9 @@ Player? nextUnclaimedPlayer({
     ..sort((a, b) => a.seatNumber.compareTo(b.seatNumber));
   final startIndex = sorted.indexWhere((p) => p.id == fromPlayerId);
   if (startIndex < 0) return null;
-  // 从下一座开始环绕一周（i ∈ [1, length]），覆盖除当前外的全部座位各一次。
-  for (var i = 1; i <= sorted.length; i++) {
+  // 从下一座开始环绕，**仅遍历其余 n-1 座**（i ∈ [1, n-1]）——i == n 会折回
+  // 当前玩家自身，必须排除，否则当前玩家是唯一未声明者时会返回自身导致死循环。
+  for (var i = 1; i < sorted.length; i++) {
     final p = sorted[(startIndex + i) % sorted.length];
     if (p.id == myPlayerId) continue;
     if (!claimedPlayerIds.contains(p.id)) return p;

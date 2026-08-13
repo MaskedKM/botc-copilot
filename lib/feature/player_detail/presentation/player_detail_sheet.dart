@@ -446,6 +446,7 @@ class _PlayerDetailSheetState extends ConsumerState<PlayerDetailSheet> {
                 playerId: playerId,
                 currentRole: effectiveRole,
                 authorSuspectedDrunk: initialDrunk,
+                readOnly: readOnly,
               ),
               // 恶魔私密爪牙名单（7+ 人局，我=恶魔，#108/#131 迁入）
               if (isMe &&
@@ -699,6 +700,7 @@ class _RecordedInfoSection extends ConsumerWidget {
     required this.playerId,
     required this.currentRole,
     required this.authorSuspectedDrunk,
+    this.readOnly = false,
   });
 
   final int playerId;
@@ -709,11 +711,18 @@ class _RecordedInfoSection extends ConsumerWidget {
   /// 该玩家是否被疑醉（整局 overlay 叠加到信息可靠性圆点，#109）。
   final bool authorSuspectedDrunk;
 
+  /// 只读（复盘）：不显示删除按钮。
+  final bool readOnly;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final declarations =
         ref.watch(playerDeclarationsProvider(playerId)).valueOrNull ?? [];
     if (declarations.isEmpty) return const SizedBox.shrink();
+
+    Future<void> Function()? deleteFor(InfoDeclaration d) => readOnly
+        ? null
+        : () => _confirmDeleteDeclaration(context, ref, d.id);
 
     final current = currentRole == null
         ? declarations
@@ -738,7 +747,7 @@ class _RecordedInfoSection extends ConsumerWidget {
             _InfoRow(
               decl: decl,
               authorSuspectedDrunk: authorSuspectedDrunk,
-              onDelete: () => _confirmDeleteDeclaration(context, ref, decl.id),
+              onDelete: deleteFor(decl),
             ),
         if (history.isNotEmpty) ...[
           const SizedBox(height: 12),
@@ -753,7 +762,7 @@ class _RecordedInfoSection extends ConsumerWidget {
               decl: decl,
               dimmed: true,
               authorSuspectedDrunk: authorSuspectedDrunk,
-              onDelete: () => _confirmDeleteDeclaration(context, ref, decl.id),
+              onDelete: deleteFor(decl),
             ),
         ],
       ],
@@ -1054,15 +1063,16 @@ class _BehaviorNoteSectionState extends ConsumerState<_BehaviorNoteSection> {
                   Expanded(
                     child: Text(n.note, style: AppTextStyles.body),
                   ),
-                  IconButton(
-                    tooltip: '删除备注',
-                    iconSize: 16,
-                    visualDensity: VisualDensity.compact,
-                    icon: Icon(Icons.close, color: gameColors.inkViolet),
-                    onPressed: () => ref
-                        .read(behaviorNoteRepositoryProvider)
-                        .deleteNote(n.id),
-                  ),
+                  if (!widget.readOnly)
+                    IconButton(
+                      tooltip: '删除备注',
+                      iconSize: 16,
+                      visualDensity: VisualDensity.compact,
+                      icon: Icon(Icons.close, color: gameColors.inkViolet),
+                      onPressed: () => ref
+                          .read(behaviorNoteRepositoryProvider)
+                          .deleteNote(n.id),
+                    ),
                 ],
               ),
             ),

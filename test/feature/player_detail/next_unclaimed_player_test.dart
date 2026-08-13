@@ -106,4 +106,17 @@ void main() {
       isNull,
     );
   });
+
+  // 回归（off-by-one）：当前玩家是唯一未声明者时不得返回自身 → null，
+  // 否则「下一位」会重开同一玩家导致队列死循环。
+  test('当前玩家是唯一未声明者 → null（不返回自身）', () {
+    // 7 座，仅 3 号未声明，当前=3，其余全声明。
+    final next = nextUnclaimedPlayer(
+      players: players,
+      claimedPlayerIds: const {1, 2, 4, 5, 6, 7},
+      fromPlayerId: 3,
+      myPlayerId: 99, // 不误跳 3
+    );
+    expect(next, isNull);
+  });
 }

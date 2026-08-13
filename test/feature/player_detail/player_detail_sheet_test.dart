@@ -472,6 +472,28 @@ void main() {
     expect(chip.onSelected, isNull);
   });
 
+  // 只读复盘不得删数据（BUG 2/3 回归防护）：信息删除按钮不渲染。
+  testWidgets('只读复盘：已录入信息无删除按钮（#134）', (tester) async {
+    useTallSurface(tester);
+    final decl = InfoDeclaration(
+      id: 1,
+      playerId: me.id,
+      dayRecordId: 1,
+      characterType: Character.chef,
+      payloadJson: '{"value": 1}',
+      reliability: Reliability.unverified,
+      isMine: false,
+    );
+    await tester.pumpWidget(
+      buildSheet(status: GameStatus.goodWin, declarations: [decl]),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    // 信息行展示，但无删除入口
+    expect(find.byTooltip('删除这条信息'), findsNothing);
+  });
+
   // #131 sheet 统一：私密爪牙名单从 MyInfoSheet 迁入玩家详情 isMe 分支。
   testWidgets('我=恶魔 7+ 局：私密爪牙名单在玩家详情可见（#131）',
       (tester) async {
