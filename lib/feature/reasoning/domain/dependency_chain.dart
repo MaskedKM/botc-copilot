@@ -75,7 +75,7 @@ abstract final class DependencyChainBuilder {
   }) {
     String seatLabel(int id) {
       final p = playersById[id];
-      return p == null ? '$id 号' : '${p.seatNumber}号';
+      return p == null ? '?' : '${p.seatNumber}号';
     }
 
     bool isDrunk(int playerId) =>

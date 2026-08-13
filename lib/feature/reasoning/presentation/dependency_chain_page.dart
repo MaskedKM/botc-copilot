@@ -431,10 +431,10 @@ void _showNodeDetail(
 
 String _seat(Map<int, Player> byId, int id) {
   final p = byId[id];
-  return p == null ? '$id 号' : '${p.seatNumber}号';
+  return p == null ? '?' : '${p.seatNumber}号';
 }
 
 String _seatName(Map<int, Player> byId, int id) {
   final p = byId[id];
-  return p == null ? '$id 号' : '${p.seatNumber}号 ${p.name}';
+  return p == null ? '?' : '${p.seatNumber}号 ${p.name}';
 }
