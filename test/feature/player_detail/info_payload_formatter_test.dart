@@ -14,11 +14,17 @@ InfoDeclaration decl(Character c, String payload) => InfoDeclaration(
       isMine: false,
     );
 
+/// 测试用 labelFor：把 id 原样作座位号（这些用例关注格式而非 id→座位映射）。
+String labelFor(int id) => '$id 号';
+
 void main() {
   group('InfoPayloadFormatter.summarize', () {
     test('数字型', () {
       expect(
-        InfoPayloadFormatter.summarize(decl(Character.chef, '{"value": 2}')),
+        InfoPayloadFormatter.summarize(
+          decl(Character.chef, '{"value": 2}'),
+          labelFor: labelFor,
+        ),
         '厨师：2',
       );
     });
@@ -27,6 +33,7 @@ void main() {
       expect(
         InfoPayloadFormatter.summarize(
           decl(Character.fortuneTeller, '{"playerIds": [3, 5], "answer": true}'),
+          labelFor: labelFor,
         ),
         '占卜师：3 号 + 5 号 → 是',
       );
@@ -37,6 +44,7 @@ void main() {
         InfoPayloadFormatter.summarize(
           decl(Character.investigator,
               '{"character": "poisoner", "playerIds": [2, 4]}'),
+          labelFor: labelFor,
         ),
         '调查员：投毒者（2 号、4 号）',
       );
@@ -46,6 +54,7 @@ void main() {
       expect(
         InfoPayloadFormatter.summarize(
           decl(Character.librarian, '{"character": null, "playerIds": []}'),
+          labelFor: labelFor,
         ),
         '图书管理员：无',
       );
@@ -55,6 +64,7 @@ void main() {
       expect(
         InfoPayloadFormatter.summarize(
           decl(Character.undertaker, '{"character": "imp"}'),
+          labelFor: labelFor,
         ),
         '掘墓人：小恶魔',
       );
@@ -64,6 +74,7 @@ void main() {
       expect(
         InfoPayloadFormatter.summarize(
           decl(Character.empath, '{"text": "隔壁两人可疑"}'),
+          labelFor: labelFor,
         ),
         '共情者：隔壁两人可疑',
       );
@@ -74,18 +85,21 @@ void main() {
       expect(
         InfoPayloadFormatter.summarize(
           decl(Character.monk, '{"playerId": 3}'),
+          labelFor: labelFor,
         ),
         '僧侣：保护 3 号',
       );
       expect(
         InfoPayloadFormatter.summarize(
           decl(Character.butler, '{"playerId": 5}'),
+          labelFor: labelFor,
         ),
         '管家：主人 5 号',
       );
       expect(
         InfoPayloadFormatter.summarize(
           decl(Character.poisoner, '{"playerId": 2}'),
+          labelFor: labelFor,
         ),
         '投毒者：下毒 2 号',
       );
@@ -95,6 +109,37 @@ void main() {
       expect(
         InfoPayloadFormatter.summarize(
           decl(Character.ravenkeeper, '{"playerId": 5, "character": "spy"}'),
+          labelFor: labelFor,
+        ),
+        '渡鸦守护者：5 号 是 间谍',
+      );
+    });
+
+    // #145 回归：payload 存的是 db id，必须经 labelFor 解析为座位号，
+    // 不可直接把 db id 当座位号（否则 db id=24 会显示成「24 号」）。
+    test('labelFor 把 db id 解析为座位号（#145 回归）', () {
+      String seatLabel(int id) => id == 24 ? '5 号' : '$id 号';
+      expect(
+        InfoPayloadFormatter.summarize(
+          decl(Character.poisoner, '{"playerId": 24}'),
+          labelFor: seatLabel,
+        ),
+        '投毒者：下毒 5 号',
+      );
+      // 多目标同理
+      expect(
+        InfoPayloadFormatter.summarize(
+          decl(Character.fortuneTeller,
+              '{"playerIds": [24, 30], "answer": false}'),
+          labelFor: seatLabel,
+        ),
+        '占卜师：5 号 + 30 号 → 否',
+      );
+      // Ravenkeeper：玩家 + 角色（labelFor 解析座位号，不丢失玩家）
+      expect(
+        InfoPayloadFormatter.summarize(
+          decl(Character.ravenkeeper, '{"playerId": 24, "character": "spy"}'),
+          labelFor: seatLabel,
         ),
         '渡鸦守护者：5 号 是 间谍',
       );

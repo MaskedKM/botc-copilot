@@ -7,16 +7,19 @@ import 'package:botc_copilot/core/database/app_database.dart';
 abstract final class InfoPayloadFormatter {
   /// 把一条信息声明格式化为一句话摘要。
   ///
-  /// [labelFor] 可覆盖玩家 id 的显示（默认 `'$id 号'`，如依赖链页传座位号）。
+  /// [labelFor] **必填**：把 payload 里的目标玩家 **db id** 解析为展示标签
+  /// （通常是「座位号」，如 `5 号`）。历史上这里有个危险默认值 `'$id 号'`——
+  /// 它把 db id 当座位号渲染，多局存档后 db id > 座位数即错乱（issue #145）。
+  /// 现改为必填，漏传即编译错误，从机制上杜绝复发。
   static String summarize(
     InfoDeclaration decl, {
+    required String Function(int playerId) labelFor,
     String? playerName,
-    String Function(int playerId)? labelFor,
   }) {
     final payload = jsonDecode(decl.payloadJson) as Map<String, dynamic>;
     final character = decl.characterType;
 
-    String playerLabel(int id) => labelFor != null ? labelFor(id) : '$id 号';
+    String playerLabel(int id) => labelFor(id);
 
     // payload 里的 character 存的是 enum .name（如 'poisoner'），回显时转中文。
     String charLabel(Object? name) {

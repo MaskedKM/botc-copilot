@@ -444,6 +444,7 @@ class _PlayerDetailSheetState extends ConsumerState<PlayerDetailSheet> {
               // 分组按有效角色（我座位=myRole；草稿不改分组，避免误导）。
               // 可靠性圆点叠加整局「疑似醉汉」overlay（#109）。
               _RecordedInfoSection(
+                gameId: widget.gameId,
                 playerId: playerId,
                 currentRole: effectiveRole,
                 authorSuspectedDrunk: initialDrunk,
@@ -698,11 +699,15 @@ class _InfoInputSection extends ConsumerWidget {
 /// 又保留改口轨迹供复盘。
 class _RecordedInfoSection extends ConsumerWidget {
   const _RecordedInfoSection({
+    required this.gameId,
     required this.playerId,
     required this.currentRole,
     required this.authorSuspectedDrunk,
     this.readOnly = false,
   });
+
+  /// 对局 id（用于解析目标玩家 db id → 座位号，#145）。
+  final int gameId;
 
   final int playerId;
 
@@ -720,6 +725,16 @@ class _RecordedInfoSection extends ConsumerWidget {
     final declarations =
         ref.watch(playerDeclarationsProvider(playerId)).valueOrNull ?? [];
     if (declarations.isEmpty) return const SizedBox.shrink();
+
+    // 解析 payload 内目标玩家 db id → 座位号（#145）。playerId 是 db id，
+    // 必须经 playersById 映射为座位号展示，否则多局后 db id > 座位数即错乱。
+    final players =
+        ref.watch(gamePlayersProvider(gameId)).valueOrNull ?? const <Player>[];
+    final playersById = {for (final p in players) p.id: p};
+    String seatLabel(int id) {
+      final p = playersById[id];
+      return p != null ? '${p.seatNumber}号' : '$id 号';
+    }
 
     Future<void> Function()? deleteFor(InfoDeclaration d) => readOnly
         ? null
@@ -747,6 +762,7 @@ class _RecordedInfoSection extends ConsumerWidget {
           for (final decl in current.reversed.take(5))
             _InfoRow(
               decl: decl,
+              labelFor: seatLabel,
               authorSuspectedDrunk: authorSuspectedDrunk,
               onDelete: deleteFor(decl),
             ),
@@ -762,6 +778,7 @@ class _RecordedInfoSection extends ConsumerWidget {
             _InfoRow(
               decl: decl,
               dimmed: true,
+              labelFor: seatLabel,
               authorSuspectedDrunk: authorSuspectedDrunk,
               onDelete: deleteFor(decl),
             ),
@@ -775,12 +792,16 @@ class _RecordedInfoSection extends ConsumerWidget {
 class _InfoRow extends StatelessWidget {
   const _InfoRow({
     required this.decl,
+    required this.labelFor,
     this.dimmed = false,
     this.authorSuspectedDrunk = false,
     this.onDelete,
   });
 
   final InfoDeclaration decl;
+
+  /// 目标玩家 db id → 座位号展示（#145）。
+  final String Function(int playerId) labelFor;
 
   /// 弱化显示（改口历史）：删除线 + 灰色。
   final bool dimmed;
@@ -811,7 +832,7 @@ class _InfoRow extends StatelessWidget {
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              InfoPayloadFormatter.summarize(decl),
+              InfoPayloadFormatter.summarize(decl, labelFor: labelFor),
               style: dimmed
                   ? AppTextStyles.body.copyWith(
                       color: context.gameColors.inkViolet,

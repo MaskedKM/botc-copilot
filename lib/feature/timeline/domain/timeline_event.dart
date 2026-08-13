@@ -85,6 +85,14 @@ abstract final class TimelineBuilder {
       return p != null ? '${p.seatNumber}号 ${p.name}' : '?';
     }
 
+    // payload 内的目标玩家 id 必须解析为座位号，不可直接用 db id
+    // （否则座位 5 但 db id=24 会渲染成「24 号」，#145）。找不到玩家时
+    // 回退 '$id 号'（玩家已删/异常的防御性兜底）。
+    String seatLabel(int id) {
+      final p = playersById[id];
+      return p != null ? '${p.seatNumber}号' : '$id 号';
+    }
+
     // 提名事件摘要：提名者 → 被提名者（赞成票数，是否通过）[· 辩护]（issue #90）
     String nominationSummary(Nomination n) {
       final forCount = NominationRules.countFor(
@@ -159,8 +167,8 @@ abstract final class TimelineBuilder {
               TimelineEvent(
                 type: TimelineEventType.infoDeclaration,
                 summary: decl.isMine
-                    ? '我（${nameOf(decl.playerId)}）获得 ${InfoPayloadFormatter.summarize(decl)}'
-                    : '${nameOf(decl.playerId)} 报 ${InfoPayloadFormatter.summarize(decl)}',
+                    ? '我（${nameOf(decl.playerId)}）获得 ${InfoPayloadFormatter.summarize(decl, labelFor: seatLabel)}'
+                    : '${nameOf(decl.playerId)} 报 ${InfoPayloadFormatter.summarize(decl, labelFor: seatLabel)}',
                 playerId: decl.playerId,
               ),
             // 提名/投票（该天的；位于处决之前——符合白天时序，issue #90）
