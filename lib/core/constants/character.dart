@@ -59,7 +59,7 @@ enum Character {
     nameEn: 'Fortune Teller',
     team: Team.townsfolk,
     ability: '每个夜晚，选择两名玩家：你会得知他们之中是否有恶魔。'
-        '有一名善良玩家会被你误判为恶魔（"宿敌"）。',
+        '有一名善良玩家会被你误判为恶魔（"红鲱鱼"）。',
     infoInputType: InfoInputType.twoPlayersYesNo,
   ),
 
@@ -153,7 +153,7 @@ enum Character {
     nameCn: '隐士',
     nameEn: 'Recluse',
     team: Team.outsider,
-    ability: '你可能被判定为邪恶阵营，即使你已经死亡。',
+    ability: '你可能被判定为邪恶阵营，或登记为爪牙 / 恶魔，即使你已经死亡。',
     infoInputType: InfoInputType.none,
   ),
 
@@ -181,7 +181,7 @@ enum Character {
     nameCn: '间谍',
     nameEn: 'Spy',
     team: Team.minion,
-    ability: '每个夜晚，你可以查看魔典。你可能被判定为善良阵营，即使你已经死亡。',
+    ability: '每个夜晚，你可以查看魔典。你可能被判定为善良阵营，或登记为镇民 / 外来者，即使你已经死亡。',
     infoInputType: InfoInputType.freeText,
   ),
 
@@ -210,7 +210,7 @@ enum Character {
     nameEn: 'Imp',
     team: Team.demon,
     ability: '每个夜晚（除首夜），选择一名玩家：他死亡。'
-        '如果你死亡，一名爪牙可能成为新的小恶魔。',
+        '若你选择自己（自杀），一名爪牙成为新的小恶魔。',
     infoInputType: InfoInputType.none,
   );
 
