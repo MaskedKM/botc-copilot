@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:botc_copilot/core/constants/character.dart';
+import 'package:botc_copilot/core/constants/team.dart';
 import 'package:botc_copilot/core/constants/player_setup.dart';
 import 'package:botc_copilot/core/database/app_database.dart';
 import 'package:botc_copilot/core/database/database_provider.dart';
@@ -607,18 +608,38 @@ class _RoleClaimSection extends ConsumerWidget {
       children: [
         const Text('角色声明', style: AppTextStyles.headline),
         const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          runSpacing: 4,
-          children: [
-            for (final c in Character.values)
-              ChoiceChip(
-                label: Text(c.nameCn),
-                selected: selected == c,
-                onSelected: readOnly ? null : (_) => onSelect(c),
+        // 按阵营分组（与开局选角 role_step 一致，#160 P0）：首夜为 5-15 人
+        // 逐一声明是最高频操作，平铺 22 chip 线性扫描 + 相邻易误点。
+        for (final team in const [
+          Team.townsfolk,
+          Team.outsider,
+          Team.minion,
+          Team.demon,
+        ]) ...[
+          Padding(
+            padding: const EdgeInsets.only(top: 6, bottom: 4),
+            child: Text(
+              team.nameCn,
+              style: AppTextStyles.caption.copyWith(
+                color: team.isGood
+                    ? context.gameColors.goldBright
+                    : context.gameColors.blood,
               ),
-          ],
-        ),
+            ),
+          ),
+          Wrap(
+            spacing: 8,
+            runSpacing: 4,
+            children: [
+              for (final c in Character.byTeam(team))
+                ChoiceChip(
+                  label: Text(c.nameCn),
+                  selected: selected == c,
+                  onSelected: readOnly ? null : (_) => onSelect(c),
+                ),
+            ],
+          ),
+        ],
         // 新手模式：显示当前声明角色的能力描述（issue #41）
         if (selected != null)
           HelpTooltip(
