@@ -307,59 +307,108 @@ class _GameBoardBody extends ConsumerWidget {
     final players = ref.read(gamePlayersProvider(gameId)).valueOrNull ?? [];
     final player = players.where((p) => p.id == playerId).firstOrNull;
     if (player == null) return;
-    final verb = player.isAlive ? '标记死亡' : '复活';
+
+    // 复活：简单确认（无需天数）。
+    if (!player.isAlive) {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('确认复活'),
+          content: Text('将 ${player.seatNumber} 号 ${player.name} 复活？'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('取消'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('确认复活'),
+            ),
+          ],
+        ),
+      );
+      if (confirmed ?? false) {
+        await ref
+            .read(gameBoardProvider(gameId).notifier)
+            .quickToggleDead(player);
+      }
+      return;
+    }
+
+    // 标死：选天数（补记历史死亡需准确 deathDay，否则污染 Empath 邻座
+    // 判定 / 矛盾检测；范围 1..currentDay，默认当前天）。
+    final currentDay = ref.read(
+      gameBoardProvider(gameId).select((s) => s.currentDay),
+    );
+    var selectedDay = currentDay;
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text('确认$verb'),
-        content: Text('将 ${player.seatNumber} 号 ${player.name} $verb？'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('取消'),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: const Text('确认标记死亡'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('将 ${player.seatNumber} 号 ${player.name} 标记为死亡'),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<int>(
+                initialValue: selectedDay,
+                decoration: const InputDecoration(labelText: '死亡天数'),
+                items: [
+                  for (var d = 1; d <= currentDay; d++)
+                    DropdownMenuItem(value: d, child: Text('第 $d 天')),
+                ],
+                onChanged: (v) => setState(
+                  () => selectedDay = v ?? currentDay,
+                ),
+              ),
+            ],
           ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: Text('确认$verb'),
-          ),
-        ],
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('取消'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('确认标记死亡'),
+            ),
+          ],
+        ),
       ),
     );
-    if (confirmed ?? false) {
-      final wasAlive = player.isAlive;
-      final suggestion = await ref
-          .read(gameBoardProvider(gameId).notifier)
-          .quickToggleDead(player);
-      // 标死后提供 SnackBar 撤销（issue #65）
-      if (wasAlive && context.mounted) {
-        // 只捕获 id：player 对象是标死前的快照（isAlive 仍为 true），
-        // 若再传给 quickToggleDead 会误判为「再标死一次」而非复活。
-        final playerId = player.id;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('${player.seatNumber}号 ${player.name} 已标记死亡'),
-            action: SnackBarAction(
-              label: '撤销',
-              onPressed: () {
-                ref
-                    .read(gameBoardProvider(gameId).notifier)
-                    .revivePlayer(playerId);
-              },
-            ),
-            duration: const Duration(seconds: 10),
+    if (!(confirmed ?? false)) return;
+    final suggestion = await ref
+        .read(gameBoardProvider(gameId).notifier)
+        .quickToggleDead(player, deathDay: selectedDay);
+    // 标死后提供 SnackBar 撤销（issue #65）
+    if (context.mounted) {
+      // 只捕获 id：player 对象是标死前的快照（isAlive 仍为 true），
+      // 若再传给 quickToggleDead 会误判为「再标死一次」而非复活。
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('${player.seatNumber}号 ${player.name} 已标记死亡'),
+          action: SnackBarAction(
+            label: '撤销',
+            onPressed: () {
+              ref
+                  .read(gameBoardProvider(gameId).notifier)
+                  .revivePlayer(playerId);
+            },
           ),
-        );
-      }
-      if (suggestion is EvilWinCandidate && context.mounted) {
-        final evil = await EndGameDialog.showEvilCandidate(
-          context,
-          aliveCount: suggestion.aliveCount,
-        );
-        if (evil ?? false) {
-          await ref
-              .read(gameBoardProvider(gameId).notifier)
-              .endGame(goodWin: false);
-        }
+          duration: const Duration(seconds: 10),
+        ),
+      );
+    }
+    if (suggestion is EvilWinCandidate && context.mounted) {
+      final evil = await EndGameDialog.showEvilCandidate(
+        context,
+        aliveCount: suggestion.aliveCount,
+      );
+      if (evil ?? false) {
+        await ref
+            .read(gameBoardProvider(gameId).notifier)
+            .endGame(goodWin: false);
       }
     }
   }
