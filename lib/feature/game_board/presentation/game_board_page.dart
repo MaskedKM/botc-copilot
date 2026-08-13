@@ -654,19 +654,27 @@ class _QuickActionsSheetState extends ConsumerState<_QuickActionsSheet> {
       ref.read(gameBoardProvider(_gameId).select((s) => s.currentDay));
 
   Future<void> _setTrust(TrustLevel level) async {
-    await ref.read(playerDetailRepositoryProvider).setTrustLevel(
-          gameId: _gameId,
-          playerId: widget.player.id,
-          day: _day,
-          level: level,
+    try {
+      await ref.read(playerDetailRepositoryProvider).setTrustLevel(
+            gameId: _gameId,
+            playerId: widget.player.id,
+            day: _day,
+            level: level,
+          );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${widget.player.seatNumber}号 → ${level.nameCn}'),
+            duration: const Duration(seconds: 1),
+          ),
         );
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('${widget.player.seatNumber}号 → ${level.nameCn}'),
-          duration: const Duration(seconds: 1),
-        ),
-      );
+      }
+    } on Object {
+      // #164 B9：fire-and-forget 写失败兜底提示。
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('保存失败，请重试')));
+      }
     }
   }
 

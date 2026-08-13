@@ -104,8 +104,9 @@ class _PlayerDetailSheetState extends ConsumerState<PlayerDetailSheet> {
   ///
   /// 非己玩家选了角色 chip 但尚未保存时直接录信息会造成「孤儿信息」——
   /// 该信息关联的角色没有对应声明。此处先写声明再录信息，杜绝孤儿。
-  Future<void> _commitDraftClaim() async {
-    if (!_roleTouched || _draftRole == null || _claimAutoCommitted) return;
+  /// 提交草稿声明。返回 false=写失败（调用方应中止后续信息写入，避免孤儿信息，#164 B9）。
+  Future<bool> _commitDraftClaim() async {
+    if (!_roleTouched || _draftRole == null || _claimAutoCommitted) return true;
     final claims = ref
             .read(playerClaimsProvider(widget.player.id))
             .valueOrNull ??
@@ -114,16 +115,26 @@ class _PlayerDetailSheetState extends ConsumerState<PlayerDetailSheet> {
     if (_draftRole == saved) {
       // 草稿与已存声明一致，仅标记，避免重复写
       if (mounted) setState(() => _claimAutoCommitted = true);
-      return;
+      return true;
     }
     final notifier = ref.read(gameBoardProvider(widget.gameId).notifier);
-    final dayRecordId = await notifier.ensureCurrentDayRecord();
-    await ref.read(playerDetailRepositoryProvider).claimRole(
-          playerId: widget.player.id,
-          dayRecordId: dayRecordId,
-          character: _draftRole!,
-        );
-    if (mounted) setState(() => _claimAutoCommitted = true);
+    try {
+      final dayRecordId = await notifier.ensureCurrentDayRecord();
+      await ref.read(playerDetailRepositoryProvider).claimRole(
+            playerId: widget.player.id,
+            dayRecordId: dayRecordId,
+            character: _draftRole!,
+          );
+      if (mounted) setState(() => _claimAutoCommitted = true);
+      return true;
+    } on Object {
+      // #164 B9：声明写失败提示，不标记 committed（下次重试）。
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('声明保存失败，请重试')));
+      }
+      return false;
+    }
   }
 
   /// 是否存在未保存的修改。
@@ -141,7 +152,7 @@ class _PlayerDetailSheetState extends ConsumerState<PlayerDetailSheet> {
       (_drunkTouched && _draftDrunk != initialDrunk);
 
   /// 提交所有草稿变更到 DB（不关闭弹层）。_save / _saveAndNext 共用。
-  Future<void> _commitChanges({
+  Future<bool> _commitChanges({
     required Character? initialRole,
     required TrustLevel initialTrust,
     required bool initialPoison,
@@ -190,6 +201,15 @@ class _PlayerDetailSheetState extends ConsumerState<PlayerDetailSheet> {
           suspected: _draftDrunk,
         );
       }
+      return true;
+    } on Object {
+      // #164 B9：fire-and-forget 写失败兜底——提示用户而非静默吞异常。
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('保存失败，请重试')),
+        );
+      }
+      return false;
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -203,13 +223,14 @@ class _PlayerDetailSheetState extends ConsumerState<PlayerDetailSheet> {
     required bool initialDrunk,
     required int day,
   }) async {
-    await _commitChanges(
+    final ok = await _commitChanges(
       initialRole: initialRole,
       initialTrust: initialTrust,
       initialPoison: initialPoison,
       initialDrunk: initialDrunk,
       day: day,
     );
+    if (!ok) return; // 失败已提示，不弹「已保存」、不关 sheet
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('已保存')),
@@ -227,14 +248,14 @@ class _PlayerDetailSheetState extends ConsumerState<PlayerDetailSheet> {
     required int day,
     required Player next,
   }) async {
-    await _commitChanges(
+    final ok = await _commitChanges(
       initialRole: initialRole,
       initialTrust: initialTrust,
       initialPoison: initialPoison,
       initialDrunk: initialDrunk,
       day: day,
     );
-    if (!mounted) return;
+    if (!ok || !mounted) return;
     // 把下一个玩家作为弹层返回值；调用方循环打开（_openDetailChain）。
     Navigator.of(context).pop(next);
   }
@@ -677,7 +698,7 @@ class _InfoInputSection extends ConsumerWidget {
   final bool isMine;
 
   /// 提交信息前回调：确保草稿声明已落库（#134 解耦，杜绝孤儿信息）。
-  final Future<void> Function() onEnsureClaim;
+  final Future<bool> Function() onEnsureClaim;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -691,8 +712,10 @@ class _InfoInputSection extends ConsumerWidget {
           players: players,
           actingPlayerId: playerId,
           onSubmit: (payload) async {
-            // 先落库草稿声明（非己且选了 chip 时），再录信息（#134）
-            await onEnsureClaim();
+            // 先落库草稿声明（非己且选了 chip 时），再录信息（#134）。
+            // 声明写失败则中止——避免信息无对应声明成孤儿（#164 B9 review）。
+            final claimOk = await onEnsureClaim();
+            if (!claimOk) return;
             final notifier = ref.read(gameBoardProvider(gameId).notifier);
             final dayRecordId = await notifier.ensureCurrentDayRecord();
             await ref.read(playerDetailRepositoryProvider).declareInfo(
@@ -1355,13 +1378,24 @@ class _AbilitySectionState extends ConsumerState<_AbilitySection> {
 
   Future<void> _submitSlayer() async {
     setState(() => _submitting = true);
-    final result = await ref.read(abilityRepositoryProvider).recordSlayerGuess(
-          slayerId: widget.playerId,
-          targetId: _targetId!,
-          targetIsDemon: _targetIsDemon,
-          wasPoisoned: _wasPoisoned,
-          day: widget.day,
-        );
+    final SlayerGuessResult result;
+    try {
+      result = await ref.read(abilityRepositoryProvider).recordSlayerGuess(
+            slayerId: widget.playerId,
+            targetId: _targetId!,
+            targetIsDemon: _targetIsDemon,
+            wasPoisoned: _wasPoisoned,
+            day: widget.day,
+          );
+    } on Object {
+      // #164 B9：recordSlayerGuess 已事务化（#150 R4），失败则能力未消耗。
+      if (mounted) {
+        setState(() => _submitting = false);
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('提交失败，请重试')));
+      }
+      return;
+    }
     if (!mounted) return;
     setState(() => _submitting = false);
     // recordSlayerGuess 仅在 targetIsDemon && !wasPoisoned 时返回 killed。
