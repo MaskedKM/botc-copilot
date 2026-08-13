@@ -1499,6 +1499,17 @@ class _MyMinionsSection extends ConsumerWidget {
                     : (_) async {
                         final next = Set<int>.of(selected);
                         final isAdd = !next.contains(p.id);
+                        // #152 BUG-3：爪牙数已达该人数局上限则拒绝添加
+                        // （恶魔被告知全部爪牙，不会多于配置数）。
+                        if (isAdd && selected.length >= expected) {
+                          if (!context.mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('$expected 人局仅有 $expected 个爪牙，已达上限'),
+                            ),
+                          );
+                          return;
+                        }
                         if (isAdd) {
                           next.add(p.id);
                         } else {

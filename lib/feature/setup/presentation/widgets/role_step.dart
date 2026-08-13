@@ -34,7 +34,8 @@ class RoleStep extends ConsumerWidget {
         HelpTooltip(
           level: HelpLevel.normal,
           icon: Icons.person_search_outlined,
-          text: '选择你被告知的角色（你的真实身份）。App 据此提供你的夜间信息录入与能力追踪。',
+          text: '选择你被告知的角色（按被告知信息——醉汉会被告知一个镇民角色，'
+              '选被告知的即可）。App 据此提供你的夜间信息录入与能力追踪。',
         ),
         const SizedBox(height: 16),
         for (final team in _teams) ...[

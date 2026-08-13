@@ -1,6 +1,7 @@
 import 'package:botc_copilot/core/constants/character.dart';
 import 'package:botc_copilot/core/constants/player_setup.dart';
 import 'package:botc_copilot/core/constants/script.dart';
+import 'package:botc_copilot/core/constants/team.dart';
 
 /// 开局设置向导状态。
 class SetupState {
@@ -71,13 +72,20 @@ class SetupState {
     return null;
   }
 
+  /// 7+ 人局恶魔须选 3 个 Bluff（官方：3 个不在场好人角色，#152 BUG-2）。
+  bool get bluffsComplete {
+    final needsBluffs =
+        myRole != null && myRole!.team == Team.demon && playerCount >= 7;
+    return !needsBluffs || demonBluffs.length == 3;
+  }
+
   /// 当前步骤是否可前进。
   bool get canProceed => switch (step) {
         0 => true, // 剧本必有默认选中
         1 => true, // 人数必有默认值
         2 => nameValidationError == null, // 名字：无空名 / 重名（#163 P1）
         3 => myRole != null,
-        4 => !submitting,
+        4 => !submitting && bluffsComplete, // 确认页：恶魔 7+ 须选满 3 Bluff（#152 BUG-2）
         _ => false,
       };
 
