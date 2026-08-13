@@ -1035,6 +1035,8 @@ class _BehaviorNoteSectionState extends ConsumerState<_BehaviorNoteSection> {
           dayNumber: widget.day,
           note: note,
         );
+    // #164：await 后须 mounted 守卫，否则关闭 sheet 致 dispose → .clear() 崩。
+    if (!mounted) return;
     _controller.clear();
   }
 

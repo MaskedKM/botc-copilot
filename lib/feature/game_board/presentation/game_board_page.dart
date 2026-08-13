@@ -678,8 +678,10 @@ class _QuickActionsSheetState extends ConsumerState<_QuickActionsSheet> {
           dayNumber: _day,
           note: note,
         );
-    _noteController.clear();
+    // #164：await 后 controller.clear 须在 mounted 守卫内，否则下拉关闭 sheet
+    // 致 dispose → .clear() 命中已 dispose 抛 FlutterError。
     if (mounted) {
+      _noteController.clear();
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('备注已添加'),
