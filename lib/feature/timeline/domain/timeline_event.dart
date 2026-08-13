@@ -126,17 +126,6 @@ abstract final class TimelineBuilder {
                 type: TimelineEventType.nightDeath,
                 summary: '夜晚无人死亡',
               ),
-            // 恶魔传承（issue #89）：紧跟恶魔死亡，记录 from→to 链。
-            for (final s in successions.where(
-              (s) => s.dayNumber == day.dayNumber,
-            ))
-              TimelineEvent(
-                type: TimelineEventType.demonSuccession,
-                summary: s.toPlayerId != null
-                    ? '${nameOf(s.fromPlayerId)}（恶魔）→ ${nameOf(s.toPlayerId)} 传承（${s.trigger.nameCn}）'
-                    : '${nameOf(s.fromPlayerId)}（恶魔）传承，继承人未知（${s.trigger.nameCn}）',
-                playerId: s.toPlayerId ?? s.fromPlayerId,
-              ),
             // 掘墓人信息（issue #106：掘墓人次夜得知前日处决者角色，属夜间
             // 获知信息，故置于夜晚区块之后；原 DayRecord.undertakerResultRole
             // 在生产环境无写入方，是死代码，改读 info_declarations）
@@ -208,6 +197,18 @@ abstract final class TimelineBuilder {
                 type: TimelineEventType.behaviorNote,
                 summary: '${nameOf(note.playerId)}：${note.note}',
                 playerId: note.playerId,
+              ),
+            // 恶魔传承（issue #89）：置于当日末尾——处决/Slayer 触发的传承
+            // 必须晚于其触发事件（处决），夜死触发的同在此处亦不早于夜死。
+            for (final s in successions.where(
+              (s) => s.dayNumber == day.dayNumber,
+            ))
+              TimelineEvent(
+                type: TimelineEventType.demonSuccession,
+                summary: s.toPlayerId != null
+                    ? '${nameOf(s.fromPlayerId)}（恶魔）→ ${nameOf(s.toPlayerId)} 传承（${s.trigger.nameCn}）'
+                    : '${nameOf(s.fromPlayerId)}（恶魔）传承，继承人未知（${s.trigger.nameCn}）',
+                playerId: s.toPlayerId ?? s.fromPlayerId,
               ),
           ],
         ),

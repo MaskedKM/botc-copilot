@@ -161,9 +161,11 @@ class GameBoardNotifier extends StateNotifier<GameBoardState> {
     if (playerId == null) return null;
     final evil = await _evilWinCheck();
     if (evil != null) return evil;
-    // 恶魔自杀传承检测(issue #89):死者疑似恶魔 → 返回传承候选。
+    // 恶魔自杀传承检测(issue #89):死者疑似恶魔(声明/真身 Imp,或用户标
+    // demonCandidate——好人视角真恶魔不声明 Imp,靠信任度兜底)→ 传承候选。
     final claimed = await _effectiveCharacter(playerId);
-    if (SuccessionRules.isDemonDeath(claimed)) {
+    if (SuccessionRules.isDemonDeath(claimed) ||
+        await _isDemonCandidate(playerId)) {
       return checkDemonDeath(playerId, way: DeathWay.suicide);
     }
     return null;
@@ -373,6 +375,19 @@ class GameBoardNotifier extends StateNotifier<GameBoardState> {
     return claims.isNotEmpty ? claims.last.character : null;
   }
 
+  /// 玩家是否被标记为恶魔候选（夜死传承触发的兜底）。
+  ///
+  /// 好人视角下真恶魔不会声明 Imp，单靠声明/真身会漏判；信任度被标为
+  /// demonCandidate 的玩家夜死时也提示传承，由用户在确认框裁决。
+  Future<bool> _isDemonCandidate(int playerId) async {
+    final logs = await _db.trustLogsDao.watchByGame(_gameId).first;
+    TrustLevel? latest;
+    for (final l in logs) {
+      if (l.playerId == playerId) latest = l.trustLevel;
+    }
+    return latest == TrustLevel.demonCandidate;
+  }
+
   /// 恶魔死亡后的传承检测（issue #89 公理5，三路径统一入口）。
   ///
   /// [way]：[DeathWay.suicide]（Imp 夜间自杀）/ [DeathWay.execution]
@@ -451,6 +466,10 @@ class GameBoardNotifier extends StateNotifier<GameBoardState> {
   }
 
   /// 玩家是否被标记毒/醉（整局 suspectedDrunk 或当日活跃毒）。
+  ///
+  /// 注：按天毒（PoisonStatuses）的精确时序（当夜+次日生效）见 issue #109，
+  /// 此处仅查当日 isActive 作近似——传承的 tainted 只作「警告不阻止」提示，
+  /// App 无法确认真身毒/醉，由用户在确认框最终裁决。
   Future<bool> _tainted(int playerId, Map<int, Player> byId) async {
     final drunk = byId[playerId]?.suspectedDrunk ?? false;
     if (drunk) return true;

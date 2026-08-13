@@ -18,8 +18,9 @@ Future<void> handleSuccession(
   BuildContext context,
   WidgetRef ref,
   int gameId,
-  DemonSuccessionCandidate candidate,
-) async {
+  DemonSuccessionCandidate candidate, {
+  Character? revealedRole,
+}) async {
   final db = ref.read(appDatabaseProvider);
   final game = await db.gamesDao.getById(gameId);
   final players = await db.playersDao.watchByGame(gameId).first;
@@ -33,35 +34,44 @@ Future<void> handleSuccession(
     return p != null ? '${p.seatNumber}号 ${p.name}' : '?';
   }
 
-  // 继承人候选：我是恶魔→私密爪牙名单；好人→存活声明爪牙。
+  // 继承人候选：
+  // - 自杀：我是恶魔→私密爪牙名单；好人→存活声明爪牙；SW 满足时加 SW。
+  // - 处决/Slayer：规则上仅 SW 可继承（checkDemonDeath 已保证 SW 在场），
+  //   无 SW 则善良胜，故候选只含 SW，避免误选其他爪牙。
   final heirSet = <int>{};
-  final isDemonMe = game?.myRole == Character.imp &&
-      game?.myPlayerId == candidate.demonPlayerId;
-  if (isDemonMe && game != null) {
-    for (final id in minionIdsOf(game)) {
-      if (players.any((p) => p.id == id && p.isAlive)) heirSet.add(id);
-    }
-  } else {
-    for (final p in players.where((p) => p.isAlive)) {
-      if (SuccessionRules.minionClaimCandidates.contains(latest[p.id])) {
-        heirSet.add(p.id);
+  if (candidate.way == DeathWay.suicide) {
+    final isDemonMe = game?.myRole == Character.imp &&
+        game?.myPlayerId == candidate.demonPlayerId;
+    if (isDemonMe && game != null) {
+      for (final id in minionIdsOf(game)) {
+        if (players.any((p) => p.id == id && p.isAlive)) heirSet.add(id);
+      }
+    } else {
+      for (final p in players.where((p) => p.isAlive)) {
+        if (SuccessionRules.minionClaimCandidates.contains(latest[p.id])) {
+          heirSet.add(p.id);
+        }
       }
     }
   }
-  // SW 满足时确保 SW 在候选（用于预选 / 改选）。
   if (candidate.scarletWomanPlayerId != null) {
     heirSet.add(candidate.scarletWomanPlayerId!);
   }
   final heirs = heirSet.map((id) => (playerId: id, name: nameOf(id))).toList();
 
   if (!context.mounted) return;
+  // 处决路径已由 showDemonCheck 收集揭示角色（经 [revealedRole] 传入）；
+  // Slayer 路径在此收集；夜死无死亡揭示。避免处决路径重复提问 + 丢失。
   final result = await EndGameDialog.showSuccessionCheck(
     context,
     candidate: candidate,
     heirCandidates: heirs,
-    allowDeathReveal: candidate.way != DeathWay.suicide,
+    allowDeathReveal: candidate.way == DeathWay.slayer,
+    initialRevealedRole: revealedRole,
   );
   if (result == null || !context.mounted) return;
+  // 优先用调用方传入的揭示角色（处决），否则用对话框收集的（Slayer）。
+  final reveal = revealedRole ?? result.revealedRole;
 
   final notifier = ref.read(gameBoardProvider(gameId).notifier);
   if (result.occurred) {
@@ -73,10 +83,10 @@ Future<void> handleSuccession(
               ? SuccessionTrigger.scarletWoman
               : SuccessionTrigger.suicideByImp),
     );
-    if (result.revealedRole != null) {
+    if (reveal != null) {
       await notifier.recordRevealOnly(
         playerId: candidate.demonPlayerId,
-        role: result.revealedRole!,
+        role: reveal,
       );
     }
   } else {
@@ -84,7 +94,7 @@ Future<void> handleSuccession(
     await notifier.endGame(
       goodWin: true,
       revealedPlayerId: candidate.demonPlayerId,
-      revealedRole: result.revealedRole,
+      revealedRole: reveal,
     );
   }
 }

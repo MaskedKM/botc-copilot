@@ -77,6 +77,21 @@ void main() {
       expect(cand.aliveCountAfter, 6); // 7 - 1
     });
 
+    test('夜死自杀：死者被标 demonCandidate（未声明 Imp）→ 兜底触发', () async {
+      final players = await db.playersDao.watchByGame(gameId).first;
+      // 不声明 Imp，但信任度标 demonCandidate（好人视角兜底）
+      await db.trustLogsDao.insertLog(
+        TrustLogsCompanion(
+          gameId: Value(gameId),
+          playerId: Value(players[0].id),
+          dayNumber: const Value(1),
+          trustLevel: const Value(TrustLevel.demonCandidate),
+        ),
+      );
+      final suggestion = await notifier().recordNightDeath(players[0].id);
+      expect(suggestion, isA<DemonSuccessionCandidate>());
+    });
+
     test('夜死自杀 + SW 在场（死前 ≥5）→ SW eligible', () async {
       final players = await db.playersDao.watchByGame(gameId).first;
       await claimRole(players[0].id, Character.imp);

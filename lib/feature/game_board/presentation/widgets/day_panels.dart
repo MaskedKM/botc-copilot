@@ -329,7 +329,13 @@ Future<void> handleEndSuggestion(
         );
         if (!context.mounted) return;
         if (succ is DemonSuccessionCandidate) {
-          await handleSuccession(context, ref, gameId, succ);
+          await handleSuccession(
+            context,
+            ref,
+            gameId,
+            succ,
+            revealedRole: result.revealedRole,
+          );
         } else {
           await notifier.endGame(
             goodWin: true,

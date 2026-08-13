@@ -137,13 +137,17 @@ abstract final class EndGameDialog {
     required DemonSuccessionCandidate candidate,
     required List<({int playerId, String name})> heirCandidates,
     bool allowDeathReveal = false,
+    Character? initialRevealedRole,
   }) {
     // SW 满足时默认选 SW；否则 null（「继承人未知」项）。
     int? selectedHeir =
         candidate.scarletWomanEligible ? candidate.scarletWomanPlayerId : null;
-    Character? revealed;
+    Character? revealed = initialRevealedRole;
     return showDialog<SuccessionResult>(
       context: context,
+      // 恶魔已落库死亡，必须裁决（传承/善良胜），不可 dismiss 悬空——
+      // 尤其 Slayer 路径 abilityUsed 已置 true，dismiss 后无法重入。
+      barrierDismissible: false,
       builder: (context) => StatefulBuilder(
         builder: (context, setState) => AlertDialog(
           title: Text('${candidate.demonName}（恶魔）死亡',
@@ -219,10 +223,12 @@ abstract final class EndGameDialog {
                 SuccessionResult(
                   occurred: true,
                   toPlayerId: selectedHeir,
-                  trigger: (selectedHeir != null &&
-                          selectedHeir == candidate.scarletWomanPlayerId)
-                      ? SuccessionTrigger.scarletWoman
-                      : SuccessionTrigger.suicideByImp,
+                  // 处决/Slayer 传承必经 SW（规则）；自杀按继承人判定。
+                  trigger: candidate.way == DeathWay.suicide
+                      ? (selectedHeir == candidate.scarletWomanPlayerId
+                          ? SuccessionTrigger.scarletWoman
+                          : SuccessionTrigger.suicideByImp)
+                      : SuccessionTrigger.scarletWoman,
                   revealedRole: revealed,
                 ),
               ),
