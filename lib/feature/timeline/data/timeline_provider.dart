@@ -28,6 +28,13 @@ final _declarationsProvider =
   return db.infoDeclarationsDao.watchByGame(gameId);
 });
 
+/// 某局的全部恶魔传承事件（issue #89）。
+final _successionsProvider =
+    StreamProvider.family<List<DemonInheritance>, int>((ref, gameId) {
+  final db = ref.watch(appDatabaseProvider);
+  return db.demonInheritancesDao.watchByGame(gameId);
+});
+
 /// 某局的时间线数据（按天分组）。
 ///
 /// 组合多个流（days/players/claims/declarations/nominations/poison/behavior）：
@@ -71,6 +78,8 @@ final timelineProvider =
       behaviorNotes:
           ref.watch(gameBehaviorNotesProvider(gameId)).valueOrNull ?? [],
       nominations: nominations.valueOrNull ?? [],
+      successions:
+          ref.watch(_successionsProvider(gameId)).valueOrNull ?? [],
     ),
   );
 });

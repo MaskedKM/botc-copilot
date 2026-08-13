@@ -29,6 +29,9 @@ enum TimelineEventType {
 
   /// 行为备注（issue #36）。
   behaviorNote,
+
+  /// 恶魔传承（Imp 自杀→爪牙继承 / 绯红女继承，issue #89）。
+  demonSuccession,
 }
 
 /// 一条时间线事件。
@@ -74,6 +77,7 @@ abstract final class TimelineBuilder {
     List<PoisonStatus> poisonStatuses = const [],
     List<BehaviorNote> behaviorNotes = const [],
     List<Nomination> nominations = const [],
+    List<DemonInheritance> successions = const [],
   }) {
     String nameOf(int? playerId) {
       if (playerId == null) return '';
@@ -121,6 +125,17 @@ abstract final class TimelineBuilder {
               const TimelineEvent(
                 type: TimelineEventType.nightDeath,
                 summary: '夜晚无人死亡',
+              ),
+            // 恶魔传承（issue #89）：紧跟恶魔死亡，记录 from→to 链。
+            for (final s in successions.where(
+              (s) => s.dayNumber == day.dayNumber,
+            ))
+              TimelineEvent(
+                type: TimelineEventType.demonSuccession,
+                summary: s.toPlayerId != null
+                    ? '${nameOf(s.fromPlayerId)}（恶魔）→ ${nameOf(s.toPlayerId)} 传承（${s.trigger.nameCn}）'
+                    : '${nameOf(s.fromPlayerId)}（恶魔）传承，继承人未知（${s.trigger.nameCn}）',
+                playerId: s.toPlayerId ?? s.fromPlayerId,
               ),
             // 掘墓人信息（issue #106：掘墓人次夜得知前日处决者角色，属夜间
             // 获知信息，故置于夜晚区块之后；原 DayRecord.undertakerResultRole
