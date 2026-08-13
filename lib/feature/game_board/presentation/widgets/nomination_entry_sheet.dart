@@ -500,30 +500,51 @@ class _NominationEntrySheetState extends ConsumerState<NominationEntrySheet> {
       myPlayerId: game?.myPlayerId,
       myRole: game?.myRole,
     );
+    final playersById = {for (final p in players) p.id: p};
+    final nominee = playersById[_nomineeId!];
+
+    // 官方规则（Wiki·Virgin）：处女首次被提名即失去能力，**无论提名者阵营、
+    // 无论当时是否毒/醉**（#159 C1）。仅「处决镇民提名者」是有条件效果——
+    // 故能力消耗是无条件的，处决提示是条件性的。
+    final isVirginFirstNomination =
+        latestClaim[_nomineeId!]?.character == Character.virgin &&
+        nominee != null &&
+        nominee.isAlive &&
+        !nominee.abilityUsed;
+
+    // 处决场景：镇民首次提名存活的（未消耗）处女。决定是否弹处决确认。
     final virginId = NominationRules.virginTriggerScenario(
       nominatorId: _nominatorId!,
       nomineeId: _nomineeId!,
       latestClaim: latestClaim,
-      playersById: {for (final p in players) p.id: p},
+      playersById: playersById,
     );
-    if (virginId == null) return;
-    final nominator = players.firstWhere((p) => p.id == _nominatorId);
-    final nominee = players.firstWhere((p) => p.id == _nomineeId);
 
+    if (virginId == null) {
+      // 非镇民提名（或已消耗）→ 无处决提示；但首提名仍消耗能力（#159 C1）。
+      if (isVirginFirstNomination) {
+        await ref
+            .read(abilityRepositoryProvider)
+            .setAbilityUsed(_nomineeId!, used: true);
+      }
+      return;
+    }
+
+    final nominator = playersById[_nominatorId!]!;
     final action = await showDialog<_VirginAction>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('处女能力可能触发'),
         content: Text(
-          '${nominee.seatNumber}号 ${nominee.name}（声明处女）首次被镇民 '
+          '${nominee!.seatNumber}号 ${nominee.name}（声明处女）首次被镇民 '
           '${nominator.seatNumber}号 ${nominator.name} 提名。\n'
-          '官方规则：若处女未被毒/醉，提名者立即被处决；若被毒/醉则不触发'
-          '（且不消耗能力），请选「不处理」。',
+          '官方规则：若处女未被毒/醉，提名者立即被处决。无论是否处决，'
+          '处女能力均**已消耗**（首次被提名即失去，#159）。',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, _VirginAction.dismiss),
-            child: const Text('不处理'),
+            child: const Text('不处决'),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, _VirginAction.execute),
@@ -533,11 +554,12 @@ class _NominationEntrySheetState extends ConsumerState<NominationEntrySheet> {
       ),
     );
 
+    // 无论处决与否，处女能力均已消耗（首次被提名，#159 C1）。
+    await ref
+        .read(abilityRepositoryProvider)
+        .setAbilityUsed(virginId, used: true);
     switch (action) {
       case _VirginAction.execute:
-        await ref
-            .read(abilityRepositoryProvider)
-            .setAbilityUsed(virginId, used: true);
         final suggestion = await ref
             .read(gameBoardProvider(widget.gameId).notifier)
             .recordExecution(_nominatorId!);
