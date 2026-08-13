@@ -117,6 +117,40 @@ void main() {
     expect(updated[1].deathCause, isNull);
   });
 
+  // #149 BUG-1：恶魔死亡应先传承（DemonSuccessionCandidate），不得被
+  // _evilWinCheck 短路成 EvilWinCandidate（Imp 自杀无爪牙时应善良胜，非邪恶胜）。
+  test('recordNightDeath：恶魔死先传承，不短路邪恶胜（#149 BUG-1）', () async {
+    // 我是 Imp（座位1），杀到剩 3 存活（我 + 2 好人，无爪牙）
+    await db.gamesDao.updateMyRole(gameId, Character.imp);
+    await db.gamesDao.updateMyPlayerId(gameId, players[0].id);
+    for (final i in [2, 3, 4, 5]) {
+      await db.playersDao.markDead(players[i].id, 1, DeathCause.nightKill);
+    }
+    // Imp 夜死 → 返回传承候选（先传承/善良胜），非 EvilWinCandidate
+    final suggestion = await notifier().recordNightDeath(players[0].id);
+    expect(suggestion, isA<DemonSuccessionCandidate>());
+  });
+
+  test('recordNightDeath：非恶魔死 + 存活 ≤2 → 邪恶胜候选（#149）', () async {
+    // 杀到 3 存活（均好人：myPlayerId 未设）
+    for (final i in [2, 3, 4, 5]) {
+      await db.playersDao.markDead(players[i].id, 1, DeathCause.nightKill);
+    }
+    // players[1]（好人）夜死 → 非恶魔 → 人头邪恶胜
+    final suggestion = await notifier().recordNightDeath(players[1].id);
+    expect(suggestion, isA<EvilWinCandidate>());
+  });
+
+  test('quickToggleDead：恶魔长按标死先传承（#149 BUG-1）', () async {
+    await db.gamesDao.updateMyRole(gameId, Character.imp);
+    await db.gamesDao.updateMyPlayerId(gameId, players[0].id);
+    for (final i in [2, 3, 4, 5]) {
+      await db.playersDao.markDead(players[i].id, 1, DeathCause.nightKill);
+    }
+    final suggestion = await notifier().quickToggleDead(players[0]);
+    expect(suggestion, isA<DemonSuccessionCandidate>());
+  });
+
   test('recordExecution：处决标记死亡', () async {
     await notifier().recordExecution(players[4].id);
     final updated = await db.playersDao.watchByGame(gameId).first;
