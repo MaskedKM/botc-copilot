@@ -214,9 +214,12 @@ abstract final class NominationRules {
     if (decls.isEmpty) return null;
     try {
       final decoded = jsonDecode(decls.last.payloadJson);
-      if (decoded is Map) return decoded['playerId'] as int?;
-    } on FormatException {
-      return null;
+      // 类型守卫：playerId 非法类型时 as int? 抛 TypeError 逃逸 catch（#164 review P1）。
+      if (decoded is Map && decoded['playerId'] is int) {
+        return decoded['playerId'] as int;
+      }
+    } on Object {
+      // 损坏 payload：无法判定主人，返回 null（UI 不报）。
     }
     return null;
   }

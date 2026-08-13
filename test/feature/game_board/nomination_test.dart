@@ -215,6 +215,25 @@ void main() {
         expect(NominationRules.butlerMasterOf([decl], 5), isNull);
       });
 
+      // #164 review P1：playerId 合法 JSON 但非 int（字符串）→ as int? 抛
+      // TypeError 逃逸 on FormatException；现类型守卫返回 null，不抛。
+      test('playerId 非法类型（字符串）→ null，不抛', () {
+        final decl = InfoDeclaration(
+          id: 1,
+          playerId: 5,
+          dayRecordId: 1,
+          characterType: Character.butler,
+          payloadJson: '{"playerId": "4"}',
+          reliability: Reliability.unverified,
+          isMine: false,
+        );
+        expect(
+          () => NominationRules.butlerMasterOf([decl], 5),
+          returnsNormally,
+        );
+        expect(NominationRules.butlerMasterOf([decl], 5), isNull);
+      });
+
       test('只取该管家自己的声明（忽略他人 butler 声明）', () {
         final decls = [
           butlerDecl(1, 6, 3),

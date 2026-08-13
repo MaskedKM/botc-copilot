@@ -5,6 +5,7 @@ import 'package:botc_copilot/feature/game_board/presentation/providers/game_boar
 import 'package:botc_copilot/feature/reasoning/domain/contradiction.dart';
 import 'package:botc_copilot/shared/game_private.dart';
 import 'package:botc_copilot/shared/reliability.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// 某对局的全部角色声明流。
@@ -66,6 +67,8 @@ final contradictionsProvider = Provider.family<List<Contradiction>, int>(
       );
     } on Object {
       // 兜底：损坏数据不应让同步 Provider 抛异常致主界面红屏（#164 B5）。
+      // debugPrint 保留诊断：不静默吞掉 detect() 的真实 bug。
+      if (kDebugMode) debugPrint('contradictionsProvider 兜底捕获异常');
       return const [];
     }
   },
