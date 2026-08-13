@@ -102,7 +102,7 @@ class ConfirmStep extends ConsumerWidget {
                     Text(
                       '恶魔 Bluff（选 3 个）',
                       style: AppTextStyles.headline
-                          .copyWith(color: gameColors.blood),
+                          .copyWith(color: gameColors.bloodBright),
                     ),
                     const SizedBox(height: 4),
                     Text(

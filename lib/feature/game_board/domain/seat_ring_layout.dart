@@ -39,16 +39,25 @@ abstract final class SeatRingLayout {
   }
 
   /// 命中测试：返回被点中的座位索引（0-based），未命中返回 null。
+  ///
+  /// 当命中区重叠（13-15 人局座位密集）时，返回**距离最近**的中心而非首个，
+  /// 修复原先「恒判首个」的偏差（issue #135）。非重叠场景结果不变。
   static int? hitTest({
     required Offset position,
     required List<Offset> centers,
     double scale = 1.0,
   }) {
     final hitRadius = (nodeRadius + outerPadding) * scale;
+    var bestIndex = -1;
+    var bestDist = double.infinity;
     for (var i = 0; i < centers.length; i++) {
-      if ((position - centers[i]).distance <= hitRadius) return i;
+      final d = (position - centers[i]).distance;
+      if (d <= hitRadius && d < bestDist) {
+        bestDist = d;
+        bestIndex = i;
+      }
     }
-    return null;
+    return bestIndex < 0 ? null : bestIndex;
   }
 
   /// 沿顺时针方向找 [fromIndex] 之后最近的存活座位索引。

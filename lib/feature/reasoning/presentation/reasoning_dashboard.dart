@@ -207,7 +207,7 @@ class _LatestSuccessionSection extends StatelessWidget {
               const SizedBox(width: 6),
               Text(
                 '恶魔传承（第 ${latest.dayNumber} 天）',
-                style: AppTextStyles.headline.copyWith(color: gameColors.blood),
+                style: AppTextStyles.headline.copyWith(color: gameColors.bloodBright),
               ),
             ],
           ),

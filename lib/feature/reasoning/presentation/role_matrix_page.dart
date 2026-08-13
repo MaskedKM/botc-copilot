@@ -218,7 +218,7 @@ class _MatrixTable extends StatelessWidget {
                           '${p.seatNumber}${p.name}',
                           style: AppTextStyles.caption.copyWith(
                             color: myMinionIds.contains(p.id)
-                                ? gameColors.blood
+                                ? gameColors.bloodBright
                                 : null,
                           ),
                           overflow: TextOverflow.ellipsis,
@@ -240,7 +240,7 @@ class _MatrixTable extends StatelessWidget {
     final color = col.isBluff
         ? gameColors.trustSuspect
         : col.hasConflict
-            ? gameColors.blood
+            ? gameColors.bloodBright
             : col.isUnclaimed
                 ? gameColors.inkViolet.withValues(alpha: 0.4)
                 : gameColors.goldBright;

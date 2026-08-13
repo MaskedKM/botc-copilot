@@ -566,7 +566,9 @@ class _VoteRow extends StatelessWidget {
               '${player.seatNumber}号 ${player.name}'
               '${info != null ? ' ·主${info.masterSeat}号' : ''}',
               style: AppTextStyles.body.copyWith(
-                color: isDead ? AppColors.textDisabled : null,
+                color: isDead
+                    ? AppColors.textPrimary.withValues(alpha: 0.45)
+                    : null,
               ),
               overflow: TextOverflow.ellipsis,
             ),
@@ -587,8 +589,8 @@ class _VoteRow extends StatelessWidget {
                 deadVoteUsed ? '死票已用' : '死票',
                 style: AppTextStyles.caption.copyWith(
                   color: deadVoteBlocked
-                      ? AppColors.textDisabled
-                      : gameColors.blood,
+                      ? AppColors.textPrimary.withValues(alpha: 0.45)
+                      : gameColors.bloodBright,
                 ),
               ),
             ),

@@ -31,8 +31,11 @@ abstract final class AppColors {
   /// 高光：钟针、当前天数、聚焦态。
   static const Color goldBright = Color(0xFFE4CC85);
 
-  /// 邪恶阵营、死亡、处决、危险操作、矛盾警告。
+  /// 邪恶阵营、死亡、处决、危险操作、矛盾警告（填充/图标/边框/大字）。
   static const Color blood = Color(0xFFB84A55);
+
+  /// blood 的提亮文字变体（AA 对比度 ~4.7:1，小号正文/标题/caption 用，#135）。
+  static const Color bloodBright = Color(0xFFD45A66);
 
   /// 次要信息、未激活态。
   static const Color inkViolet = Color(0xFF8E86B8);

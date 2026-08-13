@@ -42,6 +42,20 @@ class SeatRingPlayer {
   /// 名字首字符（节点内显示）。
   String get initial => name.isEmpty ? '?' : name.characters.first;
 
+  /// 读屏语义标签（issue #135 a11y）：座位号 + 名字 + 存活状态 + 信任度
+  /// + 我/中毒/矛盾标记。供圆环每座位的 [Semantics] 节点。
+  String get semanticLabel {
+    final parts = <String>[
+      '$seatNumber号 $name',
+      isAlive ? '存活' : '已死亡',
+      '信任：${trustLevel.nameCn}',
+    ];
+    if (isMe) parts.add('这是我');
+    if (isPoisoned) parts.add('疑似被毒');
+    if (hasContradiction) parts.add('矛盾标记');
+    return parts.join('，');
+  }
+
   /// 复制并修改部分字段。
   SeatRingPlayer copyWith({
     bool? isAlive,

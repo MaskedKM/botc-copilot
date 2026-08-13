@@ -67,6 +67,27 @@ void main() {
         isNull,
       );
     });
+
+    test('命中区重叠时返最近中心（#135，修恒判首个）', () {
+      // 两中心都在 hitRadius(34) 内的重叠场景
+      const centers = [Offset(100, 100), Offset(110, 100)];
+      // 距 index1 更近 → 返 1（旧行为会返首个 0）
+      expect(
+        SeatRingLayout.hitTest(
+          position: const Offset(108, 100),
+          centers: centers,
+        ),
+        1,
+      );
+      // 距 index0 更近 → 返 0
+      expect(
+        SeatRingLayout.hitTest(
+          position: const Offset(102, 100),
+          centers: centers,
+        ),
+        0,
+      );
+    });
   });
 
   group('座位收缩（邻座计算跳过死亡）', () {

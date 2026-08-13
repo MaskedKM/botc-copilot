@@ -133,7 +133,7 @@ abstract final class AppTheme {
   ///
   /// 用法：`OutlinedButton(style: AppTheme.dangerButtonStyle, ...)`
   static ButtonStyle get dangerButtonStyle => OutlinedButton.styleFrom(
-        foregroundColor: AppColors.blood,
+        foregroundColor: AppColors.bloodBright,
         textStyle: AppTextStyles.label,
         minimumSize: const Size(48, 48),
         side: const BorderSide(color: AppColors.blood, width: 0.5),

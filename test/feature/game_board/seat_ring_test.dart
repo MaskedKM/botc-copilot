@@ -1,3 +1,4 @@
+import 'package:botc_copilot/core/theme/app_motion.dart';
 import 'package:botc_copilot/core/theme/app_theme.dart';
 import 'package:botc_copilot/feature/game_board/domain/seat_ring_layout.dart';
 import 'package:botc_copilot/feature/game_board/domain/seat_ring_player.dart';
@@ -118,6 +119,55 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(find.byType(SeatRing), findsOneWidget);
+    });
+
+    testWidgets('每座位暴露语义标签（#135 a11y）', (tester) async {
+      await tester.pumpWidget(buildRing(players: makePlayers(5)));
+      await tester.pumpAndSettle();
+      // 1 号位（isMe）的语义标签应可被读屏读到
+      expect(
+        find.bySemanticsLabel('1号 玩家1，存活，信任：未知，这是我'),
+        findsOneWidget,
+      );
+      // 非己玩家（2 号）
+      expect(
+        find.bySemanticsLabel('2号 玩家2，存活，信任：未知'),
+        findsOneWidget,
+      );
+    });
+  });
+
+  group('AppMotion.resolve（#135 减弱动效）', () {
+    testWidgets('系统减弱动效 → 退化为 fast', (tester) async {
+      late BuildContext ctx;
+      await tester.pumpWidget(
+        MediaQuery(
+          data: const MediaQueryData(disableAnimations: true),
+          child: Builder(
+            builder: (c) {
+              ctx = c;
+              return const SizedBox.shrink();
+            },
+          ),
+        ),
+      );
+      expect(AppMotion.resolve(ctx, AppMotion.death), AppMotion.fast);
+    });
+
+    testWidgets('默认 → 原样返回', (tester) async {
+      late BuildContext ctx;
+      await tester.pumpWidget(
+        MediaQuery(
+          data: const MediaQueryData(),
+          child: Builder(
+            builder: (c) {
+              ctx = c;
+              return const SizedBox.shrink();
+            },
+          ),
+        ),
+      );
+      expect(AppMotion.resolve(ctx, AppMotion.death), AppMotion.death);
     });
   });
 }

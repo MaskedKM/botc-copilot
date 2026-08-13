@@ -351,7 +351,7 @@ class _PlayerDetailSheetState extends ConsumerState<PlayerDetailSheet> {
                     Text(
                       '☠ 已死亡',
                       style: AppTextStyles.caption
-                          .copyWith(color: context.gameColors.blood),
+                          .copyWith(color: context.gameColors.bloodBright),
                     ),
                 ],
               ),
@@ -796,11 +796,15 @@ class _InfoRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 2),
       child: Row(
         children: [
-          Icon(
-            Icons.circle,
-            size: 6,
-            color: context.gameColors.ofReliability(
-              effectiveReliability(decl.reliability, authorSuspectedDrunk),
+          // a11y：可靠性圆点需语义标签（#135），不能只靠颜色。
+          Semantics(
+            label: '可靠性：${effectiveReliability(decl.reliability, authorSuspectedDrunk).nameCn}',
+            child: Icon(
+              Icons.circle,
+              size: 6,
+              color: context.gameColors.ofReliability(
+                effectiveReliability(decl.reliability, authorSuspectedDrunk),
+              ),
             ),
           ),
           const SizedBox(width: 8),
@@ -1200,7 +1204,7 @@ class _AbilitySectionState extends ConsumerState<_AbilitySection> {
   Widget _buildSaint(GameColors gameColors) {
     return Text(
       '圣徒被处决时，善良方立即战败。处决此人时 App 会提示「邪恶获胜」。',
-      style: AppTextStyles.caption.copyWith(color: gameColors.blood),
+      style: AppTextStyles.caption.copyWith(color: gameColors.bloodBright),
     );
   }
 
@@ -1381,7 +1385,7 @@ class _MyMinionsSection extends ConsumerWidget {
       children: [
         Text(
           '我的爪牙（私密，${game.playerCount} 人局应有 $expected 个）',
-          style: AppTextStyles.headline.copyWith(color: gameColors.blood),
+          style: AppTextStyles.headline.copyWith(color: gameColors.bloodBright),
         ),
         const SizedBox(height: 4),
         Text(

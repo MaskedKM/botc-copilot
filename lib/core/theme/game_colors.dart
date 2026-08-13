@@ -21,6 +21,7 @@ class GameColors extends ThemeExtension<GameColors> {
     required this.reliabilityTainted,
     required this.reliabilityInvalidated,
     required this.blood,
+    required this.bloodBright,
     required this.inkViolet,
     required this.lineGold,
     required this.goldBright,
@@ -56,6 +57,9 @@ class GameColors extends ThemeExtension<GameColors> {
   /// 邪恶/死亡/危险（血红）。
   final Color blood;
 
+  /// blood 的提亮文字变体（小号正文用，AA 对比，#135）。
+  final Color bloodBright;
+
   /// 次要信息、未激活态。
   final Color inkViolet;
 
@@ -77,6 +81,7 @@ class GameColors extends ThemeExtension<GameColors> {
     reliabilityTainted: AppColors.reliabilityTainted,
     reliabilityInvalidated: AppColors.reliabilityInvalidated,
     blood: AppColors.blood,
+    bloodBright: AppColors.bloodBright,
     inkViolet: AppColors.inkViolet,
     lineGold: AppColors.lineGold,
     goldBright: AppColors.goldBright,
@@ -111,6 +116,7 @@ class GameColors extends ThemeExtension<GameColors> {
     Color? reliabilityTainted,
     Color? reliabilityInvalidated,
     Color? blood,
+    Color? bloodBright,
     Color? inkViolet,
     Color? lineGold,
     Color? goldBright,
@@ -128,6 +134,7 @@ class GameColors extends ThemeExtension<GameColors> {
       reliabilityInvalidated:
           reliabilityInvalidated ?? this.reliabilityInvalidated,
       blood: blood ?? this.blood,
+      bloodBright: bloodBright ?? this.bloodBright,
       inkViolet: inkViolet ?? this.inkViolet,
       lineGold: lineGold ?? this.lineGold,
       goldBright: goldBright ?? this.goldBright,
@@ -155,6 +162,7 @@ class GameColors extends ThemeExtension<GameColors> {
       reliabilityInvalidated:
           Color.lerp(reliabilityInvalidated, other.reliabilityInvalidated, t)!,
       blood: Color.lerp(blood, other.blood, t)!,
+      bloodBright: Color.lerp(bloodBright, other.bloodBright, t)!,
       inkViolet: Color.lerp(inkViolet, other.inkViolet, t)!,
       lineGold: Color.lerp(lineGold, other.lineGold, t)!,
       goldBright: Color.lerp(goldBright, other.goldBright, t)!,
