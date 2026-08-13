@@ -438,8 +438,9 @@ class _NominationEntrySheetState extends ConsumerState<NominationEntrySheet> {
 
   /// 管家投票限制命中时弹窗（issue #115，警告不阻止）。
   ///
-  /// 官方：管家投赞成但主人未投赞成 → 此票无效。App 无法确认管家真实身份
-  /// 或主人是否改口，故仅提示，由用户裁决。返回 true=继续提交，false=返回。
+  /// 官方：管家投赞成但主人未投赞成 → 违反能力约束（但违规票仍公开计入计票，
+  /// 说书人不暴露管家身份）。App 无法确认管家真实身份或主人是否改口，故仅提示，
+  /// 由用户裁决。返回 true=继续提交，false=返回。
   Future<bool> _confirmButlerViolationIfAny({
     required List<Player> players,
     required Map<int, int> butlerMaster,
@@ -471,7 +472,8 @@ class _NominationEntrySheetState extends ConsumerState<NominationEntrySheet> {
         title: const Text('管家投票限制'),
         content: Text(
           '${lines.join('\n')}\n'
-          '官方规则：管家只能在主人也投赞成的提名上投赞成，此票无效。'
+          '官方规则：管家只能在主人也投赞成的提名上投赞成。管家此票违反约束，'
+          '但仍公开计入计票（说书人不暴露管家身份，与 App 计入行为一致）。'
           '仍要记录？',
         ),
         actions: [
