@@ -1,6 +1,8 @@
 import 'package:botc_copilot/core/constants/script.dart';
 import 'package:botc_copilot/core/theme/app_text_styles.dart';
 import 'package:botc_copilot/feature/setup/presentation/providers/setup_provider.dart';
+import 'package:botc_copilot/shared/models/enums.dart';
+import 'package:botc_copilot/shared/widgets/help_tooltip.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -17,6 +19,11 @@ class ScriptStep extends ConsumerWidget {
       padding: const EdgeInsets.all(16),
       children: [
         const Text('选择剧本', style: AppTextStyles.title),
+        HelpTooltip(
+          level: HelpLevel.normal,
+          icon: Icons.menu_book_outlined,
+          text: '剧本决定本局可用的角色与规则。当前仅支持《暗流涌动》(TB)。',
+        ),
         const SizedBox(height: 16),
         for (final script in Script.values)
           Padding(

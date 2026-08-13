@@ -4,6 +4,8 @@ import 'package:botc_copilot/core/theme/app_colors.dart';
 import 'package:botc_copilot/core/theme/app_text_styles.dart';
 import 'package:botc_copilot/core/theme/game_colors.dart';
 import 'package:botc_copilot/feature/setup/presentation/providers/setup_provider.dart';
+import 'package:botc_copilot/shared/models/enums.dart';
+import 'package:botc_copilot/shared/widgets/help_tooltip.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -29,6 +31,11 @@ class RoleStep extends ConsumerWidget {
       padding: const EdgeInsets.all(16),
       children: [
         const Text('我的角色', style: AppTextStyles.title),
+        HelpTooltip(
+          level: HelpLevel.normal,
+          icon: Icons.person_search_outlined,
+          text: '选择你被告知的角色（你的真实身份）。App 据此提供你的夜间信息录入与能力追踪。',
+        ),
         const SizedBox(height: 16),
         for (final team in _teams) ...[
           _TeamHeader(team: team),

@@ -26,6 +26,12 @@ class SetupRepository {
     int? mySeat,
   }) {
     return _db.transaction(() async {
+      // 帮助层级（issue #137）：首局默认 beginner（新手第一局看得见提示）；
+      // 后续局继承最近一局的选择，避免熟练者每次重设。
+      final existing = await _db.gamesDao.watchAll().first;
+      final helpLevel = existing.isEmpty
+          ? HelpLevel.beginner
+          : existing.first.helpLevel;
       final gameId = await _db.gamesDao.insertGame(
         GamesCompanion(
           script: Value(script),
@@ -33,6 +39,7 @@ class SetupRepository {
           status: const Value(GameStatus.ongoing),
           createdAt: Value(DateTime.now()),
           myRole: Value(myRole),
+          helpLevel: Value(helpLevel),
           demonBluffsJson: demonBluffs.isEmpty
               ? const Value.absent()
               : Value(

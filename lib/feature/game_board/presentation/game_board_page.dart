@@ -580,6 +580,7 @@ class _ContextHint extends StatelessWidget {
     final gameColors = context.gameColors;
     final hint = day == 1
         ? '首夜信息已发放。点击圆环上的玩家，记录他们声明的角色和信息。'
+            '长按座位可快速标记死亡 / 信任度 / 备注。'
         : '夜晚结束。在「夜晚」面板记录死亡，然后点击玩家记录角色声明和信息。'
             '白天讨论后到「投票」面板记录提名。';
 

@@ -2,6 +2,8 @@ import 'package:botc_copilot/core/constants/player_setup.dart';
 import 'package:botc_copilot/core/theme/app_text_styles.dart';
 import 'package:botc_copilot/core/theme/game_colors.dart';
 import 'package:botc_copilot/feature/setup/presentation/providers/setup_provider.dart';
+import 'package:botc_copilot/shared/models/enums.dart';
+import 'package:botc_copilot/shared/widgets/help_tooltip.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -44,6 +46,12 @@ class PlayerCountStep extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text('本局配置', style: AppTextStyles.headline),
+                HelpTooltip(
+                  level: HelpLevel.normal,
+                  icon: Icons.groups_outlined,
+                  text: '阵营配置：镇民 + 外来者（好人方）对抗爪牙 + 恶魔（邪恶方）。'
+                      '男爵在场时 +2 外来者、-2 镇民。',
+                ),
                 const SizedBox(height: 12),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceAround,
