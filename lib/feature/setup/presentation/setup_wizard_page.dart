@@ -49,7 +49,8 @@ class _SetupWizardPageState extends ConsumerState<SetupWizardPage> {
       // pushReplacement：栈变为 [首页, 对局页]——
       // 对局页可返回首页，且不会回到一次性的设置向导。
       router.pushReplacement(AppRoutes.gameBoard(gameId));
-    } on Exception {
+    } on Object {
+      // #158 setup-3：setup_provider 抛 StateError（Error 体系），on Exception 捕不到。
       messenger.showSnackBar(const SnackBar(content: Text('创建对局失败，请重试')));
     }
   }
@@ -94,8 +95,11 @@ class _SetupWizardPageState extends ConsumerState<SetupWizardPage> {
                 children: [
                   if (step > 0)
                     TextButton(
-                      onPressed: () =>
-                          ref.read(setupProvider.notifier).previousStep(),
+                      // #158 setup-2：submit 进行中禁用后退，避免 await 间隙产生混乱中间态。
+                      onPressed: submitting
+                          ? null
+                          : () =>
+                              ref.read(setupProvider.notifier).previousStep(),
                       child: const Text('上一步'),
                     )
                   else

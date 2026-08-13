@@ -12,8 +12,12 @@ final setupRepositoryProvider = Provider<SetupRepository>(
 );
 
 /// 开局设置向导状态 Provider。
+///
+/// autoDispose：向导页 pop（返回退出）即销毁，下次「新建对局」拿到全新 SetupState，
+/// 不再残留上一局的角色 / 座位 / Bluff 草稿（#158 setup-1，避免重复开局）。
 final setupProvider =
-    StateNotifierProvider<SetupNotifier, SetupState>(SetupNotifier.new);
+    StateNotifierProvider.autoDispose<SetupNotifier, SetupState>(
+        SetupNotifier.new);
 
 /// 开局设置向导状态管理。
 class SetupNotifier extends StateNotifier<SetupState> {
