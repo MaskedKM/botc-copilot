@@ -9,8 +9,10 @@ import 'package:botc_copilot/feature/game_board/data/nomination_repository.dart'
 import 'package:botc_copilot/feature/game_board/domain/game_end.dart';
 import 'package:botc_copilot/feature/game_board/domain/night_death_rules.dart';
 import 'package:botc_copilot/feature/game_board/domain/nomination_rules.dart';
+import 'package:botc_copilot/shared/models/enums.dart';
 import 'package:botc_copilot/shared/widgets/help_tooltip.dart';
 import 'package:botc_copilot/feature/game_board/presentation/providers/game_board_provider.dart';
+import 'package:botc_copilot/feature/game_board/presentation/succession_handler.dart';
 import 'package:botc_copilot/feature/game_board/presentation/widgets/end_game_dialog.dart';
 import 'package:botc_copilot/feature/game_board/presentation/widgets/night_action_section.dart';
 import 'package:botc_copilot/feature/game_board/presentation/widgets/night_order_section.dart';
@@ -262,6 +264,9 @@ Future<void> handleEndSuggestion(
 ) async {
   final notifier = ref.read(gameBoardProvider(gameId).notifier);
   switch (suggestion) {
+    case DemonSuccessionCandidate():
+      // 恶魔死亡 → 传承/善良胜确认（issue #89，三路径统一）
+      await handleSuccession(context, ref, gameId, suggestion);
     case MayorVictoryCandidate():
       // 市长特殊胜利（issue #88）：3 人存活且当日无人被处决。
       final confirmed = await EndGameDialog.showMayorCheck(context);
@@ -317,12 +322,22 @@ Future<void> handleEndSuggestion(
       );
       if (result == null || !context.mounted) return;
       if (result.goodWin ?? false) {
-        // 是恶魔 → 善良获胜（附带可选的死亡揭示）
-        await notifier.endGame(
-          goodWin: true,
-          revealedPlayerId: executedPlayerId,
-          revealedRole: result.revealedRole,
+        // 是恶魔 → 先查 SW 传承（在场则不终局），否则善良胜（issue #89）
+        final succ = await notifier.checkDemonDeath(
+          executedPlayerId,
+          way: DeathWay.execution,
         );
+        if (!context.mounted) return;
+        if (succ is DemonSuccessionCandidate) {
+          await handleSuccession(context, ref, gameId, succ);
+        } else {
+          await notifier.endGame(
+            goodWin: true,
+            revealedPlayerId: executedPlayerId,
+            revealedRole: result.revealedRole,
+          );
+        }
+        return;
       } else if (result.revealedRole != null) {
         // 不是恶魔但揭示了角色 → 只记死亡揭示
         await notifier.recordRevealOnly(
