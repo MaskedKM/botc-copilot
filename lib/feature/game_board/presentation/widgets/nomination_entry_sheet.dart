@@ -1,3 +1,4 @@
+import 'package:botc_copilot/core/constants/character.dart';
 import 'package:botc_copilot/core/database/app_database.dart';
 import 'package:botc_copilot/core/theme/app_text_styles.dart';
 import 'package:botc_copilot/core/theme/app_colors.dart';
@@ -8,6 +9,7 @@ import 'package:botc_copilot/feature/game_board/presentation/providers/game_boar
 import 'package:botc_copilot/feature/game_board/presentation/widgets/day_panels.dart';
 import 'package:botc_copilot/feature/player_detail/data/ability_repository.dart';
 import 'package:botc_copilot/feature/reasoning/data/contradictions_provider.dart';
+import 'package:botc_copilot/feature/reasoning/data/dependency_chain_provider.dart';
 import 'package:botc_copilot/feature/reasoning/domain/latest_claim.dart';
 import 'package:botc_copilot/shared/widgets/help_tooltip.dart';
 import 'package:flutter/material.dart';
@@ -71,6 +73,39 @@ class _NominationEntrySheetState
         ref.watch(gameNominationsProvider(widget.gameId)).valueOrNull ?? [];
     final claims =
         ref.watch(gameClaimsProvider(widget.gameId)).valueOrNull ?? [];
+    final game = ref.watch(gameByIdProvider(widget.gameId)).valueOrNull;
+    final declarations = ref
+            .watch(gameDeclarationsProvider(widget.gameId))
+            .valueOrNull ??
+        const <InfoDeclaration>[];
+
+    // 管家投票限制（issue #115）：声明管家 + 已录主人 → 追踪主人座位与
+    // 当前是否命中限制（管家赞成但主人未赞成），供投票 UI 行内提示。
+    final latestClaim = latestClaimWithSelf(
+      claims,
+      myPlayerId: game?.myPlayerId,
+      myRole: game?.myRole,
+    );
+    final playersById = {for (final p in players) p.id: p};
+    final butlerMaster = <int, int>{};
+    for (final entry in latestClaim.entries) {
+      if (entry.value.character == Character.butler) {
+        final master = NominationRules.butlerMasterOf(declarations, entry.key);
+        if (master != null) butlerMaster[entry.key] = master;
+      }
+    }
+    final butlerInfo = <int, ({int masterSeat, bool restricted})>{};
+    for (final entry in butlerMaster.entries) {
+      final masterSeat = playersById[entry.value]?.seatNumber;
+      if (masterSeat == null) continue;
+      butlerInfo[entry.key] = (
+        masterSeat: masterSeat,
+        restricted: NominationRules.butlerVoteRestricted(
+          butlerVote: _votes[entry.key],
+          masterVote: _votes[entry.value],
+        ),
+      );
+    }
 
     final alivePlayers = players.where((p) => p.isAlive).toList();
     final forCount = NominationRules.countFor(
@@ -187,6 +222,7 @@ class _NominationEntrySheetState
                   players: players,
                   votes: _votes,
                   allNominations: allNominations,
+                  butlerInfo: butlerInfo,
                   onToggle: (id, selected) => setState(() {
                     if (selected) {
                       _votes[id] = Vote.forVote;
@@ -202,6 +238,7 @@ class _NominationEntrySheetState
                     vote: _votes[p.id],
                     deadVoteUsed:
                         NominationRules.deadVoteUsed(allNominations, p.id),
+                    butlerInfo: butlerInfo[p.id],
                     onChanged: (v) => setState(() {
                       if (v == null) {
                         _votes.remove(p.id);
@@ -258,6 +295,7 @@ class _NominationEntrySheetState
                         allNominations: allNominations,
                         players: players,
                         claims: claims,
+                        butlerMaster: butlerMaster,
                         day: day,
                       )
                   : null,
@@ -274,6 +312,7 @@ class _NominationEntrySheetState
     required List<Nomination> allNominations,
     required List<Player> players,
     required List<RoleClaim> claims,
+    required Map<int, int> butlerMaster,
     required int day,
   }) async {
     // 详细模式漏录二次确认（issue #84）
@@ -299,6 +338,14 @@ class _NominationEntrySheetState
         ),
       );
       if (confirmed != true) return;
+    }
+
+    // 管家投票限制二次确认（issue #115，警告不阻止）
+    if (!await _confirmButlerViolationIfAny(
+      players: players,
+      butlerMaster: butlerMaster,
+    )) {
+      return;
     }
 
     setState(() => _submitting = true);
@@ -345,6 +392,59 @@ class _NominationEntrySheetState
       await _maybeVirginTrigger(claims: claims, players: players);
       navigator.pop();
     }
+  }
+
+  /// 管家投票限制命中时弹窗（issue #115，警告不阻止）。
+  ///
+  /// 官方：管家投赞成但主人未投赞成 → 此票无效。App 无法确认管家真实身份
+  /// 或主人是否改口，故仅提示，由用户裁决。返回 true=继续提交，false=返回。
+  Future<bool> _confirmButlerViolationIfAny({
+    required List<Player> players,
+    required Map<int, int> butlerMaster,
+  }) async {
+    final playersById = {for (final p in players) p.id: p};
+    final violations = <int>[]; // 命中的管家 id
+    for (final entry in butlerMaster.entries) {
+      if (NominationRules.butlerVoteRestricted(
+        butlerVote: _votes[entry.key],
+        masterVote: _votes[entry.value],
+      )) {
+        violations.add(entry.key);
+      }
+    }
+    if (violations.isEmpty) return true;
+
+    final lines = <String>[];
+    for (final butlerId in violations) {
+      final butler = playersById[butlerId];
+      final master = playersById[butlerMaster[butlerId]!];
+      lines.add(
+        '${butler?.seatNumber ?? "?"}号 ${butler?.name ?? "?"}（管家）赞成，'
+        '但主人 ${master?.seatNumber ?? "?"}号 ${master?.name ?? "?"} 未赞成。',
+      );
+    }
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('管家投票限制'),
+        content: Text(
+          '${lines.join('\n')}\n'
+          '官方规则：管家只能在主人也投赞成的提名上投赞成，此票无效。'
+          '仍要记录？',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('返回修改'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('仍要记录'),
+          ),
+        ],
+      ),
+    );
+    return confirmed ?? false;
   }
 
   /// 命中 Virgin 触发场景时弹窗，交用户确认（醉/毒是否触发由人判断）。
@@ -428,6 +528,9 @@ enum _VoteMode {
 /// Virgin 触发弹窗的选项。
 enum _VirginAction { dismiss, execute }
 
+/// 管家投票限制行内信息（issue #115）：主人座位 + 当前是否命中限制。
+typedef ButlerVoteInfo = ({int masterSeat, bool restricted});
+
 /// 单个玩家的投票行。
 class _VoteRow extends StatelessWidget {
   const _VoteRow({
@@ -435,6 +538,7 @@ class _VoteRow extends StatelessWidget {
     required this.vote,
     required this.deadVoteUsed,
     required this.onChanged,
+    this.butlerInfo,
   });
 
   final Player player;
@@ -442,25 +546,40 @@ class _VoteRow extends StatelessWidget {
   final bool deadVoteUsed;
   final ValueChanged<Vote?> onChanged;
 
+  /// 该玩家为声明管家且已录主人时的限制信息（否则 null，不提示）。
+  final ButlerVoteInfo? butlerInfo;
+
   @override
   Widget build(BuildContext context) {
     final gameColors = context.gameColors;
     final isDead = !player.isAlive;
     final deadVoteBlocked = isDead && deadVoteUsed;
+    final info = butlerInfo;
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
       child: Row(
         children: [
           SizedBox(
-            width: 100,
+            width: 110,
             child: Text(
-              '${player.seatNumber}号 ${player.name}',
+              '${player.seatNumber}号 ${player.name}'
+              '${info != null ? ' ·主${info.masterSeat}号' : ''}',
               style: AppTextStyles.body.copyWith(
                 color: isDead ? AppColors.textDisabled : null,
               ),
+              overflow: TextOverflow.ellipsis,
             ),
           ),
+          if (info != null && info.restricted)
+            Padding(
+              padding: const EdgeInsets.only(right: 4),
+              child: Icon(
+                Icons.warning_amber,
+                size: 16,
+                color: gameColors.blood,
+              ),
+            ),
           if (isDead)
             Padding(
               padding: const EdgeInsets.only(right: 8),
@@ -506,12 +625,16 @@ class _QuickVoteGrid extends StatelessWidget {
     required this.votes,
     required this.allNominations,
     required this.onToggle,
+    this.butlerInfo = const {},
   });
 
   final List<Player> players;
   final Map<int, Vote> votes;
   final List<Nomination> allNominations;
   final void Function(int playerId, bool selected) onToggle;
+
+  /// 声明管家（已录主人）的限制信息，按 playerId 索引（issue #115）。
+  final Map<int, ButlerVoteInfo> butlerInfo;
 
   @override
   Widget build(BuildContext context) {
@@ -526,13 +649,31 @@ class _QuickVoteGrid extends StatelessWidget {
   Widget _chip(Player p, GameColors gameColors) {
     final used = NominationRules.deadVoteUsed(allNominations, p.id);
     final blocked = !p.isAlive && used;
+    final info = butlerInfo[p.id];
     return ChoiceChip(
-      label: Text(
-        '${p.seatNumber}号 ${p.name}'
-        '${p.isAlive ? '' : (used ? ' ·死票已用' : ' ·死票')}',
+      label: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (info != null && info.restricted)
+            Padding(
+              padding: const EdgeInsets.only(right: 4),
+              child: Icon(
+                Icons.warning_amber,
+                size: 14,
+                color: gameColors.blood,
+              ),
+            ),
+          Text(
+            '${p.seatNumber}号 ${p.name}'
+            '${info != null ? ' ·主${info.masterSeat}号' : ''}'
+            '${p.isAlive ? '' : (used ? ' ·死票已用' : ' ·死票')}',
+          ),
+        ],
       ),
       selected: votes[p.id] == Vote.forVote,
-      selectedColor: gameColors.trustConfirmedGood,
+      selectedColor: info != null && info.restricted
+          ? gameColors.blood
+          : gameColors.trustConfirmedGood,
       onSelected: blocked ? null : (sel) => onToggle(p.id, sel),
     );
   }
