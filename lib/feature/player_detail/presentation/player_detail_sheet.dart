@@ -318,19 +318,10 @@ class _PlayerDetailSheetState extends ConsumerState<PlayerDetailSheet> {
       initialDrunk: initialDrunk,
     );
 
-    // 「保存并下一位」候选（仅 enableChain 且非己、进行中时计算，#134）。
+    // 「保存并下一位」仅在 enableChain 且非己、进行中时显示（#134）。
+    // gameClaimsProvider 的 watch 收敛到 [_NextPlayerButton] 内，避免非链式
+    // 场景（默认弹层）触发该 provider（widget test 不覆写它，会建真实 DB）。
     final chainEnabled = widget.enableChain && !isMe && !readOnly;
-    final allClaims =
-        ref.watch(gameClaimsProvider(widget.gameId)).valueOrNull ??
-            const <RoleClaim>[];
-    final nextPlayer = chainEnabled
-        ? nextUnclaimedPlayer(
-            players: players,
-            claimedPlayerIds: allClaims.map((c) => c.playerId).toSet(),
-            fromPlayerId: playerId,
-            myPlayerId: game?.myPlayerId,
-          )
-        : null;
 
     return PopScope(
       // 有未保存修改时阻止直接返回 / 下拉关闭，改走确认。
@@ -522,19 +513,20 @@ class _PlayerDetailSheetState extends ConsumerState<PlayerDetailSheet> {
                     // 跳到下一个未声明玩家。无未声明者时禁用。
                     if (chainEnabled) ...[
                       const SizedBox(width: 8),
-                      FilledButton.icon(
-                        onPressed: (nextPlayer != null && !_saving)
-                            ? () => _saveAndNext(
-                                  initialRole: initialRole,
-                                  initialTrust: initialTrust,
-                                  initialPoison: initialPoison,
-                                  initialDrunk: initialDrunk,
-                                  day: day,
-                                  next: nextPlayer,
-                                )
-                            : null,
-                        icon: const Icon(Icons.skip_next),
-                        label: const Text('下一位'),
+                      _NextPlayerButton(
+                        gameId: widget.gameId,
+                        playerId: playerId,
+                        myPlayerId: game?.myPlayerId,
+                        players: players,
+                        saving: _saving,
+                        onNext: (next) => _saveAndNext(
+                          initialRole: initialRole,
+                          initialTrust: initialTrust,
+                          initialPoison: initialPoison,
+                          initialDrunk: initialDrunk,
+                          day: day,
+                          next: next,
+                        ),
                       ),
                     ],
                   ],
@@ -544,6 +536,46 @@ class _PlayerDetailSheetState extends ConsumerState<PlayerDetailSheet> {
           );
         },
       ),
+    );
+  }
+}
+
+/// 「保存并下一位」按钮（#134 首夜队列加速器）。
+///
+/// 独立 ConsumerWidget——仅在此按钮渲染时才 watch [gameClaimsProvider]，避免
+/// 非链式弹层（默认入口）触发该 provider（widget test 不覆写它会建真实 DB）。
+class _NextPlayerButton extends ConsumerWidget {
+  const _NextPlayerButton({
+    required this.gameId,
+    required this.playerId,
+    required this.myPlayerId,
+    required this.players,
+    required this.saving,
+    required this.onNext,
+  });
+
+  final int gameId;
+  final int playerId;
+  final int? myPlayerId;
+  final List<Player> players;
+  final bool saving;
+  final void Function(Player next) onNext;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final allClaims =
+        ref.watch(gameClaimsProvider(gameId)).valueOrNull ??
+            const <RoleClaim>[];
+    final next = nextUnclaimedPlayer(
+      players: players,
+      claimedPlayerIds: allClaims.map((c) => c.playerId).toSet(),
+      fromPlayerId: playerId,
+      myPlayerId: myPlayerId,
+    );
+    return FilledButton.icon(
+      onPressed: (next != null && !saving) ? () => onNext(next) : null,
+      icon: const Icon(Icons.skip_next),
+      label: const Text('下一位'),
     );
   }
 }

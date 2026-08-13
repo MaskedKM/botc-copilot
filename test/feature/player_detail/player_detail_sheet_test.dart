@@ -8,6 +8,7 @@ import 'package:botc_copilot/feature/game_board/presentation/providers/game_boar
 import 'package:botc_copilot/feature/player_detail/data/behavior_note_repository.dart';
 import 'package:botc_copilot/feature/player_detail/data/player_detail_repository.dart';
 import 'package:botc_copilot/feature/player_detail/presentation/player_detail_sheet.dart';
+import 'package:botc_copilot/feature/reasoning/data/contradictions_provider.dart';
 import 'package:botc_copilot/shared/models/enums.dart';
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
@@ -156,15 +157,22 @@ void main() {
   /// [myRole] 覆盖我的真实角色（默认沿用顶层 game 的 empath）。
   /// [suspectedDrunk] 模拟玩家已被标「疑似醉汉」（#109，测 overlay 显示）。
   /// [declarations] 覆盖已录入信息（默认空）。
+  /// [status] 覆盖对局状态（默认 ongoing；改 goodWin/evilWin 测只读复盘 #134）。
+  /// [claims] 覆盖全局声明（用于「下一位」候选计算，#134）。
+  /// [enableChain] 启用「保存并下一位」按钮（#134）。
   Widget buildSheet({
     int? myPlayerId,
     Character? myRole,
+    GameStatus status = GameStatus.ongoing,
     bool suspectedDrunk = false,
     List<InfoDeclaration> declarations = const [],
+    List<RoleClaim> claims = const [],
+    bool enableChain = false,
   }) {
     final g = game.copyWith(
       myPlayerId: Value(myPlayerId),
       myRole: Value(myRole ?? game.myRole),
+      status: status,
     );
     return ProviderScope(
       overrides: [
@@ -178,6 +186,7 @@ void main() {
             .overrideWith((ref) => Stream.value(const <RoleClaim>[])),
         playerDeclarationsProvider(1)
             .overrideWith((ref) => Stream.value(declarations)),
+        gameClaimsProvider(1).overrideWith((ref) => Stream.value(claims)),
         latestTrustLevelsProvider(1)
             .overrideWith((ref) => Stream.value(const <int, TrustLevel>{})),
         gamePoisonStatusesProvider(1)
@@ -189,7 +198,13 @@ void main() {
       ],
       child: MaterialApp(
         theme: AppTheme.dark,
-        home: Scaffold(body: PlayerDetailSheet(gameId: 1, player: me)),
+        home: Scaffold(
+          body: PlayerDetailSheet(
+            gameId: 1,
+            player: me,
+            enableChain: enableChain,
+          ),
+        ),
       ),
     );
   }
@@ -199,8 +214,15 @@ void main() {
     await tester.pumpWidget(buildSheet());
     await tester.pump();
 
+    // 「保存」按钮定位（#134 后选角色会带出信息区的「记录」FilledButton，
+    // 故按 label 精确定位，避免 find.byType 多匹配）。
+    final saveFinder = find.ancestor(
+      of: find.text('保存'),
+      matching: find.byType(FilledButton),
+    );
+
     // 初始无修改 → 保存禁用
-    final saveBefore = tester.widget<FilledButton>(find.byType(FilledButton));
+    final saveBefore = tester.widget<FilledButton>(saveFinder);
     expect(saveBefore.onPressed, isNull);
 
     // 选一个角色（草稿）→ 不写库，按钮启用
@@ -208,7 +230,7 @@ void main() {
     await tester.pump();
     expect(detailRepo.claimCalls, 0);
 
-    final saveAfter = tester.widget<FilledButton>(find.byType(FilledButton));
+    final saveAfter = tester.widget<FilledButton>(saveFinder);
     expect(saveAfter.onPressed, isNotNull);
   });
 
@@ -404,5 +426,138 @@ void main() {
     expect(dot.color, gc.reliabilityTainted);
     // 与未验证色不同（紫 vs 橙），overlay 可视
     expect(gc.reliabilityUnverified, isNot(gc.reliabilityTainted));
+  });
+
+  // #134 声明+信息解耦：选角色 chip 即刻带出信息录入区；录信息时自动落库声明，
+  // 杜绝孤儿信息（不必先保存→关→重开）。
+  testWidgets('声明+信息解耦：录信息自动落库声明（#134）', (tester) async {
+    useTallSurface(tester);
+    await tester.pumpWidget(buildSheet()); // 非己、无声明
+    await tester.pump();
+
+    // 选角色（草稿）→ 信息录入区立刻出现
+    await tester.tap(find.text('共情者'));
+    await tester.pump();
+    expect(find.text('共情者 的信息'), findsOneWidget);
+    expect(detailRepo.claimCalls, 0); // 草稿阶段不写库
+
+    // 录信息 → 先自动落库声明，再写信息（无孤儿）
+    await tester.tap(find.text('记录'));
+    await tester.pump();
+    await tester.pump();
+
+    expect(detailRepo.claimCalls, 1);
+    expect(detailRepo.claimedRole, Character.empath);
+    expect(detailRepo.declareCalls, 1);
+    expect(detailRepo.lastDeclareIsMine, isFalse);
+    expect(find.text('信息已记录'), findsOneWidget);
+  });
+
+  // #134 已结束对局只读：禁所有编辑，保留展示。
+  testWidgets('已结束对局只读：无保存按钮、角色 chip 不可选（#134）',
+      (tester) async {
+    useTallSurface(tester);
+    await tester.pumpWidget(buildSheet(status: GameStatus.goodWin));
+    await tester.pump();
+
+    // 保存按钮隐藏
+    expect(find.text('保存'), findsNothing);
+    // 信息录入区/占位文案均隐藏
+    expect(find.text('先声明角色，再录入该角色的信息。'), findsNothing);
+    // 角色 chip 仍在（只读展示）但禁用
+    final chip = tester.widget<ChoiceChip>(find.ancestor(
+      of: find.text('共情者'),
+      matching: find.byType(ChoiceChip),
+    ));
+    expect(chip.onSelected, isNull);
+  });
+
+  // #131 sheet 统一：私密爪牙名单从 MyInfoSheet 迁入玩家详情 isMe 分支。
+  testWidgets('我=恶魔 7+ 局：私密爪牙名单在玩家详情可见（#131）',
+      (tester) async {
+    useTallSurface(tester);
+    await tester.pumpWidget(
+      buildSheet(myPlayerId: me.id, myRole: Character.imp),
+    );
+    await tester.pump();
+
+    expect(find.textContaining('我的爪牙'), findsOneWidget);
+  });
+
+  // #134 保存并下一位：enableChain 时显示按钮；点击保存并返回下一个未声明玩家。
+  testWidgets('enableChain：下一位按钮返回下一个未声明玩家（#134）',
+      (tester) async {
+    useTallSurface(tester);
+
+    final p2 = me.copyWith(id: 2, seatNumber: 2, name: 'B');
+    final p3 = me.copyWith(id: 3, seatNumber: 3, name: 'C');
+    final claim2 = RoleClaim(
+      id: 1,
+      playerId: 2,
+      dayRecordId: 1,
+      character: Character.chef,
+      claimType: ClaimType.firstClaim,
+    );
+    final returnedId = ValueNotifier<int?>(-1);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          gameByIdProvider(1).overrideWith((ref) => Stream.value(game)),
+          gamePlayersProvider(1)
+              .overrideWith((ref) => Stream.value([me, p2, p3])),
+          gameBoardProvider(1)
+              .overrideWith((ref) => _FakeGameBoardNotifier(ref, 1)),
+          playerClaimsProvider(1)
+              .overrideWith((ref) => Stream.value(const <RoleClaim>[])),
+          playerDeclarationsProvider(1)
+              .overrideWith((ref) => Stream.value(const <InfoDeclaration>[])),
+          gameClaimsProvider(1)
+              .overrideWith((ref) => Stream.value([claim2])),
+          latestTrustLevelsProvider(1)
+              .overrideWith((ref) => Stream.value(const <int, TrustLevel>{})),
+          gamePoisonStatusesProvider(1)
+              .overrideWith((ref) => Stream.value(const <PoisonStatus>[])),
+          playerDayNotesProvider((1, 1))
+              .overrideWith((ref) => Stream.value(const <BehaviorNote>[])),
+          playerDetailRepositoryProvider.overrideWithValue(detailRepo),
+          poisonRepositoryProvider.overrideWithValue(poisonRepo),
+        ],
+        child: MaterialApp(
+          theme: AppTheme.dark,
+          home: Builder(
+            builder: (context) => Scaffold(
+              body: FilledButton(
+                onPressed: () async {
+                  final next = await PlayerDetailSheet.show(
+                    context,
+                    gameId: 1,
+                    player: me,
+                    enableChain: true,
+                  );
+                  returnedId.value = next?.id;
+                },
+                child: const Text('打开'),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.tap(find.text('打开'));
+    await tester.pumpAndSettle(); // 弹层动画 + 流产出
+
+    // 「下一位」启用：3 号未声明（2 号已声明）
+    final nextBtn = tester.widget<FilledButton>(find.ancestor(
+      of: find.text('下一位'),
+      matching: find.byType(FilledButton),
+    ));
+    expect(nextBtn.onPressed, isNotNull);
+
+    await tester.tap(find.text('下一位'));
+    await tester.pumpAndSettle();
+
+    expect(returnedId.value, 3); // 返回下一个未声明玩家（3 号）
   });
 }
