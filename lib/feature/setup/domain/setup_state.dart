@@ -16,6 +16,7 @@ class SetupState {
     this.demonBluffs = const [],
     this.mySeat,
     this.submitting = false,
+    this.reorderVersion = 0,
   })  : playerCount = playerCount,
         playerNames =
             playerNames ?? [for (var i = 0; i < playerCount; i++) String.fromCharCode(65 + i)];
@@ -45,6 +46,13 @@ class SetupState {
 
   /// 是否正在提交（防重复点击）。
   final bool submitting;
+
+  /// 换序版本号：每次 reorderSeat 自增（#165 A1）。
+  ///
+  /// SeatsStep watch 它以在换序时重建 → didUpdateWidget 同步各座位 controller
+  /// 的名字（上下移按钮不经 ReorderableListView 的拖拽重建路径，须显式信号）。
+  /// 名字编辑不改它，故不触发重建、不丢 TextField 焦点。
+  final int reorderVersion;
 
   /// 总步数。
   static const int totalSteps = 5;
@@ -85,6 +93,7 @@ class SetupState {
     List<Character>? demonBluffs,
     int? Function()? mySeat,
     bool? submitting,
+    int? reorderVersion,
   }) {
     return SetupState(
       step: step ?? this.step,
@@ -95,6 +104,7 @@ class SetupState {
       demonBluffs: demonBluffs ?? this.demonBluffs,
       mySeat: mySeat != null ? mySeat() : this.mySeat,
       submitting: submitting ?? this.submitting,
+      reorderVersion: reorderVersion ?? this.reorderVersion,
     );
   }
 }

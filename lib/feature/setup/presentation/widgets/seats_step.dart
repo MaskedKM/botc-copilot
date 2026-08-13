@@ -18,6 +18,9 @@ class SeatsStep extends ConsumerWidget {
     // 仅在合法性翻转时重建（非每次击键），保焦点（#163 P1）。
     final nameError =
         ref.watch(setupProvider.select((s) => s.nameValidationError));
+    // 换序时重建 → didUpdateWidget 同步各座位 controller（#165 A1：上下移按钮
+    // 不经拖拽重建路径）。名字编辑不改它，不触发重建、不丢焦点。
+    ref.watch(setupProvider.select((s) => s.reorderVersion));
     final notifier = ref.read(setupProvider.notifier);
     final gameColors = context.gameColors;
 

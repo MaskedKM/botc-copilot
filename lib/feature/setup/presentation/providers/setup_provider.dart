@@ -75,6 +75,9 @@ class SetupNotifier extends StateNotifier<SetupState> {
       mySeat: newSeat != null && newSeat != state.mySeat
           ? () => newSeat
           : null,
+      // #165 A1：上下移按钮不经拖拽重建路径，须显式信号触发 SeatsStep 重建
+      // → didUpdateWidget 同步各座位 controller 名字。
+      reorderVersion: state.reorderVersion + 1,
     );
   }
 
