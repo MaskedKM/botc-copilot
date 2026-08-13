@@ -61,7 +61,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 12;
+  int get schemaVersion => 13;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -117,6 +117,20 @@ class AppDatabase extends _$AppDatabase {
           // v11 → v12：新增 demon_inheritances 表（恶魔传承事件，issue #89）
           if (from < 12) {
             await m.createTable(demonInheritances);
+          }
+          // v12 → v13：poison_statuses 加 (game_id, player_id, day_number) 唯一
+          // 约束（#150 R1/B1）。事务包装已防新重复行（单连接串行化），此约束为
+          // DB 级兜底。SQLite 不能给已有表加表级约束，故建唯一索引；先去重存量。
+          if (from < 13) {
+            await customStatement(
+              'DELETE FROM poison_statuses WHERE id NOT IN ('
+              'SELECT MIN(id) FROM poison_statuses '
+              'GROUP BY game_id, player_id, day_number)',
+            );
+            await customStatement(
+              'CREATE UNIQUE INDEX poison_statuses_unique_idx '
+              'ON poison_statuses (game_id, player_id, day_number)',
+            );
           }
         },
         beforeOpen: (details) async {

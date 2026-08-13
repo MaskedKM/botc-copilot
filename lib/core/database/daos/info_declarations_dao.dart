@@ -20,6 +20,13 @@ class InfoDeclarationsDao extends DatabaseAccessor<AppDatabase>
             ..where((i) => i.dayRecordId.equals(dayRecordId)))
           .watch();
 
+  /// 查询某天的全部信息声明（事务内用——事务内 await stream 的 .first 会挂起，
+  /// 须用 .get，#150 R2）。
+  Future<List<InfoDeclaration>> getByDay(int dayRecordId) =>
+      (select(infoDeclarations)
+            ..where((i) => i.dayRecordId.equals(dayRecordId)))
+          .get();
+
   /// 监听一局的全部信息声明（跨天，经每日记录关联）。
   Stream<List<InfoDeclaration>> watchByGame(int gameId) {
     final query = select(infoDeclarations).join([
