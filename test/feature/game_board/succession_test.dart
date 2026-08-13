@@ -208,5 +208,18 @@ void main() {
       final cand = suggestion! as DemonSuccessionCandidate;
       expect(cand.scarletWomanEligible, isFalse);
     });
+
+    // #156 BUG-A：长按标死恶魔（当天）必返非空 DemonSuccessionCandidate——
+    // 这是 game_board_page 撤销 SnackBar「suggestion == null 才提供撤销」
+    // 守卫的不变式（非空 ⟺ 终局，revivePlayer 无法回退传承/终局，撤销会留
+    // 双恶魔/在已结束对局复活）。
+    test('长按标死恶魔（当天）→ quickToggleDead 返回 DemonSuccessionCandidate', () async {
+      final players = await db.playersDao.watchByGame(gameId).first;
+      await claimRole(players[0].id, Character.imp);
+      final suggestion = await notifier().quickToggleDead(players[0]);
+      expect(suggestion, isA<DemonSuccessionCandidate>());
+      final updated = await db.playersDao.watchByGame(gameId).first;
+      expect(updated[0].isAlive, isFalse);
+    });
   });
 }

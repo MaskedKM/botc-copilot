@@ -156,8 +156,9 @@ class SeatRingPainter extends CustomPainter {
       );
     }
 
-    // 醉/毒标记：紫色微光（issue #35）。
-    if (player.isPoisoned) {
+    // 醉/毒标记：紫色微光（issue #35）。醉（suspectedDrunk）与毒（isPoisoned）
+    // 同属「能力失效」tainted 口径，圆环用同一紫光表示（#156 B1）。
+    if (player.isTainted) {
       canvas.drawCircle(
         center,
         _r + 6,

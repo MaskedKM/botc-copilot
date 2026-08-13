@@ -103,6 +103,7 @@ class _GameBoardBody extends ConsumerWidget {
           trustLevel: trustLevels[p.id] ?? TrustLevel.unknown,
           isMe: p.id == game.myPlayerId,
           isPoisoned: poisonedToday.contains(p.id),
+          suspectedDrunk: p.suspectedDrunk,
           hasContradiction: contradictionPlayerIds.contains(p.id),
         ),
     ];
@@ -463,8 +464,14 @@ class _GameBoardBody extends ConsumerWidget {
     final suggestion = await ref
         .read(gameBoardProvider(gameId).notifier)
         .quickToggleDead(player, deathDay: selectedDay);
-    // 标死后提供 SnackBar 撤销（issue #65）
-    if (context.mounted) {
+    // 标死后提供 SnackBar 撤销（issue #65）。仅当无终局候选（suggestion == null）
+    // 时提供——quickToggleDead 的非空返回必为终局候选，而撤销（revivePlayer）
+    // 无法回退其副作用：DemonSuccessionCandidate 确认传承则 recordSuccession 已
+    // 写新恶魔（撤销留双恶魔），拒绝则 endGame(善良胜)；EvilWinCandidate 确认则
+    // endGame(邪恶胜)——在已结束对局里复活玩家，状态不可自愈（#156 BUG-A）。
+    // 故非空时撤销语义本身损坏，不提供。用户直接关闭对话框（未传承/终局）的罕见
+    // 情况下撤销本可用但被一并抑制，可长按该座复活。终局由随后的对话框接管反馈。
+    if (context.mounted && suggestion == null) {
       // 只捕获 id：player 对象是标死前的快照（isAlive 仍为 true），
       // 若再传给 quickToggleDead 会误判为「再标死一次」而非复活。
       ScaffoldMessenger.of(context).showSnackBar(
