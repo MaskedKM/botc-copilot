@@ -299,9 +299,11 @@ class GameBoardNotifier extends StateNotifier<GameBoardState> {
     int? deathDay,
   }) async {
     if (player.isAlive) {
+      // 防御纵深：clamp 到 [1, currentDay]，避免越界值污染 Empath 判定。
+      final day = deathDay?.clamp(1, state.currentDay) ?? state.currentDay;
       await _db.playersDao.markDead(
         player.id,
-        deathDay ?? state.currentDay,
+        day,
         DeathCause.other,
       );
       return _evilWinCheck();

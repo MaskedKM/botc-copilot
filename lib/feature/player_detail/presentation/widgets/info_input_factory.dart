@@ -24,9 +24,11 @@ abstract final class InfoInputFactory {
   }) {
     return switch (character.infoInputType) {
       InfoInputType.none => const _NoInput(),
-      // Chef：相邻邪恶对数，官方 max = 邪恶数−1（N 连续邪恶→N−1 对）。
+      // Chef：相邻邪恶对数。用 evilCount（容纳 Recluse 注册为邪恶的边缘——
+      // TB 唯一幻影邪恶来源，可能使相邻对 +1；基础 max=evilCount−1）。
+      // clamp 防御首帧 players 为空（forCount 对越界人数抛异常）。
       InfoInputType.numberRange => _NumberInput(
-          max: PlayerSetup.forCount(players.length).evilCount - 1,
+          max: PlayerSetup.forCount(players.length.clamp(5, 15)).evilCount,
           onSubmit: onSubmit,
         ),
       InfoInputType.numberZeroToTwo =>

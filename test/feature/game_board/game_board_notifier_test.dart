@@ -285,6 +285,15 @@ void main() {
     expect(updated[1].deathDay, 1);
   });
 
+  test('quickToggleDead：deathDay 越界自动 clamp（防御纵深）', () async {
+    await notifier().advanceDay();
+    expect(state().currentDay, 2);
+    // 99 远超当前天 → clamp 到 currentDay
+    await notifier().quickToggleDead(players[1], deathDay: 99);
+    final updated = await db.playersDao.watchByGame(gameId).first;
+    expect(updated[1].deathDay, 2);
+  });
+
   test('endGame：更新对局状态后 currentGameProvider 不再返回该局', () async {
     await notifier().endGame(goodWin: true);
     final game = await db.gamesDao.getById(gameId);
