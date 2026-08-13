@@ -88,9 +88,19 @@ abstract final class NominationRules {
   }
 
   /// 解码投票 JSON。
+  ///
+  /// 损坏 / 非数组 / 元素畸形 → 返回空（不崩投票/面板/时间线，#164 B2）。
   static List<VoteEntry> decodeVotes(String json) {
-    final list = (jsonDecode(json) as List).cast<Map<String, dynamic>>();
-    return list.map(VoteEntry.fromJson).toList();
+    try {
+      final decoded = jsonDecode(json);
+      if (decoded is! List) return const [];
+      return decoded
+          .whereType<Map<String, dynamic>>()
+          .map(VoteEntry.fromJson)
+          .toList();
+    } on Object {
+      return const [];
+    }
   }
 
   /// 快录模式补全：未点者记为反对（issue #84）。

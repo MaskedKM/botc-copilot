@@ -16,45 +16,56 @@ abstract final class InfoPayloadFormatter {
     required String Function(int playerId) labelFor,
     String? playerName,
   }) {
-    final payload = jsonDecode(decl.payloadJson) as Map<String, dynamic>;
-    final character = decl.characterType;
+    try {
+      final decoded = jsonDecode(decl.payloadJson);
+      // 类型守卫：损坏 / 非对象 payload 不应崩 UI（#164 B1）。
+      if (decoded is! Map<String, dynamic>) {
+        return '${decl.characterType.nameCn}（数据异常）';
+      }
+      final payload = decoded;
+      final character = decl.characterType;
 
-    String playerLabel(int id) => labelFor(id);
+      String playerLabel(int id) => labelFor(id);
 
-    // payload 里的 character 存的是 enum .name（如 'poisoner'），回显时转中文。
-    String charLabel(Object? name) {
-      if (name == null) return '无';
-      final c = Character.values.where((c) => c.name == name).firstOrNull;
-      return c?.nameCn ?? '$name';
+      // payload 里的 character 存的是 enum .name（如 'poisoner'），回显时转中文。
+      String charLabel(Object? name) {
+        if (name == null) return '无';
+        final c = Character.values.where((c) => c.name == name).firstOrNull;
+        return c?.nameCn ?? '$name';
+      }
+
+      return switch (character.infoInputType) {
+        // {"value": n}
+        _ when payload.containsKey('value') =>
+          '${character.nameCn}：${payload['value']}',
+        // {"playerIds": [a,b], "answer": bool}
+        _ when payload.containsKey('answer') =>
+          '${character.nameCn}：${(payload['playerIds'] as List).map((id) => playerLabel(id as int)).join(' + ')}'
+              ' → ${payload['answer'] == true ? '是' : '否'}',
+        // {"character": ..., "playerIds": [...]}
+        _ when payload.containsKey('playerIds') =>
+          '${character.nameCn}：${charLabel(payload['character'])}'
+              '${(payload['playerIds'] as List).isEmpty ? '' : '（${(payload['playerIds'] as List).map((id) => playerLabel(id as int)).join('、')}）'}',
+        // {"playerId": n, "character": "..."}（Ravenkeeper：X号 是 Y）
+        _ when payload.containsKey('playerId') &&
+                payload.containsKey('character') =>
+          '${character.nameCn}：${playerLabel(payload['playerId'] as int)} 是 ${charLabel(payload['character'])}',
+        // {"character": "..."}
+        _ when payload.containsKey('character') =>
+          '${character.nameCn}：${charLabel(payload['character'])}',
+        // {"playerId": n}（Monk 保护 / Butler 主人 / Poisoner 下毒）
+        _ when payload.containsKey('playerId') =>
+          '${character.nameCn}：${_nightActionVerb(character)}'
+              '${playerLabel(payload['playerId'] as int)}',
+        // {"text": "..."}
+        _ when payload.containsKey('text') =>
+          '${character.nameCn}：${payload['text']}',
+        _ => character.nameCn,
+      };
+    } on Object {
+      // 损坏 payload：降级文案，绝不崩 UI（详情 / 时间线 / 依赖链，#164 B1）。
+      return '${decl.characterType.nameCn}（数据异常）';
     }
-
-    return switch (character.infoInputType) {
-      // {"value": n}
-      _ when payload.containsKey('value') =>
-        '${character.nameCn}：${payload['value']}',
-      // {"playerIds": [a,b], "answer": bool}
-      _ when payload.containsKey('answer') =>
-        '${character.nameCn}：${(payload['playerIds'] as List).map((id) => playerLabel(id as int)).join(' + ')}'
-            ' → ${payload['answer'] == true ? '是' : '否'}',
-      // {"character": ..., "playerIds": [...]}
-      _ when payload.containsKey('playerIds') =>
-        '${character.nameCn}：${charLabel(payload['character'])}'
-            '${(payload['playerIds'] as List).isEmpty ? '' : '（${(payload['playerIds'] as List).map((id) => playerLabel(id as int)).join('、')}）'}',
-      // {"playerId": n, "character": "..."}（Ravenkeeper：X号 是 Y）
-      _ when payload.containsKey('playerId') && payload.containsKey('character') =>
-        '${character.nameCn}：${playerLabel(payload['playerId'] as int)} 是 ${charLabel(payload['character'])}',
-      // {"character": "..."}
-      _ when payload.containsKey('character') =>
-        '${character.nameCn}：${charLabel(payload['character'])}',
-      // {"playerId": n}（Monk 保护 / Butler 主人 / Poisoner 下毒）
-      _ when payload.containsKey('playerId') =>
-        '${character.nameCn}：${_nightActionVerb(character)}'
-            '${playerLabel(payload['playerId'] as int)}',
-      // {"text": "..."}
-      _ when payload.containsKey('text') =>
-        '${character.nameCn}：${payload['text']}',
-      _ => character.nameCn,
-    };
   }
 
   /// 夜间行动目标的动词（Monk 保护 / Butler 主人 / Poisoner 下毒）。

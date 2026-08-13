@@ -29,39 +29,44 @@ final _daysProvider =
 /// 当前对局的矛盾标记流（issue #38）。
 final contradictionsProvider = Provider.family<List<Contradiction>, int>(
   (ref, gameId) {
-    final claims = ref.watch(gameClaimsProvider(gameId)).valueOrNull ?? [];
-    final declarations =
-        ref.watch(_declarationsProvider(gameId)).valueOrNull ?? [];
-    final days = ref.watch(_daysProvider(gameId)).valueOrNull ?? [];
-    final players =
-        ref.watch(gamePlayersProvider(gameId)).valueOrNull ?? [];
-    final game = ref.watch(gameByIdProvider(gameId)).valueOrNull;
-    final expectedOutsiders =
-        game != null ? PlayerSetup.forCount(game.playerCount).outsiders : 0;
+    try {
+      final claims = ref.watch(gameClaimsProvider(gameId)).valueOrNull ?? [];
+      final declarations =
+          ref.watch(_declarationsProvider(gameId)).valueOrNull ?? [];
+      final days = ref.watch(_daysProvider(gameId)).valueOrNull ?? [];
+      final players =
+          ref.watch(gamePlayersProvider(gameId)).valueOrNull ?? [];
+      final game = ref.watch(gameByIdProvider(gameId)).valueOrNull;
+      final expectedOutsiders =
+          game != null ? PlayerSetup.forCount(game.playerCount).outsiders : 0;
 
-    // 整局「疑似醉汉」overlay（#109）：被疑醉玩家的声明 reliability 实时降级，
-    // 再交给 detect()。按天的毒已在存档 reliability 中（#122）。
-    final playersById = {for (final p in players) p.id: p};
-    final effectiveDeclarations = [
-      for (final d in declarations)
-        d.copyWith(
-          reliability: effectiveReliability(
-            d.reliability,
-            playersById[d.playerId]?.suspectedDrunk ?? false,
+      // 整局「疑似醉汉」overlay（#109）：被疑醉玩家的声明 reliability 实时降级，
+      // 再交给 detect()。按天的毒已在存档 reliability 中（#122）。
+      final playersById = {for (final p in players) p.id: p};
+      final effectiveDeclarations = [
+        for (final d in declarations)
+          d.copyWith(
+            reliability: effectiveReliability(
+              d.reliability,
+              playersById[d.playerId]?.suspectedDrunk ?? false,
+            ),
           ),
-        ),
-    ];
+      ];
 
-    return ContradictionDetector.detect(
-      claims: claims,
-      declarations: effectiveDeclarations,
-      days: days,
-      playersById: playersById,
-      dayRecordToDayNumber: {for (final d in days) d.id: d.dayNumber},
-      expectedOutsiders: expectedOutsiders,
-      demonBluffs: game != null ? demonBluffsOf(game) : const {},
-      myPlayerId: game?.myPlayerId,
-      myRole: game?.myRole,
-    );
+      return ContradictionDetector.detect(
+        claims: claims,
+        declarations: effectiveDeclarations,
+        days: days,
+        playersById: playersById,
+        dayRecordToDayNumber: {for (final d in days) d.id: d.dayNumber},
+        expectedOutsiders: expectedOutsiders,
+        demonBluffs: game != null ? demonBluffsOf(game) : const {},
+        myPlayerId: game?.myPlayerId,
+        myRole: game?.myRole,
+      );
+    } on Object {
+      // 兜底：损坏数据不应让同步 Provider 抛异常致主界面红屏（#164 B5）。
+      return const [];
+    }
   },
 );

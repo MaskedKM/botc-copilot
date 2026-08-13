@@ -11,7 +11,11 @@ Set<int> minionIdsOf(Game game) {
   final json = game.myMinionIdsJson;
   if (json == null) return {};
   try {
-    return (jsonDecode(json) as List).whereType<int>().toSet();
+    final decoded = jsonDecode(json);
+    // 类型守卫：JSON 合法但非数组（null/int/Map）时 as List 抛 TypeError，
+    // 逃逸 on FormatException。先 is List 判定（#164 B3/B5）。
+    if (decoded is! List) return {};
+    return decoded.whereType<int>().toSet();
   } on FormatException {
     return {};
   }
@@ -25,9 +29,10 @@ Set<Character> demonBluffsOf(Game game) {
   final json = game.demonBluffsJson;
   if (json == null) return {};
   try {
-    final names = (jsonDecode(json) as List).cast<String>();
+    final decoded = jsonDecode(json);
+    if (decoded is! List) return {}; // 同 minionIdsOf（#164 B3/B5）
     return {
-      for (final name in names)
+      for (final name in decoded.whereType<String>())
         Character.values.where((c) => c.name == name).firstOrNull,
     }.whereType<Character>().toSet();
   } on FormatException {
