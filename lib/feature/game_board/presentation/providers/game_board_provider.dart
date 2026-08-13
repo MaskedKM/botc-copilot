@@ -2,6 +2,7 @@ import 'package:botc_copilot/core/constants/character.dart';
 import 'package:botc_copilot/core/database/app_database.dart';
 import 'package:botc_copilot/core/database/database_provider.dart';
 import 'package:botc_copilot/feature/game_board/domain/game_end.dart';
+import 'package:botc_copilot/feature/game_board/domain/nomination_rules.dart';
 import 'package:botc_copilot/feature/game_board/domain/succession.dart';
 import 'package:botc_copilot/shared/models/enums.dart';
 import 'package:drift/drift.dart' hide Column;
@@ -306,7 +307,16 @@ class GameBoardNotifier extends StateNotifier<GameBoardState> {
         day,
         DeathCause.other,
       );
-      return _evilWinCheck();
+      final evil = await _evilWinCheck();
+      if (evil != null) return evil;
+      // 恶魔传承检测（#136 公理5，与 recordNightDeath 路径统一）：
+      // 长按标死者疑似恶魔（声明/真身 Imp，或被标 demonCandidate）→ 传承候选。
+      final claimed = await _effectiveCharacter(player.id);
+      if (SuccessionRules.isDemonDeath(claimed) ||
+          await _isDemonCandidate(player.id)) {
+        return checkDemonDeath(player.id, way: DeathWay.suicide);
+      }
+      return null;
     } else {
       await _db.playersDao.revive(player.id);
       return null;
@@ -344,6 +354,14 @@ class GameBoardNotifier extends StateNotifier<GameBoardState> {
       noExecutionToday: noExecution,
     )) {
       return null;
+    }
+    // #136：达阈值的待执行提名 = execution 应发生（官方：达阈值即处决，非可选），
+    // 市长条件「no execution occurs」不满足——避免终局假阳性善良胜。
+    if (day != null) {
+      final noms = await _db.nominationsDao.watchByDay(day.id).first;
+      if (NominationRules.pendingExecution(noms, alive) is PendingExecution) {
+        return null;
+      }
     }
     if (!await _mayorInPlay()) return null;
     return MayorVictoryCandidate(alive);

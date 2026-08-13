@@ -3,6 +3,8 @@ import 'package:botc_copilot/core/constants/script.dart';
 import 'package:botc_copilot/core/database/app_database.dart';
 import 'package:botc_copilot/core/database/database_provider.dart';
 import 'package:botc_copilot/feature/game_board/domain/game_end.dart';
+import 'package:botc_copilot/feature/game_board/domain/nomination_rules.dart';
+import 'package:botc_copilot/feature/game_board/data/nomination_repository.dart';
 import 'package:botc_copilot/feature/game_board/presentation/providers/game_board_provider.dart';
 import 'package:botc_copilot/feature/setup/data/setup_repository.dart';
 import 'package:botc_copilot/shared/models/enums.dart';
@@ -238,6 +240,36 @@ void main() {
       }
       final suggestion = await notifier().advanceDay();
       expect(suggestion, isNull); // 声明者已死 → 死市长无能力
+    });
+
+    test('advanceDay：3 存活但有达阈值待执行提名 → 不触发市长（#136）', () async {
+      final players = await db.playersDao.watchByGame(gameId).first;
+      final day1Id = await notifier().ensureCurrentDayRecord();
+      await claimMayor(players[0].id, day1Id);
+      // 杀 players[1..4]（4 人），剩 [0,5,6] 存活 == 3
+      for (final p in players.skip(1).take(4)) {
+        await db.playersDao.markDead(p.id, 1, DeathCause.nightKill);
+      }
+      // 录一个达阈值的提名（3 存活，阈值 ceil(3/2)=2；2 票赞成 → PendingExecution）
+      // 但不标处决 → dayExecutionPlayerId 仍 null
+      final alivePlayers = await db.playersDao.watchByGame(gameId).first;
+      await NominationRepository(db).addNomination(
+        gameId: gameId,
+        dayRecordId: day1Id,
+        nominatorId: players[0].id,
+        nomineeId: players[5].id,
+        votes: [
+          VoteEntry(playerId: players[0].id, vote: Vote.forVote),
+          VoteEntry(playerId: players[5].id, vote: Vote.against),
+          VoteEntry(playerId: players[6].id, vote: Vote.forVote),
+        ],
+        players: alivePlayers,
+        todayNominations: [],
+        allNominations: [],
+      );
+      final suggestion2 = await notifier().advanceDay();
+      // 待执行提名 → execution 应发生 → 市长条件「no execution occurs」不满足
+      expect(suggestion2, isNull);
     });
   });
 }
