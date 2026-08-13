@@ -5,6 +5,7 @@ import 'package:botc_copilot/feature/game_board/presentation/providers/game_boar
 import 'package:botc_copilot/feature/player_detail/presentation/player_detail_sheet.dart';
 import 'package:botc_copilot/feature/reasoning/presentation/character_reference_page.dart';
 import 'package:botc_copilot/feature/reasoning/presentation/contradiction_panel.dart';
+import 'package:botc_copilot/feature/reasoning/presentation/dependency_chain_page.dart';
 import 'package:botc_copilot/feature/reasoning/presentation/role_matrix_page.dart';
 import 'package:botc_copilot/feature/reasoning/presentation/setup_analysis_panel.dart';
 import 'package:botc_copilot/feature/reasoning/presentation/voting_analysis_page.dart';
@@ -92,12 +93,29 @@ class _ReasoningDashboardState extends ConsumerState<ReasoningDashboard> {
           ],
         ),
         const SizedBox(height: 8),
-        // 投票模式分析（issue #57）
-        OutlinedButton.icon(
-          icon: const Icon(Icons.how_to_vote_outlined, size: 16),
-          label: const Text('投票分析'),
-          onPressed: () =>
-              VotingAnalysisPage.show(context, gameId: widget.gameId),
+        // 投票分析（issue #57）+ 信息依赖链（issue #58）
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton.icon(
+                icon: const Icon(Icons.how_to_vote_outlined, size: 16),
+                label: const Text('投票分析'),
+                onPressed: () =>
+                    VotingAnalysisPage.show(context, gameId: widget.gameId),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: OutlinedButton.icon(
+                icon: const Icon(Icons.account_tree_outlined, size: 16),
+                label: const Text('依赖链'),
+                onPressed: () => DependencyChainPage.show(
+                  context,
+                  gameId: widget.gameId,
+                ),
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: 16),
         // 配置分析：外来者计数 配置 vs 声明（issue #59）
