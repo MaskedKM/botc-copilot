@@ -171,6 +171,45 @@ abstract final class NominationRules {
     if (!nominee.isAlive) return null; // 死亡玩家无能力，不触发（review M3）
     return nomineeId;
   }
+
+  /// 管家投票限制校验（issue #115，官方：管家只能在主人投票时投票）。
+  ///
+  /// 「投票」= 投赞成（举手）。管家投赞成但主人非赞成（反对/弃权/未录）→
+  /// 管家此票按官方规则无效，返回 true。管家非赞成时不受限（管家不举手
+  /// 本就无约束）。死主人/死管家用死票赞成同样算「投票」，故只看 [Vote]。
+  static bool butlerVoteRestricted({
+    required Vote? butlerVote,
+    required Vote? masterVote,
+  }) {
+    if (butlerVote != Vote.forVote) return false;
+    return masterVote != Vote.forVote;
+  }
+
+  /// 管家最新选择的主人（issue #115）。
+  ///
+  /// 管家每夜经夜间面板（#110，singlePlayerTarget）录入主人，存为
+  /// [InfoDeclaration]（characterType=butler，payload `{"playerId":X}`）。
+  /// 返回该管家**最新** butler 声明中的主人 playerId（最新=当夜所选，治理
+  /// 当日投票）；无记录 / payload 异常 → null（无法校验，UI 不报）。
+  static int? butlerMasterOf(
+    List<InfoDeclaration> declarations,
+    int butlerPlayerId,
+  ) {
+    final decls = declarations
+        .where(
+          (d) => d.playerId == butlerPlayerId && d.characterType == Character.butler,
+        )
+        .toList()
+      ..sort((a, b) => a.id.compareTo(b.id));
+    if (decls.isEmpty) return null;
+    try {
+      final decoded = jsonDecode(decls.last.payloadJson);
+      if (decoded is Map) return decoded['playerId'] as int?;
+    } on FormatException {
+      return null;
+    }
+    return null;
+  }
 }
 
 /// 当天「即将死亡」判定结果（issue #53）。
