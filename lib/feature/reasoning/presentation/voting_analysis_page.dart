@@ -437,7 +437,7 @@ class _ConsistencyMatrix extends StatelessWidget {
         alignment: Alignment.center,
         child: Text(
           '${c.agreedCount}/${participated}',
-          style: AppTextStyles.caption.copyWith(fontSize: 9),
+          style: AppTextStyles.caption.copyWith(fontSize: 11),
         ),
       ),
     );
@@ -551,7 +551,7 @@ Widget _voteChip(Vote vote, GameColors gameColors) {
     ),
     child: Text(
       _voteLabel(vote),
-      style: AppTextStyles.caption.copyWith(color: color, fontSize: 10),
+      style: AppTextStyles.caption.copyWith(color: color, fontSize: 11),
     ),
   );
 }
