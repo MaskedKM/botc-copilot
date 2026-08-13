@@ -128,8 +128,18 @@ OutsiderCountAnalysis analyzeOutsiderCount({
   final baronClaimed = myRole == Character.baron ||
       latest.values.any((c) => c.character == Character.baron);
 
+  // #151 S3：Baron 在场时期望外来者数 = baronAdj（base+2），故 claimed==base 应判
+  // under（缺 2），而非 standard。原逻辑忽略 baronClaimed 致 Baron 已声明仍标 standard。
   final OutsiderDeviation deviation;
-  if (claimed == base) {
+  if (baronClaimed) {
+    if (claimed == baronAdj) {
+      deviation = OutsiderDeviation.standard;
+    } else if (claimed < baronAdj) {
+      deviation = OutsiderDeviation.under;
+    } else {
+      deviation = OutsiderDeviation.over;
+    }
+  } else if (claimed == base) {
     deviation = OutsiderDeviation.standard;
   } else if (claimed == baronAdj) {
     deviation = OutsiderDeviation.baronConsistent;
