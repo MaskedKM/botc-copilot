@@ -138,6 +138,8 @@ class DayPanel extends ConsumerWidget {
             '（${pending.forCount} 票）';
       }
     }
+    // #149 A-1：平票时无人即将死亡，手动处决应同样提示（原 pendingId=null 跳过告警）。
+    final pendingTieForCount = pending is PendingTie ? pending.forCount : null;
 
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -170,6 +172,7 @@ class DayPanel extends ConsumerWidget {
                           gameId: gameId,
                           pendingId: pendingId,
                           pendingLabel: pendingLabel,
+                          pendingTieForCount: pendingTieForCount,
                           notifier: notifier,
                         )
                     : null,
@@ -234,6 +237,7 @@ Future<void> _confirmExecution(
   required int gameId,
   required int? pendingId,
   required String? pendingLabel,
+  required int? pendingTieForCount,
   required GameBoardNotifier notifier,
 }) async {
   if (pendingId != null && pendingId != player.id) {
@@ -243,6 +247,27 @@ Future<void> _confirmExecution(
         title: const Text('处决对象非台上即将死亡者'),
         content: Text('当前即将死亡的是 ${pendingLabel ?? '另一玩家'}，不是此人。'
             '仍要处决吗？（Virgin 处决提名者等特殊流程可能需要手动覆盖）'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('仍要处决'),
+          ),
+        ],
+      ),
+    );
+    if (!(override ?? false)) return;
+  } else if (pendingTieForCount != null) {
+    // #149 A-1：平票 → 无人即将死亡，手动处决提示（与「唯一最高票才提示」对称）。
+    final override = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('当前平票，无人即将死亡'),
+        content: Text('当天最高票并列 $pendingTieForCount 票，按规则无人被处决。'
+            '仍要手动处决此人吗？'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
