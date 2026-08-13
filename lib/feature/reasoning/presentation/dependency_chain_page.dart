@@ -384,14 +384,23 @@ void _showNodeDetail(
             ],
           ),
           const SizedBox(height: 8),
+          // 信息状态以 isTainted 为准（作者清醒但存档被毒时信息仍不可靠），
+          // 作者清醒度单独列出，避免「作者清醒 → 信息可用」的矛盾表述。
           Text(
-            node.authorAssumedDrunk
-                ? '依赖：作者可能醉/毒 → 信息不可靠'
-                : '依赖：作者清醒 → 信息可用',
+            node.isTainted ? '信息可能不可靠' : '信息可用',
+            style: AppTextStyles.caption.copyWith(
+              color: node.isTainted
+                  ? gameColors.reliabilityTainted
+                  : gameColors.trustConfirmedGood,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            '作者：${node.authorAssumedDrunk ? '可能醉/毒' : '清醒'}',
             style: AppTextStyles.caption.copyWith(
               color: node.authorAssumedDrunk
                   ? gameColors.reliabilityTainted
-                  : gameColors.trustConfirmedGood,
+                  : gameColors.inkViolet,
             ),
           ),
           if (node.references.playerIds.isNotEmpty ||

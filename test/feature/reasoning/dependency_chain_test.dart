@@ -1,5 +1,6 @@
 import 'package:botc_copilot/core/constants/character.dart';
 import 'package:botc_copilot/core/database/app_database.dart';
+import 'package:botc_copilot/feature/reasoning/data/dependency_chain_provider.dart';
 import 'package:botc_copilot/feature/reasoning/domain/dependency_chain.dart';
 import 'package:botc_copilot/shared/info_references.dart';
 import 'package:botc_copilot/shared/models/enums.dart';
@@ -214,6 +215,30 @@ void main() {
       expect(b.authorAssumedDrunk, isFalse);
     });
 
+    test('存档 possiblyTainted + 作者清醒 → isTainted 但作者未醉（分歧情形）', () {
+      // 作者未被疑醉、也不在沙盒中，但存档 reliability 为 possiblyTainted
+      //（如按夜被毒，#122）。此时信息仍不可靠，但责任不在「整局醉」。
+      // UI 须据此区分「信息不可靠」与「作者醉」（见详情对话框）。
+      final byId = {10: _player(10, 1)};
+      final nodes = DependencyChainBuilder.build(
+        declarations: [
+          _decl(
+            id: 1,
+            playerId: 10,
+            dayRecordId: 1,
+            character: Character.fortuneTeller,
+            payload: '{"playerIds": [20], "answer": true}',
+            reliability: Reliability.possiblyTainted,
+          ),
+        ],
+        playersById: byId,
+        dayRecordToDayNumber: dayOf,
+      );
+      expect(nodes.single.effectiveReliability, Reliability.possiblyTainted);
+      expect(nodes.single.isTainted, isTrue);
+      expect(nodes.single.authorAssumedDrunk, isFalse);
+    });
+
     test('invalidated 不被醉酒覆盖', () {
       final byId = {10: _player(10, 1, suspectedDrunk: true)};
       final nodes = DependencyChainBuilder.build(
@@ -315,6 +340,35 @@ void main() {
       );
       // 第1天（id 7、10 升序）→ 第2天（id 5）。若只按 id 排会得 [5,7,10]。
       expect(nodes.map((n) => n.declarationId), [7, 10, 5]);
+    });
+  });
+
+  group('DependencySandboxNotifier', () {
+    test('toggle 切换 / reset 清空', () {
+      final n = DependencySandboxNotifier();
+      expect(n.state, isEmpty);
+
+      n.toggleAssumeDrunk(1);
+      expect(n.state, {1});
+
+      // 再次切换 → 移除
+      n.toggleAssumeDrunk(1);
+      expect(n.state, isEmpty);
+
+      // 多人独立切换
+      n.toggleAssumeDrunk(2);
+      n.toggleAssumeDrunk(3);
+      expect(n.state, {2, 3});
+
+      n.reset();
+      expect(n.state, isEmpty);
+    });
+
+    test('state 不可变（每次产生新集合）', () {
+      final n = DependencySandboxNotifier();
+      final before = n.state;
+      n.toggleAssumeDrunk(1);
+      expect(identical(before, n.state), isFalse);
     });
   });
 }
