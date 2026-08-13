@@ -7,6 +7,7 @@ import 'package:botc_copilot/feature/game_board/domain/succession.dart';
 import 'package:botc_copilot/shared/models/enums.dart';
 import 'package:drift/drift.dart' hide Column;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:meta/meta.dart';
 
 /// 当前进行中的对局（最近创建的一局 ongoing）。
 final currentGameProvider = StreamProvider<Game?>((ref) {
@@ -126,7 +127,7 @@ class GameBoardNotifier extends StateNotifier<GameBoardState> {
   /// currentDay 纯内存、构造起 1——重启 ongoing 对局会回 1（#154 ISSUE-3）。
   /// 故构造后立即 [_restoreState] 从 day_records 最大 dayNumber 异步恢复。
   GameBoardNotifier(this._ref, this._gameId) : super(const GameBoardState()) {
-    _restoreState();
+    restoreState();
   }
 
   final Ref _ref;
@@ -140,7 +141,12 @@ class GameBoardNotifier extends StateNotifier<GameBoardState> {
   /// max ≡ 最后 currentDay）。用 `max(currentDay, maxDay)`——恢复**只增不减**，
   /// 避免恢复期间已 advance 的测试/调用被覆盖。完成后置 initialized=true，页面
   /// 据此解除加载骨架。全新局 maxDay=null → currentDay 保持 1。
-  Future<void> _restoreState() async {
+  ///
+  /// {@template game_board.restoreState}
+  /// 测试桩可 override 跳过 DB IO（widget test 不碰真实 DB），仅标记 initialized。
+  /// {@endtemplate}
+  @visibleForOverriding
+  Future<void> restoreState() async {
     final maxDay = await _db.dayRecordsDao.maxDayNumberForGame(_gameId);
     if (!mounted) return;
     final restored = maxDay ?? 1;

@@ -41,6 +41,9 @@ void main() {
       overrides: [
         gameByIdProvider(1).overrideWith((ref) => Stream.value(game)),
         gamePlayersProvider(1).overrideWith((ref) => Stream.value(players)),
+        // 跳过 restoreState 的 DB IO（widget test 不碰真实 DB，#154 ISSUE-3）。
+        gameBoardProvider(1)
+            .overrideWith((ref) => _FakeGameBoardNotifier(ref, 1)),
         latestTrustLevelsProvider(1)
             .overrideWith((ref) => Stream.value(const <int, TrustLevel>{})),
         currentDayRecordProvider((1, 1))
@@ -95,4 +98,14 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('对局不存在或已删除'), findsOneWidget);
   });
+}
+
+/// 跳过 restoreState 的 DB IO（widget test 不碰真实 DB，#154 ISSUE-3）。
+class _FakeGameBoardNotifier extends GameBoardNotifier {
+  _FakeGameBoardNotifier(super.ref, super.gameId);
+
+  @override
+  Future<void> restoreState() async {
+    state = state.copyWith(initialized: true);
+  }
 }

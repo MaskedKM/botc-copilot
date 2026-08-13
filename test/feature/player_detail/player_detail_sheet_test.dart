@@ -103,6 +103,11 @@ class _FakeGameBoardNotifier extends GameBoardNotifier {
 
   @override
   Future<int> ensureCurrentDayRecord() async => 1;
+
+  @override
+  Future<void> restoreState() async {
+    state = state.copyWith(initialized: true);
+  }
 }
 
 void main() {
@@ -165,6 +170,7 @@ void main() {
     Character? myRole,
     GameStatus status = GameStatus.ongoing,
     bool suspectedDrunk = false,
+    bool isAlive = true,
     List<InfoDeclaration> declarations = const [],
     List<RoleClaim> claims = const [],
     List<BehaviorNote> notes = const [],
@@ -175,11 +181,12 @@ void main() {
       myRole: Value(myRole ?? game.myRole),
       status: status,
     );
+    final player = me.copyWith(suspectedDrunk: suspectedDrunk, isAlive: isAlive);
     return ProviderScope(
       overrides: [
         gameByIdProvider(1).overrideWith((ref) => Stream.value(g)),
         gamePlayersProvider(1).overrideWith(
-          (ref) => Stream.value([me.copyWith(suspectedDrunk: suspectedDrunk)]),
+          (ref) => Stream.value([player]),
         ),
         gameBoardProvider(1)
             .overrideWith((ref) => _FakeGameBoardNotifier(ref, 1)),
@@ -202,7 +209,7 @@ void main() {
         home: Scaffold(
           body: PlayerDetailSheet(
             gameId: 1,
-            player: me,
+            player: player,
             enableChain: enableChain,
           ),
         ),
@@ -364,6 +371,33 @@ void main() {
 
     // 能力区按真实角色（猎杀者）显示，无需公开声明
     expect(find.text('一次性能力 · 猎杀者'), findsOneWidget);
+  });
+
+  testWidgets('存活 Slayer：能力可用（#154 R-2）', (tester) async {
+    useTallSurface(tester);
+    await tester.pumpWidget(
+      buildSheet(myPlayerId: me.id, myRole: Character.slayer, isAlive: true),
+    );
+    await tester.pump();
+
+    expect(find.text('使用 Slayer 猜测'), findsOneWidget);
+  });
+
+  testWidgets('死亡 Slayer：能力不可用，无提交按钮（#154 R-2）', (tester) async {
+    useTallSurface(tester);
+    await tester.pumpWidget(
+      buildSheet(myPlayerId: me.id, myRole: Character.slayer, isAlive: false),
+    );
+    await tester.pump();
+
+    expect(find.text('一次性能力 · 猎杀者'), findsOneWidget);
+    expect(
+      find.text('已死亡，能力不可用（死者不能发动能力）。'),
+      findsOneWidget,
+    );
+    // 死者不应出现可提交的能力表单
+    expect(find.text('使用 Slayer 猜测'), findsNothing);
+    expect(find.text('猜测目标是恶魔'), findsNothing);
   });
 
   testWidgets('他人座位行为不变：仍要求先声明角色', (tester) async {

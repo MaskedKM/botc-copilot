@@ -1225,6 +1225,8 @@ class _AbilitySectionState extends ConsumerState<_AbilitySection> {
   /// **即使提名者未死、即使处女当时被毒/醉**。被毒/醉时能力不触发
   /// （提名者不被处决），但能力仍已消耗——清醒后再被提名不再触发。
   Widget _buildVirgin(bool used, GameColors gameColors) {
+    // 死亡玩家不能被提名、能力亦不可手动标记（#154 R-2）。
+    final isAlive = _live?.isAlive ?? true;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1232,18 +1234,20 @@ class _AbilitySectionState extends ConsumerState<_AbilitySection> {
           title: const Text('能力已消耗'),
           value: used,
           activeTrackColor: gameColors.inkViolet,
-          onChanged: (v) async {
-            await ref
-                .read(abilityRepositoryProvider)
-                .setAbilityUsed(widget.playerId, used: v);
-            if (!mounted) return;
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(v ? '处女能力已标记消耗' : '处女能力已恢复'),
-                duration: const Duration(seconds: 1),
-              ),
-            );
-          },
+          onChanged: isAlive
+              ? (v) async {
+                  await ref
+                      .read(abilityRepositoryProvider)
+                      .setAbilityUsed(widget.playerId, used: v);
+                  if (!mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(v ? '处女能力已标记消耗' : '处女能力已恢复'),
+                      duration: const Duration(seconds: 1),
+                    ),
+                  );
+                }
+              : null,
         ),
         Text(
           '官方规则：处女首次被镇民提名时，提名者立即被处决（当天提名结束）。'
@@ -1270,6 +1274,13 @@ class _AbilitySectionState extends ConsumerState<_AbilitySection> {
     if (used) {
       return Text(
         '已使用（一次性，不可再用）。即使当时被毒/醉，能力也已永久消耗。',
+        style: AppTextStyles.caption.copyWith(color: gameColors.inkViolet),
+      );
+    }
+    // 官方规则：死亡玩家不能发动角色能力（#154 R-2）。
+    if (!(_live?.isAlive ?? true)) {
+      return Text(
+        '已死亡，能力不可用（死者不能发动能力）。',
         style: AppTextStyles.caption.copyWith(color: gameColors.inkViolet),
       );
     }
