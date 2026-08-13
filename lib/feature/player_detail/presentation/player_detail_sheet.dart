@@ -1225,8 +1225,8 @@ class _AbilitySectionState extends ConsumerState<_AbilitySection> {
   /// **即使提名者未死、即使处女当时被毒/醉**。被毒/醉时能力不触发
   /// （提名者不被处决），但能力仍已消耗——清醒后再被提名不再触发。
   Widget _buildVirgin(bool used, GameColors gameColors) {
-    // 死亡玩家不能被提名、能力亦不可手动标记（#154 R-2）。
-    final isAlive = _live?.isAlive ?? true;
+    // Virgin 能力被动触发（首次被提名消耗），此开关是历史记录而非「发动能力」——
+    // 死者亦可补录消耗状态。仅 Slayer 主动击杀需门控死者（#154 R-2）。
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1234,20 +1234,18 @@ class _AbilitySectionState extends ConsumerState<_AbilitySection> {
           title: const Text('能力已消耗'),
           value: used,
           activeTrackColor: gameColors.inkViolet,
-          onChanged: isAlive
-              ? (v) async {
-                  await ref
-                      .read(abilityRepositoryProvider)
-                      .setAbilityUsed(widget.playerId, used: v);
-                  if (!mounted) return;
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(v ? '处女能力已标记消耗' : '处女能力已恢复'),
-                      duration: const Duration(seconds: 1),
-                    ),
-                  );
-                }
-              : null,
+          onChanged: (v) async {
+            await ref
+                .read(abilityRepositoryProvider)
+                .setAbilityUsed(widget.playerId, used: v);
+            if (!mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(v ? '处女能力已标记消耗' : '处女能力已恢复'),
+                duration: const Duration(seconds: 1),
+              ),
+            );
+          },
         ),
         Text(
           '官方规则：处女首次被镇民提名时，提名者立即被处决（当天提名结束）。'

@@ -100,7 +100,7 @@ class GameBoardState {
 
   /// 是否已从数据库恢复 currentDay（#154 ISSUE-3）。
   ///
-  /// 构造时为 false，[_restoreState] 完成后置 true。页面据此显示加载骨架、
+  /// 构造时为 false，[restoreState] 完成后置 true。页面据此显示加载骨架、
   /// 禁用交互，避免恢复窗口内对错误天数操作。
   final bool initialized;
 
@@ -125,7 +125,7 @@ class GameBoardNotifier extends StateNotifier<GameBoardState> {
   /// 创建 notifier。
   ///
   /// currentDay 纯内存、构造起 1——重启 ongoing 对局会回 1（#154 ISSUE-3）。
-  /// 故构造后立即 [_restoreState] 从 day_records 最大 dayNumber 异步恢复。
+  /// 故构造后立即 [restoreState] 从 day_records 最大 dayNumber 异步恢复。
   GameBoardNotifier(this._ref, this._gameId) : super(const GameBoardState()) {
     restoreState();
   }
@@ -147,11 +147,16 @@ class GameBoardNotifier extends StateNotifier<GameBoardState> {
   /// {@endtemplate}
   @visibleForOverriding
   Future<void> restoreState() async {
-    final maxDay = await _db.dayRecordsDao.maxDayNumberForGame(_gameId);
-    if (!mounted) return;
-    final restored = maxDay ?? 1;
-    if (restored > state.currentDay) {
-      state = state.copyWith(currentDay: restored);
+    try {
+      final maxDay = await _db.dayRecordsDao.maxDayNumberForGame(_gameId);
+      if (!mounted) return;
+      final restored = maxDay ?? 1;
+      if (restored > state.currentDay) {
+        state = state.copyWith(currentDay: restored);
+      }
+    } catch (_) {
+      // DB 读失败：保持 currentDay（默认 1），不阻塞界面（#154 review）。
+      if (!mounted) return;
     }
     state = state.copyWith(initialized: true);
   }
@@ -667,13 +672,14 @@ class GameBoardNotifier extends StateNotifier<GameBoardState> {
         (await _db.infoDeclarationsDao.watchByDay(day.id).first).isNotEmpty;
     if (hasNight || hasExec || hasNoms || hasClaims || hasInfo) return false;
     // 回退当天：删天记录 + 清理按 gameId+dayNumber 挂载、无 dayRecordId FK 的
-    // 注释三表（信任度/毒/备注），否则它们残留成孤儿——latestTrustLevels
+    // 注释/事件表（信任度/毒/备注/传承），否则它们残留成孤儿——latestTrustLevels
     // 仍读到「已不存在天」的信任度、毒残留让可靠性恢复链卡死（#154 R-1）。
     final revertDay = day.dayNumber;
     await _db.transaction(() async {
       await _db.trustLogsDao.deleteByGameAndDay(_gameId, revertDay);
       await _db.poisonStatusesDao.deleteByGameAndDay(_gameId, revertDay);
       await _db.behaviorNotesDao.deleteByGameAndDay(_gameId, revertDay);
+      await _db.demonInheritancesDao.deleteByGameAndDay(_gameId, revertDay);
       await _db.dayRecordsDao.deleteDay(day.id);
     });
     state = state.copyWith(

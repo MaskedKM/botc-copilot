@@ -67,6 +67,12 @@ class _FakeGameBoardNotifier extends GameBoardNotifier {
 
   @override
   Future<int> ensureCurrentDayRecord() async => 1;
+
+  @override
+  Future<void> restoreState() async {
+    // 跳过 DB IO（widget test 不碰真实 DB，#154 ISSUE-3）；保留构造设的 currentDay。
+    state = state.copyWith(initialized: true);
+  }
 }
 
 void main() {
