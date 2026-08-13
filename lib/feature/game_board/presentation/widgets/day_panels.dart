@@ -457,37 +457,3 @@ Future<bool> _monkProtectedThisNight(
   }
   return false;
 }
-
-/// 占位面板：投票分析 / 我的推理（后续 issue 实现）。
-class ComingSoonPanel extends StatelessWidget {
-  /// 创建占位面板。
-  const ComingSoonPanel({required this.title, required this.hint, super.key});
-
-  /// 面板标题。
-  final String title;
-
-  /// 引导语。
-  final String hint;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(title, style: AppTextStyles.headline),
-            const SizedBox(height: 8),
-            Text(
-              hint,
-              style: AppTextStyles.caption
-                  .copyWith(color: context.gameColors.inkViolet),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}

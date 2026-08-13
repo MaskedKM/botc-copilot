@@ -7,6 +7,7 @@ import 'package:botc_copilot/feature/reasoning/presentation/character_reference_
 import 'package:botc_copilot/feature/reasoning/presentation/contradiction_panel.dart';
 import 'package:botc_copilot/feature/reasoning/presentation/role_matrix_page.dart';
 import 'package:botc_copilot/feature/reasoning/presentation/setup_analysis_panel.dart';
+import 'package:botc_copilot/feature/reasoning/presentation/voting_analysis_page.dart';
 import 'package:botc_copilot/shared/models/enums.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -89,6 +90,14 @@ class _ReasoningDashboardState extends ConsumerState<ReasoningDashboard> {
               ),
             ),
           ],
+        ),
+        const SizedBox(height: 8),
+        // 投票模式分析（issue #57）
+        OutlinedButton.icon(
+          icon: const Icon(Icons.how_to_vote_outlined, size: 16),
+          label: const Text('投票分析'),
+          onPressed: () =>
+              VotingAnalysisPage.show(context, gameId: widget.gameId),
         ),
         const SizedBox(height: 16),
         // 配置分析：外来者计数 配置 vs 声明（issue #59）
