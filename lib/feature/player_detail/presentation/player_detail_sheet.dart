@@ -1407,7 +1407,8 @@ Future<void> _changeSeatDialog(
           spacing: 8,
           runSpacing: 4,
           children: [
-            for (final p in players)
+            // #163 P2：仅存活者候选——不能把「我」换到已死座位。
+            for (final p in players.where((p) => p.isAlive))
               ChoiceChip(
                 label: Text('${p.seatNumber}号 ${p.name}'),
                 selected: picked == p.id,
