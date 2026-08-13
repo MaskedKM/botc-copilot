@@ -42,8 +42,7 @@ class NominationEntrySheet extends ConsumerStatefulWidget {
       _NominationEntrySheetState();
 }
 
-class _NominationEntrySheetState
-    extends ConsumerState<NominationEntrySheet> {
+class _NominationEntrySheetState extends ConsumerState<NominationEntrySheet> {
   int? _nominatorId;
   int? _nomineeId;
   final Map<int, Vote> _votes = {};
@@ -65,18 +64,16 @@ class _NominationEntrySheetState
     final day = ref.watch(
       gameBoardProvider(widget.gameId).select((s) => s.currentDay),
     );
-    final todayNominations = ref
-            .watch(dayNominationsProvider((widget.gameId, day)))
-            .valueOrNull ??
+    final todayNominations =
+        ref.watch(dayNominationsProvider((widget.gameId, day))).valueOrNull ??
         [];
     final allNominations =
         ref.watch(gameNominationsProvider(widget.gameId)).valueOrNull ?? [];
     final claims =
         ref.watch(gameClaimsProvider(widget.gameId)).valueOrNull ?? [];
     final game = ref.watch(gameByIdProvider(widget.gameId)).valueOrNull;
-    final declarations = ref
-            .watch(gameDeclarationsProvider(widget.gameId))
-            .valueOrNull ??
+    final declarations =
+        ref.watch(gameDeclarationsProvider(widget.gameId)).valueOrNull ??
         const <InfoDeclaration>[];
 
     // 管家投票限制（issue #115）：声明管家 + 已录主人 → 追踪主人座位与
@@ -113,184 +110,202 @@ class _NominationEntrySheetState
           .map((e) => VoteEntry(playerId: e.key, vote: e.value))
           .toList(),
     );
-    final canSubmit = _nominatorId != null &&
+    final canSubmit =
+        _nominatorId != null &&
         _nomineeId != null &&
         !_submitting &&
         // 快录允许空投票（= 全反对）；详细至少录 1 票（issue #84）
         (_voteMode == _VoteMode.quick || _votes.isNotEmpty);
 
-    return DraggableScrollableSheet(
-      initialChildSize: 0.8,
-      minChildSize: 0.5,
-      maxChildSize: 0.95,
-      expand: false,
-      builder: (context, scrollController) {
-        return ListView(
-          controller: scrollController,
-          padding: const EdgeInsets.all(16),
-          children: [
-            const Text('记录提名', style: AppTextStyles.title),
-            const SizedBox(height: 16),
+    // #160 P0：有录入（提名者/被提名者/任一票）时阻止直接返回，改走确认——
+    // 避免误滑/返回键静默丢失全量投票（全应用最严重静默丢失缺口）。
+    final dirty =
+        _nominatorId != null || _nomineeId != null || _votes.isNotEmpty;
+    return PopScope(
+      canPop: !dirty,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _confirmDiscard();
+      },
+      child: DraggableScrollableSheet(
+        initialChildSize: 0.8,
+        minChildSize: 0.5,
+        maxChildSize: 0.95,
+        expand: false,
+        builder: (context, scrollController) {
+          return ListView(
+            controller: scrollController,
+            padding: const EdgeInsets.all(16),
+            children: [
+              const Text('记录提名', style: AppTextStyles.title),
+              const SizedBox(height: 16),
 
-            // 提名者
-            const Text('提名者', style: AppTextStyles.headline),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              runSpacing: 4,
-              children: [
-                for (final p in alivePlayers)
-                  ChoiceChip(
-                    label: Text('${p.seatNumber}号 ${p.name}'),
-                    selected: _nominatorId == p.id,
-                    onSelected: NominationRules.hasNominatedToday(
-                      todayNominations,
-                      p.id,
-                    )
-                        ? null // 已提名过 → 禁用
-                        : (_) => setState(() => _nominatorId = p.id),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 16),
-
-            // 被提名者（官方允许自我提名——Virgin 自证战术；含死人，标 ☠ 区分）
-            const Text('被提名者', style: AppTextStyles.headline),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              runSpacing: 4,
-              children: [
-                for (final p in players)
-                  ChoiceChip(
-                    label: Text(
-                      '${p.seatNumber}号 ${p.name}'
-                      '${p.isAlive ? '' : ' ☠'}'
-                      '${p.id == _nominatorId ? '（自）' : ''}',
-                    ),
-                    selected: _nomineeId == p.id,
-                    onSelected: NominationRules.hasBeenNominatedToday(
-                      todayNominations,
-                      p.id,
-                    )
-                        ? null // 已被提名过 → 禁用
-                        : (_) => setState(() => _nomineeId = p.id),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 16),
-
-            // 逐人投票
-            if (_nomineeId != null) ...[
-              Row(
+              // 提名者
+              const Text('提名者', style: AppTextStyles.headline),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 4,
                 children: [
-                  const Expanded(
-                    child: Text('投票', style: AppTextStyles.headline),
-                  ),
-                  // 模式切换（issue #84）
-                  SegmentedButton<_VoteMode>(
-                    segments: const [
-                      ButtonSegment(
-                        value: _VoteMode.quick,
-                        icon: Icon(Icons.bolt, size: 16),
-                        label: Text('快录'),
-                      ),
-                      ButtonSegment(
-                        value: _VoteMode.full,
-                        icon: Icon(Icons.list, size: 16),
-                        label: Text('详细'),
-                      ),
-                    ],
-                    selected: {_voteMode},
-                    onSelectionChanged: (s) =>
-                        setState(() => _voteMode = s.first),
-                  ),
+                  for (final p in alivePlayers)
+                    ChoiceChip(
+                      label: Text('${p.seatNumber}号 ${p.name}'),
+                      selected: _nominatorId == p.id,
+                      onSelected:
+                          NominationRules.hasNominatedToday(
+                            todayNominations,
+                            p.id,
+                          )
+                          ? null // 已提名过 → 禁用
+                          : (_) => setState(() => _nominatorId = p.id),
+                    ),
                 ],
               ),
-              const SizedBox(height: 4),
-              Text(
-                _voteMode == _VoteMode.quick
-                    ? '点选赞成者，未点者提交时记为反对'
-                        '（官方：举手=赞成，不举=非赞成）'
-                    : '逐人三选（死票 / 弃权场景）',
-                style: AppTextStyles.caption
-                    .copyWith(color: gameColors.inkViolet),
-              ),
+              const SizedBox(height: 16),
+
+              // 被提名者（官方允许自我提名——Virgin 自证战术；含死人，标 ☠ 区分）
+              const Text('被提名者', style: AppTextStyles.headline),
               const SizedBox(height: 8),
-              if (_voteMode == _VoteMode.quick)
-                _QuickVoteGrid(
-                  players: players,
-                  votes: _votes,
-                  allNominations: allNominations,
-                  butlerInfo: butlerInfo,
-                  onToggle: (id, selected) => setState(() {
-                    if (selected) {
-                      _votes[id] = Vote.forVote;
-                    } else {
-                      _votes.remove(id);
-                    }
-                  }),
-                )
-              else
-                for (final p in players)
-                  _VoteRow(
-                    player: p,
-                    vote: _votes[p.id],
-                    deadVoteUsed:
-                        NominationRules.deadVoteUsed(allNominations, p.id),
-                    butlerInfo: butlerInfo[p.id],
-                    onChanged: (v) => setState(() {
-                      if (v == null) {
-                        _votes.remove(p.id);
-                      } else {
-                        _votes[p.id] = v;
-                      }
-                    }),
-                  ),
-              const SizedBox(height: 8),
-              Text(
-                _voteMode == _VoteMode.quick
-                    ? '赞成 $forCount / 阈值 ${NominationRules.threshold(alivePlayers.length)}'
-                        '（其余 ${players.length - forCount} 人按反对）'
-                    : '赞成 $forCount / 阈值 ${NominationRules.threshold(alivePlayers.length)}'
-                        ' · 已录 ${_votes.length}/${players.length}',
-                style: AppTextStyles.caption
-                    .copyWith(color: gameColors.goldBright),
+              Wrap(
+                spacing: 8,
+                runSpacing: 4,
+                children: [
+                  for (final p in players)
+                    ChoiceChip(
+                      label: Text(
+                        '${p.seatNumber}号 ${p.name}'
+                        '${p.isAlive ? '' : ' ☠'}'
+                        '${p.id == _nominatorId ? '（自）' : ''}',
+                      ),
+                      selected: _nomineeId == p.id,
+                      onSelected:
+                          NominationRules.hasBeenNominatedToday(
+                            todayNominations,
+                            p.id,
+                          )
+                          ? null // 已被提名过 → 禁用
+                          : (_) => setState(() => _nomineeId = p.id),
+                    ),
+                ],
               ),
               const SizedBox(height: 16),
-              // 被提名者辩护（可选，issue #56）
-              const Text('辩护记录（可选）', style: AppTextStyles.headline),
-              const SizedBox(height: 4),
-              Text(
-                '记录被提名者的辩护 / 反指控 / 透露的信息。',
-                style: AppTextStyles.caption
-                    .copyWith(color: gameColors.inkViolet),
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: _defenseController,
-                maxLines: 3,
-                minLines: 1,
-                textCapitalization: TextCapitalization.sentences,
-                decoration: const InputDecoration(
-                  hintText: '如：我绝不是恶魔，X 号昨晚的行为更可疑…',
-                  isDense: true,
-                  border: OutlineInputBorder(),
-                ),
-              ),
-            ],
-            // 新手提示：提名/投票规则（issue #41）
-            HelpTooltip(
-              level: ref.watch(gameHelpLevelProvider(widget.gameId)),
-              text: '提名规则：每人每天最多提名 1 次、被提名 1 次。'
-                  '死亡玩家全程只有 1 张死票（投赞成即消耗）。'
-                  '赞成票达到存活人数一半即上处决台，平票无人处决。',
-            ),
-            const SizedBox(height: 16),
 
-            FilledButton(
-              onPressed: canSubmit
-                  ? () => _submit(
+              // 逐人投票
+              if (_nomineeId != null) ...[
+                Row(
+                  children: [
+                    const Expanded(
+                      child: Text('投票', style: AppTextStyles.headline),
+                    ),
+                    // 模式切换（issue #84）
+                    SegmentedButton<_VoteMode>(
+                      segments: const [
+                        ButtonSegment(
+                          value: _VoteMode.quick,
+                          icon: Icon(Icons.bolt, size: 16),
+                          label: Text('快录'),
+                        ),
+                        ButtonSegment(
+                          value: _VoteMode.full,
+                          icon: Icon(Icons.list, size: 16),
+                          label: Text('详细'),
+                        ),
+                      ],
+                      selected: {_voteMode},
+                      onSelectionChanged: (s) =>
+                          setState(() => _voteMode = s.first),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  _voteMode == _VoteMode.quick
+                      ? '点选赞成者，未点者提交时记为反对'
+                            '（官方：举手=赞成，不举=非赞成）'
+                      : '逐人三选（死票 / 弃权场景）',
+                  style: AppTextStyles.caption.copyWith(
+                    color: gameColors.inkViolet,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                if (_voteMode == _VoteMode.quick)
+                  _QuickVoteGrid(
+                    players: players,
+                    votes: _votes,
+                    allNominations: allNominations,
+                    butlerInfo: butlerInfo,
+                    onToggle: (id, selected) => setState(() {
+                      if (selected) {
+                        _votes[id] = Vote.forVote;
+                      } else {
+                        _votes.remove(id);
+                      }
+                    }),
+                  )
+                else
+                  for (final p in players)
+                    _VoteRow(
+                      player: p,
+                      vote: _votes[p.id],
+                      deadVoteUsed: NominationRules.deadVoteUsed(
+                        allNominations,
+                        p.id,
+                      ),
+                      butlerInfo: butlerInfo[p.id],
+                      onChanged: (v) => setState(() {
+                        if (v == null) {
+                          _votes.remove(p.id);
+                        } else {
+                          _votes[p.id] = v;
+                        }
+                      }),
+                    ),
+                const SizedBox(height: 8),
+                Text(
+                  _voteMode == _VoteMode.quick
+                      ? '赞成 $forCount / 阈值 ${NominationRules.threshold(alivePlayers.length)}'
+                            '（其余 ${players.length - forCount} 人按反对）'
+                      : '赞成 $forCount / 阈值 ${NominationRules.threshold(alivePlayers.length)}'
+                            ' · 已录 ${_votes.length}/${players.length}',
+                  style: AppTextStyles.caption.copyWith(
+                    color: gameColors.goldBright,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                // 被提名者辩护（可选，issue #56）
+                const Text('辩护记录（可选）', style: AppTextStyles.headline),
+                const SizedBox(height: 4),
+                Text(
+                  '记录被提名者的辩护 / 反指控 / 透露的信息。',
+                  style: AppTextStyles.caption.copyWith(
+                    color: gameColors.inkViolet,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _defenseController,
+                  maxLines: 3,
+                  minLines: 1,
+                  textCapitalization: TextCapitalization.sentences,
+                  decoration: const InputDecoration(
+                    hintText: '如：我绝不是恶魔，X 号昨晚的行为更可疑…',
+                    isDense: true,
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+              ],
+              // 新手提示：提名/投票规则（issue #41）
+              HelpTooltip(
+                level: ref.watch(gameHelpLevelProvider(widget.gameId)),
+                text:
+                    '提名规则：每人每天最多提名 1 次、被提名 1 次。'
+                    '死亡玩家全程只有 1 张死票（投赞成即消耗）。'
+                    '赞成票达到存活人数一半即上处决台，平票无人处决。',
+              ),
+              const SizedBox(height: 16),
+
+              FilledButton(
+                onPressed: canSubmit
+                    ? () => _submit(
                         todayNominations: todayNominations,
                         allNominations: allNominations,
                         players: players,
@@ -298,13 +313,38 @@ class _NominationEntrySheetState
                         butlerMaster: butlerMaster,
                         day: day,
                       )
-                  : null,
-              child: Text(_submitting ? '记录中…' : '提交提名'),
-            ),
-          ],
-        );
-      },
+                    : null,
+                child: Text(_submitting ? '记录中…' : '提交提名'),
+              ),
+            ],
+          );
+        },
+      ),
     );
+  }
+
+  /// 有未提交录入时确认丢弃（#160 P0 脏数据守卫）。
+  Future<void> _confirmDiscard() async {
+    final discard = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('丢弃本次提名？'),
+        content: const Text('你有未提交的提名录入，确定要关闭吗？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('继续录入'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('丢弃'),
+          ),
+        ],
+      ),
+    );
+    if (discard == true && mounted) {
+      Navigator.of(context).pop();
+    }
   }
 
   Future<void> _submit({
@@ -364,25 +404,25 @@ class _NominationEntrySheetState
               VoteEntry(
                 playerId: entry.key,
                 vote: entry.value,
-                isDeadVote: !players
-                        .firstWhere((p) => p.id == entry.key)
-                        .isAlive &&
+                isDeadVote:
+                    !players.firstWhere((p) => p.id == entry.key).isAlive &&
                     entry.value == Vote.forVote,
               ),
           ];
 
-    final error =
-        await ref.read(nominationRepositoryProvider).addNomination(
-              gameId: widget.gameId,
-              dayRecordId: dayRecordId,
-              nominatorId: _nominatorId!,
-              nomineeId: _nomineeId!,
-              votes: votes,
-              players: players,
-              todayNominations: todayNominations,
-              allNominations: allNominations,
-              defenseText: _defenseController.text,
-            );
+    final error = await ref
+        .read(nominationRepositoryProvider)
+        .addNomination(
+          gameId: widget.gameId,
+          dayRecordId: dayRecordId,
+          nominatorId: _nominatorId!,
+          nomineeId: _nomineeId!,
+          votes: votes,
+          players: players,
+          todayNominations: todayNominations,
+          allNominations: allNominations,
+          defenseText: _defenseController.text,
+        );
 
     if (error != null) {
       messenger.showSnackBar(SnackBar(content: Text(error)));
@@ -594,8 +634,12 @@ class _VoteRow extends StatelessWidget {
                 ),
               ),
             ),
-          _voteButton('赞成', Vote.forVote, gameColors.trustConfirmedGood,
-              disabled: deadVoteBlocked),
+          _voteButton(
+            '赞成',
+            Vote.forVote,
+            gameColors.trustConfirmedGood,
+            disabled: deadVoteBlocked,
+          ),
           const SizedBox(width: 4),
           _voteButton('反对', Vote.against, gameColors.blood),
           const SizedBox(width: 4),
@@ -605,17 +649,19 @@ class _VoteRow extends StatelessWidget {
     );
   }
 
-  Widget _voteButton(String label, Vote value, Color color,
-      {bool disabled = false}) {
+  Widget _voteButton(
+    String label,
+    Vote value,
+    Color color, {
+    bool disabled = false,
+  }) {
     final selected = vote == value;
     return ChoiceChip(
       label: Text(label),
       selected: selected,
       selectedColor: color,
       visualDensity: VisualDensity.compact,
-      onSelected: disabled
-          ? null
-          : (_) => onChanged(selected ? null : value),
+      onSelected: disabled ? null : (_) => onChanged(selected ? null : value),
     );
   }
 }
