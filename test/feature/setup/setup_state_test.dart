@@ -1,3 +1,4 @@
+import 'package:botc_copilot/core/constants/character.dart';
 import 'package:botc_copilot/feature/setup/domain/setup_state.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -35,6 +36,52 @@ void main() {
       // step 3（选角色）即使名字非法也可前进到该步判定 myRole
       final s = SetupState(step: 3, playerNames: ['', '']);
       expect(s.canProceed, isFalse); // myRole == null
+    });
+  });
+
+  group('SetupState.bluffsComplete（#152 BUG-2）', () {
+    test('非恶魔 → 无需 Bluff', () {
+      expect(SetupState(myRole: Character.empath).bluffsComplete, isTrue);
+    });
+
+    test('恶魔 7+ 人局须选满 3 Bluff', () {
+      expect(
+        SetupState(playerCount: 7, myRole: Character.imp).bluffsComplete,
+        isFalse,
+      );
+      expect(
+        SetupState(
+          playerCount: 7,
+          myRole: Character.imp,
+          demonBluffs: [Character.chef],
+        ).bluffsComplete,
+        isFalse,
+      );
+      expect(
+        SetupState(
+          playerCount: 7,
+          myRole: Character.imp,
+          demonBluffs: [Character.chef, Character.empath, Character.fortuneTeller],
+        ).bluffsComplete,
+        isTrue,
+      );
+    });
+
+    test('恶魔 ≤6 人局无 Bluff（官方）', () {
+      expect(
+        SetupState(playerCount: 6, myRole: Character.imp).bluffsComplete,
+        isTrue,
+      );
+    });
+
+    test('恶魔 7+ 未选满 Bluff → step 4 不可前进', () {
+      final s = SetupState(
+        step: 4,
+        playerCount: 7,
+        myRole: Character.imp,
+        demonBluffs: [Character.chef],
+      );
+      expect(s.canProceed, isFalse);
     });
   });
 }

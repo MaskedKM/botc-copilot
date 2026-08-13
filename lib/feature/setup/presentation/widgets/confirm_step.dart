@@ -131,9 +131,13 @@ class ConfirmStep extends ConsumerWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      '已选 ${state.demonBluffs.length}/3',
-                      style: AppTextStyles.caption
-                          .copyWith(color: gameColors.goldBright),
+                      '已选 ${state.demonBluffs.length}/3'
+                      '${state.demonBluffs.length == 3 ? '' : '（须选满 3 个）'}',
+                      style: AppTextStyles.caption.copyWith(
+                        color: state.demonBluffs.length == 3
+                            ? gameColors.goldBright
+                            : gameColors.bloodBright,
+                      ),
                     ),
                   ],
                 ),
