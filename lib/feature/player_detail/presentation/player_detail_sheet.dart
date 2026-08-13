@@ -227,6 +227,8 @@ class _PlayerDetailSheetState extends ConsumerState<PlayerDetailSheet> {
     final game = ref.watch(gameByIdProvider(widget.gameId)).valueOrNull;
     final isMe = game?.myPlayerId == widget.player.id;
     final myRole = game?.myRole;
+    // 结束局只读复盘：禁所有编辑，保留数据展示（#134）。
+    final readOnly = game?.status != GameStatus.ongoing;
     final effectiveRole = isMe ? myRole : initialRole;
 
     final day = ref.watch(
@@ -332,6 +334,7 @@ class _PlayerDetailSheetState extends ConsumerState<PlayerDetailSheet> {
                 _RoleClaimSection(
                   gameId: widget.gameId,
                   selected: displayRole,
+                  readOnly: readOnly,
                   onSelect: (c) => setState(() {
                     _roleTouched = true;
                     _draftRole = c;
@@ -339,8 +342,9 @@ class _PlayerDetailSheetState extends ConsumerState<PlayerDetailSheet> {
                     _claimAutoCommitted = false;
                   }),
                 ),
-              // 一次性能力：我座位按真实角色，他人按声明角色
-              if (effectiveRole != null &&
+              // 一次性能力（仅进行中可记录动作）：我座位按真实角色，他人按声明角色
+              if (!readOnly &&
+                  effectiveRole != null &&
                   (effectiveRole == Character.virgin ||
                       effectiveRole == Character.slayer ||
                       effectiveRole == Character.saint)) ...[
@@ -354,31 +358,32 @@ class _PlayerDetailSheetState extends ConsumerState<PlayerDetailSheet> {
                 ),
               ],
               const SizedBox(height: 16),
-              // 信息录入（#134 解耦）：我座位按真实角色；他人按**草稿**角色
-              // （选 chip 即刻出现录入区），提交时自动落库声明，免去
-              // 「保存→关→重开」。我座位仍 isMine=true（#105）。
-              if (isMe ? myRole != null : displayRole != null)
-                _InfoInputSection(
-                  gameId: widget.gameId,
-                  playerId: playerId,
-                  day: day,
-                  character: isMe ? myRole! : displayRole!,
-                  players: players,
-                  isMine: isMe,
-                  onEnsureClaim: _commitDraftClaim,
-                )
-              else if (isMe)
-                Text(
-                  '开局未设置角色，无法录入信息。',
-                  style: AppTextStyles.caption
-                      .copyWith(color: context.gameColors.inkViolet),
-                )
-              else
-                Text(
-                  '先声明角色，再录入该角色的信息。',
-                  style: AppTextStyles.caption
-                      .copyWith(color: context.gameColors.inkViolet),
-                ),
+              // 信息录入（#134 解耦，仅进行中）：我座位按真实角色；他人按**草稿**
+              // 角色（选 chip 即刻出现录入区），提交时自动落库声明，免去
+              // 「保存→关→重开」。我座位仍 isMine=true（#105）。复盘只读时不显示。
+              if (!readOnly)
+                if (isMe ? myRole != null : displayRole != null)
+                  _InfoInputSection(
+                    gameId: widget.gameId,
+                    playerId: playerId,
+                    day: day,
+                    character: isMe ? myRole! : displayRole!,
+                    players: players,
+                    isMine: isMe,
+                    onEnsureClaim: _commitDraftClaim,
+                  )
+                else if (isMe)
+                  Text(
+                    '开局未设置角色，无法录入信息。',
+                    style: AppTextStyles.caption
+                        .copyWith(color: context.gameColors.inkViolet),
+                  )
+                else
+                  Text(
+                    '先声明角色，再录入该角色的信息。',
+                    style: AppTextStyles.caption
+                        .copyWith(color: context.gameColors.inkViolet),
+                  ),
               const SizedBox(height: 16),
               // 分组按有效角色（我座位=myRole；草稿不改分组，避免误导）。
               // 可靠性圆点叠加整局「疑似醉汉」overlay（#109）。
@@ -392,12 +397,13 @@ class _PlayerDetailSheetState extends ConsumerState<PlayerDetailSheet> {
                   myRole == Character.imp &&
                   (game?.playerCount ?? 0) >= 7) ...[
                 const SizedBox(height: 16),
-                _MyMinionsSection(game: game!, players: players),
+                _MyMinionsSection(game: game!, players: players, readOnly: readOnly),
               ],
               const SizedBox(height: 16),
               _PoisonSection(
                 day: day,
                 marked: displayPoison,
+                readOnly: readOnly,
                 onChanged: (v) => setState(() {
                   _poisonTouched = true;
                   _draftPoison = v;
@@ -406,6 +412,7 @@ class _PlayerDetailSheetState extends ConsumerState<PlayerDetailSheet> {
               const SizedBox(height: 16),
               _DrunkSuspicionSection(
                 marked: displayDrunk,
+                readOnly: readOnly,
                 onChanged: (v) => setState(() {
                   _drunkTouched = true;
                   _draftDrunk = v;
@@ -416,29 +423,34 @@ class _PlayerDetailSheetState extends ConsumerState<PlayerDetailSheet> {
                 gameId: widget.gameId,
                 playerId: playerId,
                 day: day,
+                readOnly: readOnly,
               ),
               const SizedBox(height: 16),
               _TrustSection(
                 current: displayTrust,
+                readOnly: readOnly,
                 onSelect: (l) => setState(() {
                   _trustTouched = true;
                   _draftTrust = l;
                 }),
               ),
-              const SizedBox(height: 20),
-              FilledButton.icon(
-                onPressed: (dirty && !_saving)
-                    ? () => _save(
-                          initialRole: initialRole,
-                          initialTrust: initialTrust,
-                          initialPoison: initialPoison,
-                          initialDrunk: initialDrunk,
-                          day: day,
-                        )
-                    : null,
-                icon: const Icon(Icons.save_outlined),
-                label: Text(_saving ? '保存中…' : '保存'),
-              ),
+              // 保存按钮仅进行中显示（复盘只读，#134）
+              if (!readOnly) ...[
+                const SizedBox(height: 20),
+                FilledButton.icon(
+                  onPressed: (dirty && !_saving)
+                      ? () => _save(
+                            initialRole: initialRole,
+                            initialTrust: initialTrust,
+                            initialPoison: initialPoison,
+                            initialDrunk: initialDrunk,
+                            day: day,
+                          )
+                      : null,
+                  icon: const Icon(Icons.save_outlined),
+                  label: Text(_saving ? '保存中…' : '保存'),
+                ),
+              ],
             ],
           );
         },
@@ -453,11 +465,15 @@ class _RoleClaimSection extends ConsumerWidget {
     required this.gameId,
     required this.selected,
     required this.onSelect,
+    this.readOnly = false,
   });
 
   final int gameId;
   final Character? selected;
   final void Function(Character) onSelect;
+
+  /// 只读（复盘）：chip 不可选。
+  final bool readOnly;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -475,7 +491,7 @@ class _RoleClaimSection extends ConsumerWidget {
               ChoiceChip(
                 label: Text(c.nameCn),
                 selected: selected == c,
-                onSelected: (_) => onSelect(c),
+                onSelected: readOnly ? null : (_) => onSelect(c),
               ),
           ],
         ),
@@ -688,10 +704,17 @@ class _InfoRow extends StatelessWidget {
 
 /// 信任度调整区（草稿：onSelect 只更新草稿，不写 DB）。
 class _TrustSection extends StatelessWidget {
-  const _TrustSection({required this.current, required this.onSelect});
+  const _TrustSection({
+    required this.current,
+    required this.onSelect,
+    this.readOnly = false,
+  });
 
   final TrustLevel current;
   final void Function(TrustLevel) onSelect;
+
+  /// 只读（复盘）：chip 不可选。
+  final bool readOnly;
 
   @override
   Widget build(BuildContext context) {
@@ -715,7 +738,7 @@ class _TrustSection extends StatelessWidget {
                       ? AppColors.textOnGold
                       : AppColors.textPrimary,
                 ),
-                onSelected: (_) => onSelect(level),
+                onSelected: readOnly ? null : (_) => onSelect(level),
               ),
           ],
         ),
@@ -732,11 +755,15 @@ class _PoisonSection extends StatelessWidget {
     required this.day,
     required this.marked,
     required this.onChanged,
+    this.readOnly = false,
   });
 
   final int day;
   final bool marked;
   final void Function(bool) onChanged;
+
+  /// 只读（复盘）：开关不可拨。
+  final bool readOnly;
 
   @override
   Widget build(BuildContext context) {
@@ -760,7 +787,7 @@ class _PoisonSection extends StatelessWidget {
           ),
           value: marked,
           activeTrackColor: gameColors.inkViolet,
-          onChanged: onChanged,
+          onChanged: readOnly ? null : onChanged,
         ),
       ],
     );
@@ -775,10 +802,14 @@ class _DrunkSuspicionSection extends StatelessWidget {
   const _DrunkSuspicionSection({
     required this.marked,
     required this.onChanged,
+    this.readOnly = false,
   });
 
   final bool marked;
   final void Function(bool) onChanged;
+
+  /// 只读（复盘）：开关不可拨。
+  final bool readOnly;
 
   @override
   Widget build(BuildContext context) {
@@ -802,7 +833,7 @@ class _DrunkSuspicionSection extends StatelessWidget {
           ),
           value: marked,
           activeTrackColor: gameColors.inkViolet,
-          onChanged: onChanged,
+          onChanged: readOnly ? null : onChanged,
         ),
       ],
     );
@@ -815,11 +846,15 @@ class _BehaviorNoteSection extends ConsumerStatefulWidget {
     required this.gameId,
     required this.playerId,
     required this.day,
+    this.readOnly = false,
   });
 
   final int gameId;
   final int playerId;
   final int day;
+
+  /// 只读（复盘）：隐藏输入框，仅展示已存备注。
+  final bool readOnly;
 
   @override
   ConsumerState<_BehaviorNoteSection> createState() =>
@@ -860,26 +895,27 @@ class _BehaviorNoteSectionState extends ConsumerState<_BehaviorNoteSection> {
       children: [
         Text('行为备注（第 ${widget.day} 天）', style: AppTextStyles.headline),
         const SizedBox(height: 8),
-        Row(
-          children: [
-            Expanded(
-              child: TextField(
-                controller: _controller,
-                decoration: const InputDecoration(
-                  hintText: '如：投票时犹豫 / 主动带票冲 X号',
-                  isDense: true,
+        if (!widget.readOnly)
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _controller,
+                  decoration: const InputDecoration(
+                    hintText: '如：投票时犹豫 / 主动带票冲 X号',
+                    isDense: true,
+                  ),
+                  onSubmitted: (_) => _submit(),
                 ),
-                onSubmitted: (_) => _submit(),
               ),
-            ),
-            IconButton(
-              tooltip: '添加备注',
-              icon: const Icon(Icons.add),
-              onPressed: _submit,
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
+              IconButton(
+                tooltip: '添加备注',
+                icon: const Icon(Icons.add),
+                onPressed: _submit,
+              ),
+            ],
+          ),
+        if (!widget.readOnly) const SizedBox(height: 8),
         if (todayNotes.isEmpty)
           Text(
             '暂无备注',
@@ -1186,12 +1222,19 @@ Future<void> _changeSeatDialog(
 ///
 /// 从 MyInfoSheet 迁入（#131 统一入口）。
 class _MyMinionsSection extends ConsumerWidget {
-  const _MyMinionsSection({required this.game, required this.players});
+  const _MyMinionsSection({
+    required this.game,
+    required this.players,
+    this.readOnly = false,
+  });
 
   final Game game;
 
   /// 全部玩家（用于候选）。
   final List<Player> players;
+
+  /// 只读（复盘）：chip 不可选。
+  final bool readOnly;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -1223,18 +1266,23 @@ class _MyMinionsSection extends ConsumerWidget {
               ChoiceChip(
                 label: Text('${p.seatNumber}号 ${p.name}'),
                 selected: selected.contains(p.id),
-                onSelected: (_) async {
-                  final next = Set<int>.of(selected);
-                  if (next.contains(p.id)) {
-                    next.remove(p.id);
-                  } else {
-                    next.add(p.id);
-                  }
-                  await ref.read(appDatabaseProvider).gamesDao.updateMyMinionIds(
-                        game.id,
-                        jsonEncode(next.toList()),
-                      );
-                },
+                onSelected: readOnly
+                    ? null
+                    : (_) async {
+                        final next = Set<int>.of(selected);
+                        if (next.contains(p.id)) {
+                          next.remove(p.id);
+                        } else {
+                          next.add(p.id);
+                        }
+                        await ref
+                            .read(appDatabaseProvider)
+                            .gamesDao
+                            .updateMyMinionIds(
+                              game.id,
+                              jsonEncode(next.toList()),
+                            );
+                      },
               ),
           ],
         ),

@@ -241,23 +241,23 @@ class _GameBoardBody extends ConsumerWidget {
                   child: SeatRing(
                     players: ringPlayers,
                     selectedPlayerId: boardState.selectedPlayerId,
-                    onPlayerTap: game.status != GameStatus.ongoing
-                        ? null
-                        : (id) {
-                            ref
-                                .read(gameBoardProvider(gameId).notifier)
-                                .selectPlayer(id);
-                            final player = players
-                                .where((p) => p.id == id)
-                                .firstOrNull;
-                            if (player != null) {
-                              PlayerDetailSheet.show(
-                                context,
-                                gameId: gameId,
-                                player: player,
-                              );
-                            }
-                          },
+                    onPlayerTap: (id) {
+                      // 结束局仍可点开玩家详情（只读复盘，#134）；
+                      // 长按/推进保持禁用。
+                      ref
+                          .read(gameBoardProvider(gameId).notifier)
+                          .selectPlayer(id);
+                      final player = players
+                          .where((p) => p.id == id)
+                          .firstOrNull;
+                      if (player != null) {
+                        PlayerDetailSheet.show(
+                          context,
+                          gameId: gameId,
+                          player: player,
+                        );
+                      }
+                    },
                     onPlayerLongPress: game.status != GameStatus.ongoing
                         ? null
                         : (id) => _showQuickActions(context, ref, id),
