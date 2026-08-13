@@ -270,7 +270,7 @@ class _ClusterCard extends StatelessWidget {
               for (final id in cluster.playerIds)
                 Chip(
                   label: Text(
-                    '${byId[id]?.seatNumber ?? id}号'
+                    '${byId[id]?.seatNumber ?? "?"}号'
                     '${(byId[id]?.isAlive ?? true) ? '' : '☠'}',
                     style: AppTextStyles.caption,
                   ),

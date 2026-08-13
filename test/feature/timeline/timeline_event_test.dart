@@ -1,3 +1,4 @@
+import 'package:botc_copilot/core/constants/character.dart';
 import 'package:botc_copilot/core/database/app_database.dart';
 import 'package:botc_copilot/feature/timeline/domain/timeline_event.dart';
 import 'package:botc_copilot/shared/models/enums.dart';
@@ -89,6 +90,68 @@ void main() {
         events.where((e) => e.type == TimelineEventType.demonSuccession),
         isEmpty,
       );
+    });
+  });
+
+  // #147 L2 对抗性守卫：db id ≠ 座位号时，信息声明摘要必须渲染座位号而非 db id
+  // （#145 家族的显示层防线——id==seat 的 fixture 会让此类混淆无差别通过）。
+  group('TimelineBuilder 信息声明摘要（#145/#147 id≠seat 守卫）', () {
+    // 作者 id=1（座位 1）；目标 db id=24 但座位 5 —— id≠seat 的对抗场景。
+    final players = [
+      Player(
+        id: 1,
+        gameId: 1,
+        name: 'A',
+        seatNumber: 1,
+        isAlive: true,
+        abilityUsed: false,
+        suspectedDrunk: false,
+      ),
+      Player(
+        id: 24,
+        gameId: 1,
+        name: 'E',
+        seatNumber: 5,
+        isAlive: true,
+        abilityUsed: false,
+        suspectedDrunk: false,
+      ),
+    ];
+    final playersById = {for (final p in players) p.id: p};
+
+    test('目标玩家按座位号渲染，不得出现 db id（#145 回归）', () {
+      final days = [
+        DayRecord(
+          id: 10,
+          gameId: 1,
+          dayNumber: 1,
+          notes: '',
+          nightConfirmed: true,
+        ),
+      ];
+      final decl = InfoDeclaration(
+        id: 1,
+        playerId: 1, // 作者 A（座位 1）
+        dayRecordId: 10,
+        characterType: Character.poisoner,
+        payloadJson: '{"playerId": 24}', // 目标 db id=24，座位 5
+        reliability: Reliability.unverified,
+        isMine: false,
+      );
+      final result = TimelineBuilder.build(
+        days: days,
+        claims: const [],
+        declarations: [decl],
+        playersById: playersById,
+        dayRecordToDayNumber: const {10: 1},
+      );
+      final event = result.single.events.firstWhere(
+        (e) => e.type == TimelineEventType.infoDeclaration,
+      );
+      // 目标按座位号渲染（seatLabel 输出「5号」无空格）
+      expect(event.summary, contains('下毒 5号'));
+      // 绝不出现 db id
+      expect(event.summary, isNot(contains('24')));
     });
   });
 }
