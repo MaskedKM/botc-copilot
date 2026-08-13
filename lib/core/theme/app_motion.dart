@@ -2,6 +2,8 @@
 ///
 /// 原则：动效表达状态，不表演。常规过渡 150-250ms；
 /// 签名时刻（昼夜更替/死亡熄灭/处决扫针）允许 300-600ms 一次性动画。
+import 'package:flutter/widgets.dart';
+
 abstract final class AppMotion {
   /// 快速反馈（按钮按下、chip 选中）。
   static const Duration fast = Duration(milliseconds: 150);
@@ -17,4 +19,13 @@ abstract final class AppMotion {
 
   /// 签名：昼夜更替（日月图标弧线旋转）。
   static const Duration dayNight = Duration(milliseconds: 600);
+
+  /// 按系统「减弱动效」解析实际时长（issue #135，UI-STYLE §七）。
+  ///
+  /// 系统开启减弱动效时（`MediaQuery.disableAnimationsOf`），签名动画
+  /// 退化为 [fast] 快速淡入，避免触发前庭不适；否则原样返回。
+  static Duration resolve(BuildContext context, Duration duration) {
+    if (MediaQuery.disableAnimationsOf(context)) return fast;
+    return duration;
+  }
 }

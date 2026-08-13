@@ -47,6 +47,9 @@ class SeatRingState extends State<SeatRing>
   late final AnimationController _controller;
   Map<int, SeatRingPlayer> _previousPlayers = {};
 
+  /// 系统减弱动效缓存（#135）：didChangeDependencies 同步，签名动画据此降级。
+  bool _reduceMotion = false;
+
   @override
   void initState() {
     super.initState();
@@ -58,15 +61,30 @@ class SeatRingState extends State<SeatRing>
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final reduce = MediaQuery.disableAnimationsOf(context);
+    if (reduce != _reduceMotion) {
+      _reduceMotion = reduce;
+      // 非动画进行中时同步基线时长；动画进行中的时长由 didUpdateWidget 管理。
+      if (!_controller.isAnimating) {
+        _controller.duration =
+            _reduceMotion ? AppMotion.fast : AppMotion.normal;
+      }
+    }
+  }
+
+  @override
   void didUpdateWidget(SeatRing oldWidget) {
     super.didUpdateWidget(oldWidget);
     final changed = _hasPlayerChanges(oldWidget.players, widget.players);
     if (changed) {
       _previousPlayers = {for (final p in oldWidget.players) p.id: p};
-      // 死亡是签名时刻（400ms），其余状态变化用常规 250ms。
-      _controller.duration = _hasDeathChange(oldWidget.players, widget.players)
-          ? AppMotion.death
-          : AppMotion.normal;
+      final death = _hasDeathChange(oldWidget.players, widget.players);
+      // 减弱动效：签名时刻退化为快速淡入（#135）。
+      _controller.duration = _reduceMotion
+          ? AppMotion.fast
+          : (death ? AppMotion.death : AppMotion.normal);
       _controller.forward(from: 0);
     }
   }
@@ -135,29 +153,59 @@ class SeatRingState extends State<SeatRing>
           final size = Size(constraints.maxWidth, constraints.maxHeight);
           // centers 每次布局只算一次，手势回调与 painter 共用。
           final centers = centersForSize(size);
-          return GestureDetector(
-            onTapDown: (d) => _handleTap(d.localPosition, centers),
-            onLongPressStart: (d) =>
-                _handleLongPress(d.localPosition, centers),
-            child: AnimatedBuilder(
-              animation: _controller,
-              builder: (context, _) {
-                return CustomPaint(
-                  size: size,
-                  painter: SeatRingPainter(
-                    players: widget.players,
-                    previousPlayers: _previousPlayers,
-                    progress: _controller.value,
-                    centers: centers,
-                    gameColors: gameColors,
-                    selectedPlayerId: widget.selectedPlayerId,
+          // 每座位语义命中范围（与 hitRadius 一致）。
+          final hitExtent =
+              SeatRingLayout.nodeRadius + SeatRingLayout.outerPadding;
+          return Stack(
+            children: [
+              // 视觉 + sighted 命中（不变）。
+              GestureDetector(
+                onTapDown: (d) => _handleTap(d.localPosition, centers),
+                onLongPressStart: (d) =>
+                    _handleLongPress(d.localPosition, centers),
+                child: AnimatedBuilder(
+                  animation: _controller,
+                  builder: (context, _) {
+                    return CustomPaint(
+                      size: size,
+                      painter: SeatRingPainter(
+                        players: widget.players,
+                        previousPlayers: _previousPlayers,
+                        progress: _controller.value,
+                        centers: centers,
+                        gameColors: gameColors,
+                        selectedPlayerId: widget.selectedPlayerId,
+                      ),
+                      child: widget.centerChild != null
+                          ? Center(child: widget.centerChild)
+                          : null,
+                    );
+                  },
+                ),
+              ),
+              // a11y：每座位一个语义节点（#135）。透明 SizedBox 不拦截指针，
+              // sighted 点击仍走底层 GestureDetector；VoiceOver 经 label +
+              // onTap/onLongPress 操作。
+              for (var i = 0; i < widget.players.length; i++)
+                Positioned(
+                  left: centers[i].dx - hitExtent,
+                  top: centers[i].dy - hitExtent,
+                  width: hitExtent * 2,
+                  height: hitExtent * 2,
+                  child: Semantics(
+                    button: true,
+                    label: widget.players[i].semanticLabel,
+                    onTap: widget.onPlayerTap == null
+                        ? null
+                        : () => widget.onPlayerTap!(widget.players[i].id),
+                    onLongPress: widget.onPlayerLongPress == null
+                        ? null
+                        : () =>
+                            widget.onPlayerLongPress!(widget.players[i].id),
+                    child: const SizedBox.expand(),
                   ),
-                  child: widget.centerChild != null
-                      ? Center(child: widget.centerChild)
-                      : null,
-                );
-              },
-            ),
+                ),
+            ],
           );
         },
       ),
