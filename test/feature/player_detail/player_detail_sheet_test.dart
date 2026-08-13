@@ -167,6 +167,7 @@ void main() {
     bool suspectedDrunk = false,
     List<InfoDeclaration> declarations = const [],
     List<RoleClaim> claims = const [],
+    List<BehaviorNote> notes = const [],
     bool enableChain = false,
   }) {
     final g = game.copyWith(
@@ -192,7 +193,7 @@ void main() {
         gamePoisonStatusesProvider(1)
             .overrideWith((ref) => Stream.value(const <PoisonStatus>[])),
         playerDayNotesProvider((1, 1))
-            .overrideWith((ref) => Stream.value(const <BehaviorNote>[])),
+            .overrideWith((ref) => Stream.value(notes)),
         playerDetailRepositoryProvider.overrideWithValue(detailRepo),
         poisonRepositoryProvider.overrideWithValue(poisonRepo),
       ],
@@ -581,5 +582,33 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(returnedId.value, 3); // 返回下一个未声明玩家（3 号）
+  });
+
+  // #138 破坏操作加确认：删除行为备注弹确认框，取消不删（cancel 路径不触写库）。
+  testWidgets('删除备注弹确认框，取消则保留（#138）', (tester) async {
+    useTallSurface(tester);
+    final note = BehaviorNote(
+      id: 1,
+      gameId: 1,
+      playerId: me.id,
+      dayNumber: 1,
+      note: '测试备注',
+      createdAt: DateTime(2026, 8, 13),
+    );
+    await tester.pumpWidget(buildSheet(notes: [note]));
+    await tester.pump();
+    await tester.pump();
+
+    await tester.tap(find.byTooltip('删除备注'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('删除这条备注？'), findsOneWidget);
+
+    // 取消 → 确认框关闭，备注仍在
+    await tester.tap(find.text('取消'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('删除这条备注？'), findsNothing);
+    expect(find.text('测试备注'), findsOneWidget);
   });
 }
