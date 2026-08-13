@@ -108,6 +108,8 @@ class _SeatRowState extends ConsumerState<_SeatRow> {
   Widget build(BuildContext context) {
     final gameColors = context.gameColors;
     final notifier = ref.read(setupProvider.notifier);
+    // 仅在人数变化时重建（非名字编辑），保焦点（#165 A1 下移禁用判定）。
+    final count = ref.watch(setupProvider.select((s) => s.playerNames.length));
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Row(
@@ -132,11 +134,32 @@ class _SeatRowState extends ConsumerState<_SeatRow> {
               onChanged: (v) => notifier.setPlayerName(widget.index, v),
             ),
           ),
+          // a11y（#165 A1）：上下移按钮替代拖拽——读屏 / 键盘 / 无法拖拽手势者可达。
+          IconButton(
+            tooltip: '上移',
+            iconSize: 20,
+            onPressed: widget.index > 0
+                ? () => notifier.reorderSeat(widget.index, widget.index - 1)
+                : null,
+            icon: const Icon(Icons.keyboard_arrow_up),
+          ),
+          IconButton(
+            tooltip: '下移',
+            iconSize: 20,
+            onPressed: widget.index < count - 1
+                ? () => notifier.reorderSeat(widget.index, widget.index + 2)
+                : null,
+            icon: const Icon(Icons.keyboard_arrow_down),
+          ),
           ReorderableDragStartListener(
             index: widget.index,
-            child: const Padding(
-              padding: EdgeInsets.all(12),
-              child: Icon(Icons.drag_handle),
+            child: Semantics(
+              label: '拖动调整顺序',
+              button: true,
+              child: const Padding(
+                padding: EdgeInsets.all(12),
+                child: Icon(Icons.drag_handle),
+              ),
             ),
           ),
         ],
