@@ -865,8 +865,8 @@ class _InfoRow extends StatelessWidget {
           if (onDelete != null)
             IconButton(
               tooltip: '删除这条信息',
-              iconSize: 18,
-              visualDensity: VisualDensity.compact,
+              iconSize: 20,
+              // #165 A2：去 compact 恢复 ≥44dp 命中区。
               icon: Icon(
                 Icons.close,
                 color: context.gameColors.inkViolet,
@@ -1115,8 +1115,8 @@ class _BehaviorNoteSectionState extends ConsumerState<_BehaviorNoteSection> {
                   if (!widget.readOnly)
                     IconButton(
                       tooltip: '删除备注',
-                      iconSize: 16,
-                      visualDensity: VisualDensity.compact,
+                      iconSize: 20,
+                      // #165 A2：去 compact 恢复 ≥44dp 命中区。
                       icon: Icon(Icons.close, color: gameColors.inkViolet),
                       onPressed: () =>
                           _confirmDeleteNote(context, ref, n.id),

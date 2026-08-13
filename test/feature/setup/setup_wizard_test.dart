@@ -150,4 +150,33 @@ void main() {
     expect(repo.lastNames!.first, '玩家1');
     expect(repo.lastMyRole, Character.empath);
   });
+
+  // #165 A1：上下移按钮换序后视图须同步（按钮不经拖拽重建路径，曾致 TextField 不刷新）。
+  testWidgets('上下移按钮换序后视图同步刷新（#165 A1）', (tester) async {
+    await tester.pumpWidget(buildApp());
+    await tester.pumpAndSettle();
+    await enterWizard(tester);
+    await tester.tap(find.text('下一步')); // 剧本 → 人数
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('下一步')); // 人数 → 座位
+    await tester.pumpAndSettle();
+    expect(find.text('排座位'), findsOneWidget);
+
+    List<String> rowTexts() => find
+        .byType(TextField)
+        .evaluate()
+        .map((e) => (e.widget as TextField).controller?.text ?? '')
+        .toList();
+    expect(rowTexts().take(2).toList(), ['A', 'B']);
+
+    // 第 2 行（B）上移 → 视图应刷新为 B, A
+    await tester.tap(find.byTooltip('上移').at(1));
+    await tester.pumpAndSettle();
+    expect(rowTexts().take(2).toList(), ['B', 'A']);
+
+    // 第 1 行（现 B）下移 → 刷新回 A, B
+    await tester.tap(find.byTooltip('下移').at(0));
+    await tester.pumpAndSettle();
+    expect(rowTexts().take(2).toList(), ['A', 'B']);
+  });
 }

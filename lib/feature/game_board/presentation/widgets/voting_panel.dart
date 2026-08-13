@@ -145,7 +145,7 @@ class VotingPanel extends ConsumerWidget {
                               '${n.passed ? ' · 通过' : ' · 未通过'}',
                               style: AppTextStyles.caption.copyWith(
                                 color: n.passed
-                                    ? gameColors.blood
+                                    ? gameColors.bloodBright
                                     : gameColors.inkViolet,
                               ),
                             ),

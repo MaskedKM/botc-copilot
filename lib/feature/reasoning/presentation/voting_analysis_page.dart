@@ -564,7 +564,8 @@ String _voteLabel(Vote v) => switch (v) {
 
 Color _voteColor(Vote v, GameColors c) => switch (v) {
       Vote.forVote => c.trustConfirmedGood,
-      Vote.against => c.blood,
+      // #165 A4：blood 在小号文字未达 AA，用 bloodBright（≈4.7:1）。
+      Vote.against => c.bloodBright,
       Vote.abstain => c.inkViolet,
     };
 
