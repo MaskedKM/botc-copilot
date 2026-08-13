@@ -6,11 +6,17 @@ import 'package:botc_copilot/core/database/app_database.dart';
 /// 信息声明 payload 的可读摘要（录入回显 / 时间线展示用）。
 abstract final class InfoPayloadFormatter {
   /// 把一条信息声明格式化为一句话摘要。
-  static String summarize(InfoDeclaration decl, {String? playerName}) {
+  ///
+  /// [labelFor] 可覆盖玩家 id 的显示（默认 `'$id 号'`，如依赖链页传座位号）。
+  static String summarize(
+    InfoDeclaration decl, {
+    String? playerName,
+    String Function(int playerId)? labelFor,
+  }) {
     final payload = jsonDecode(decl.payloadJson) as Map<String, dynamic>;
     final character = decl.characterType;
 
-    String playerLabel(int id) => '$id 号';
+    String playerLabel(int id) => labelFor != null ? labelFor(id) : '$id 号';
 
     // payload 里的 character 存的是 enum .name（如 'poisoner'），回显时转中文。
     String charLabel(Object? name) {
