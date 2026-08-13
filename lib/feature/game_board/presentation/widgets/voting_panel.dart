@@ -236,6 +236,16 @@ Future<void> _confirmDeleteNomination(
     ),
   );
   if (confirmed ?? false) {
-    await ref.read(nominationRepositoryProvider).deleteNomination(nominationId);
+    try {
+      await ref
+          .read(nominationRepositoryProvider)
+          .deleteNomination(nominationId);
+    } on Object {
+      // #164 B9：删除失败兜底提示。
+      if (context.mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('删除失败，请重试')));
+      }
+    }
   }
 }
