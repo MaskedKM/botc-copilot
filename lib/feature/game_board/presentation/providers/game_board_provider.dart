@@ -226,16 +226,33 @@ class GameBoardNotifier extends StateNotifier<GameBoardState> {
     if (oldId == null) return;
     // 跨字段守卫（review M1）：若该玩家同时是「另一类」死亡记录的目标
     // （如夜杀 A 后又处决 A），撤销本字段不应复活他——另一字段仍生效。
-    if (otherFieldId(day!) == oldId) return;
+    if (otherFieldId(day!) == oldId) {
+      // #154 BUG-1 根治：重对齐 deathCause 到「存活的那条记录」的 cause。
+      // markDead 对已死者 no-op（不覆盖 cause），夜杀+处决同一人后依次清空两
+      // 字段时 cause 锁定先记录者；若不重对齐，最后一条清空会被 deathCause
+      // 守卫误挡 → 孤立致死。另一字段 cause 由字段类型决定
+      // （night→nightKill / exec→execution）。
+      final otherCause = expectedCause == DeathCause.nightKill
+          ? DeathCause.execution
+          : DeathCause.nightKill;
+      final players = await _db.playersDao.watchByGame(_gameId).first;
+      final prev = players.where((p) => p.id == oldId).firstOrNull;
+      if (prev != null && !prev.isAlive && prev.deathCause != otherCause) {
+        await _db.playersDao.updatePlayer(
+          oldId,
+          PlayersCompanion(deathCause: Value(otherCause)),
+        );
+      }
+      return;
+    }
     final players = await _db.playersDao.watchByGame(_gameId).first;
     final prev = players.where((p) => p.id == oldId).firstOrNull;
-    // 复活守卫：仅判 !isAlive + 同日（deathDay == currentDay）。
-    // 不再判 deathCause == expectedCause——该守卫冗余且有害（#154 BUG-1）：
-    // markDead 对已死者 no-op（不覆盖 cause），夜杀+处决同一人后依次清空两字段
-    // 时，cause 锁定先记录者，导致「两字段皆 null 但玩家仍 dead」的孤立致死。
-    // 正确性已由 deathDay 守卫（跨日，#80）+ 跨字段守卫（同日，L229）完整覆盖。
+    // 复活守卫：!isAlive + 同日 + cause 匹配。cause 匹配确认本字段是致命记录
+    // （非对已死者的 no-op markDead）——长按/Slayer 等无字段致死者撤销本字段
+    // 不应复活（#154 review Finding 1）；跨日由 deathDay 守卫覆盖（#80）。
     if (prev != null &&
         !prev.isAlive &&
+        prev.deathCause == expectedCause &&
         prev.deathDay == state.currentDay) {
       await _db.playersDao.revive(oldId);
     }
@@ -258,15 +275,21 @@ class GameBoardNotifier extends StateNotifier<GameBoardState> {
           await _db.dayRecordsDao.getByGameAndDay(_gameId, deathDay);
       if (dayRec == null) return;
       // 仅清指向该玩家的字段（另一字段可能指向别人，不动）。
+      // 若清的是夜死字段，同步置 nightConfirmed=false（撤销夜死 = 夜晚不再
+      // 视为已结算，否则残留 true + 无夜死会被误判「无人死亡夜晚」，#154 review）。
+      final clearedNight = dayRec.nightDeathPlayerId == playerId;
       await _db.dayRecordsDao.updateDay(
         dayRec.id,
         DayRecordsCompanion(
-          nightDeathPlayerId: dayRec.nightDeathPlayerId == playerId
+          nightDeathPlayerId: clearedNight
               ? const Value<int?>(null)
               : const Value<int?>.absent(),
           dayExecutionPlayerId: dayRec.dayExecutionPlayerId == playerId
               ? const Value<int?>(null)
               : const Value<int?>.absent(),
+          nightConfirmed: clearedNight
+              ? const Value(false)
+              : const Value<bool>.absent(),
         ),
       );
     });

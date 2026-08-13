@@ -201,6 +201,18 @@ void main() {
     expect(day.dayExecutionPlayerId, isNull);
   });
 
+  // #154 review Finding 1：长按致死（无 day-record 字段）+ 处决同一人后清处决，
+  // 玩家应仍死（长按致死是真实死亡，非处决）。删 deathCause 守卫会误复活；
+  // 根治（跨字段重对齐 cause + 保留守卫）正确不复活。
+  test('长按致死+处决同一人后清处决：玩家不复活（#154 review）', () async {
+    // 长按标死（夜阶段 → nightKill，无 day-record 字段）
+    await notifier().quickToggleDead(players[2]);
+    await notifier().recordExecution(players[2].id); // 处决已死者，markDead no-op
+    await notifier().recordExecution(null); // 清处决
+    final updated = await db.playersDao.watchByGame(gameId).first;
+    expect(updated[2].isAlive, isFalse); // 长按致死为真，不复活
+  });
+
   // #154 BUG-2：复活须同步清 day-record 死亡字段，否则投票面板锁死 / timeline 残留。
   test('revivePlayer：同步清当天 day-record 死亡字段（#154 BUG-2）', () async {
     await notifier().recordExecution(players[2].id);
