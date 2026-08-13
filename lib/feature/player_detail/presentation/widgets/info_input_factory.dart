@@ -1,5 +1,6 @@
 import 'package:botc_copilot/core/constants/character.dart';
 import 'package:botc_copilot/core/constants/info_input_type.dart';
+import 'package:botc_copilot/core/constants/player_setup.dart';
 import 'package:botc_copilot/core/constants/team.dart';
 import 'package:botc_copilot/core/database/app_database.dart';
 import 'package:botc_copilot/core/theme/app_text_styles.dart';
@@ -23,8 +24,9 @@ abstract final class InfoInputFactory {
   }) {
     return switch (character.infoInputType) {
       InfoInputType.none => const _NoInput(),
+      // Chef：相邻邪恶对数，官方 max = 邪恶数−1（N 连续邪恶→N−1 对）。
       InfoInputType.numberRange => _NumberInput(
-          max: (players.length / 2).floor(), // Chef 最大对数
+          max: PlayerSetup.forCount(players.length).evilCount - 1,
           onSubmit: onSubmit,
         ),
       InfoInputType.numberZeroToTwo =>
