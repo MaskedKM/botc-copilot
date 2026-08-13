@@ -641,8 +641,9 @@ class GameBoardNotifier extends StateNotifier<GameBoardState> {
 
   /// 撤销最近一次推进（仅当天为预建的空记录时，issue #87）。
   ///
-  /// 当天一旦有夜晚结果 / 处决 / 提名即视为已使用，不可静默回退。
-  /// 返回是否成功回退。
+  /// 当天一旦有夜晚结果 / 处决 / 提名即视为已使用，不可静默回退。注释三表
+  /// （信任度/毒/备注）按 gameId+dayNumber 挂载、无 dayRecordId FK，删天记录
+  /// 不级联——回退时一并清理，避免孤儿（#154 R-1）。返回是否成功回退。
   Future<bool> revertAdvanceDay() async {
     if (state.currentDay <= 1) return false;
     final day =
@@ -659,7 +660,16 @@ class GameBoardNotifier extends StateNotifier<GameBoardState> {
     final hasInfo =
         (await _db.infoDeclarationsDao.watchByDay(day.id).first).isNotEmpty;
     if (hasNight || hasExec || hasNoms || hasClaims || hasInfo) return false;
-    await _db.dayRecordsDao.deleteDay(day.id);
+    // 回退当天：删天记录 + 清理按 gameId+dayNumber 挂载、无 dayRecordId FK 的
+    // 注释三表（信任度/毒/备注），否则它们残留成孤儿——latestTrustLevels
+    // 仍读到「已不存在天」的信任度、毒残留让可靠性恢复链卡死（#154 R-1）。
+    final revertDay = day.dayNumber;
+    await _db.transaction(() async {
+      await _db.trustLogsDao.deleteByGameAndDay(_gameId, revertDay);
+      await _db.poisonStatusesDao.deleteByGameAndDay(_gameId, revertDay);
+      await _db.behaviorNotesDao.deleteByGameAndDay(_gameId, revertDay);
+      await _db.dayRecordsDao.deleteDay(day.id);
+    });
     state = state.copyWith(
       currentDay: state.currentDay - 1,
       selectedPlayerId: () => null,

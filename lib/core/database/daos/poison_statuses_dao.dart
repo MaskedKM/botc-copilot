@@ -38,4 +38,13 @@ class PoisonStatusesDao extends DatabaseAccessor<AppDatabase>
   Future<int> deleteStatus(int id) {
     return (delete(poisonStatuses)..where((p) => p.id.equals(id))).go();
   }
+
+  /// 删除某局某天的全部醉/毒标记（回退当天时清理孤儿，#154 R-1）。
+  Future<int> deleteByGameAndDay(int gameId, int dayNumber) {
+    return (delete(poisonStatuses)
+          ..where(
+            (p) => p.gameId.equals(gameId) & p.dayNumber.equals(dayNumber),
+          ))
+        .go();
+  }
 }
