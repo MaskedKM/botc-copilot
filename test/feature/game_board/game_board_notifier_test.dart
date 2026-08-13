@@ -309,6 +309,22 @@ void main() {
     expect(suggestion, isA<DemonSuccessionCandidate>());
   });
 
+  test('quickToggleDead：补记历史死亡（deathDay<currentDay）不触发传承（#136）', () async {
+    final day1Id = await notifier().ensureCurrentDayRecord();
+    await db.roleClaimsDao.insertClaim(
+      RoleClaimsCompanion(
+        playerId: Value(players[1].id),
+        dayRecordId: Value(day1Id),
+        character: const Value(Character.imp),
+        claimType: const Value(ClaimType.firstClaim),
+      ),
+    );
+    await notifier().advanceDay(); // currentDay → 2
+    // 补记第 1 天死亡——App 无历史存活快照，不自动检测传承（避免 SW 阈值错时点）
+    final suggestion = await notifier().quickToggleDead(players[1], deathDay: 1);
+    expect(suggestion, isNull);
+  });
+
   test('endGame：更新对局状态后 currentGameProvider 不再返回该局', () async {
     await notifier().endGame(goodWin: true);
     final game = await db.gamesDao.getById(gameId);

@@ -372,6 +372,7 @@ abstract final class ContradictionDetector {
     return [
       for (final e in latestClaim.entries)
         if (e.value.claimType != ClaimType.revealedOnDeath &&
+            e.value.claimType != ClaimType.myRole &&
             demonBluffs.contains(e.value.character))
           Contradiction(
             type: ContradictionType.bluffClaim,
