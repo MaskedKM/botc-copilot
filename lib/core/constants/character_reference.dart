@@ -140,8 +140,8 @@ const characterReferences = <Character, CharacterReference>{
   ),
   Character.recluse: CharacterReference(
     interactions: [
-      CharacterInteraction('可能被共情者计为邪恶 / 占卜师误判为恶魔 / 死后登记为邪恶。',
-          relatedTo: {Character.empath, Character.fortuneTeller, Character.undertaker}),
+      CharacterInteraction('可能被共情者计为邪恶 / 占卜师误判为恶魔 / 调查员误判为爪牙 / 死后登记为邪恶。',
+          relatedTo: {Character.empath, Character.fortuneTeller, Character.investigator, Character.undertaker}),
     ],
   ),
   Character.saint: CharacterReference(
@@ -159,8 +159,8 @@ const characterReferences = <Character, CharacterReference>{
   Character.spy: CharacterReference(
     interactions: [
       CharacterInteraction('每夜可查看魔典（全局角色 / 状态）。'),
-      CharacterInteraction('可能被共情者计为善良 / 死后登记为好人。',
-          relatedTo: {Character.empath, Character.undertaker}),
+      CharacterInteraction('可能被共情者计为善良 / 洗衣妇误判为镇民 / 图书管理员误判为外来者 / 死后登记为好人。',
+          relatedTo: {Character.empath, Character.washerwoman, Character.librarian, Character.undertaker}),
     ],
   ),
   Character.scarletWoman: CharacterReference(
