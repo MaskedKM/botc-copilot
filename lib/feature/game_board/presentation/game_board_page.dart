@@ -103,6 +103,7 @@ class _GameBoardBody extends ConsumerWidget {
           trustLevel: trustLevels[p.id] ?? TrustLevel.unknown,
           isMe: p.id == game.myPlayerId,
           isPoisoned: poisonedToday.contains(p.id),
+          suspectedDrunk: p.suspectedDrunk,
           hasContradiction: contradictionPlayerIds.contains(p.id),
         ),
     ];
