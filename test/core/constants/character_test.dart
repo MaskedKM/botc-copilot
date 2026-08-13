@@ -41,6 +41,8 @@ void main() {
         InfoInputType.outsiderPlusTwoPlayersOrNone,
       );
       expect(Character.undertaker.infoInputType, InfoInputType.characterName);
+      // Spy 看魔典 → 自由文本（#136，原误设 none 致角色不可用）
+      expect(Character.spy.infoInputType, InfoInputType.freeText);
     });
 
     test('阵营善恶标记正确', () {

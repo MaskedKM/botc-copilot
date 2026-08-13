@@ -410,6 +410,9 @@ class _GameBoardBody extends ConsumerWidget {
             .read(gameBoardProvider(gameId).notifier)
             .endGame(goodWin: false);
       }
+    } else if (suggestion is DemonSuccessionCandidate && context.mounted) {
+      // 长按标死疑似恶魔 → 传承确认（#136 公理5，与夜死/处决/Slayer 统一）
+      await handleEndSuggestion(context, ref, gameId, suggestion);
     }
   }
 

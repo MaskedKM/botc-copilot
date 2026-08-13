@@ -3,6 +3,7 @@ import 'package:botc_copilot/core/constants/script.dart';
 import 'package:botc_copilot/core/database/app_database.dart';
 import 'package:botc_copilot/core/database/database_provider.dart';
 import 'package:botc_copilot/feature/game_board/data/poison_repository.dart';
+import 'package:botc_copilot/feature/game_board/domain/game_end.dart';
 import 'package:botc_copilot/feature/game_board/presentation/providers/game_board_provider.dart';
 import 'package:botc_copilot/shared/models/enums.dart';
 import 'package:drift/drift.dart' hide isNotNull, isNull;
@@ -292,6 +293,36 @@ void main() {
     await notifier().quickToggleDead(players[1], deathDay: 99);
     final updated = await db.playersDao.watchByGame(gameId).first;
     expect(updated[1].deathDay, 2);
+  });
+
+  test('quickToggleDead：标死声明 Imp 的玩家 → 传承候选（#136 公理5）', () async {
+    final dayId = await notifier().ensureCurrentDayRecord();
+    await db.roleClaimsDao.insertClaim(
+      RoleClaimsCompanion(
+        playerId: Value(players[1].id),
+        dayRecordId: Value(dayId),
+        character: const Value(Character.imp),
+        claimType: const Value(ClaimType.firstClaim),
+      ),
+    );
+    final suggestion = await notifier().quickToggleDead(players[1]);
+    expect(suggestion, isA<DemonSuccessionCandidate>());
+  });
+
+  test('quickToggleDead：补记历史死亡（deathDay<currentDay）不触发传承（#136）', () async {
+    final day1Id = await notifier().ensureCurrentDayRecord();
+    await db.roleClaimsDao.insertClaim(
+      RoleClaimsCompanion(
+        playerId: Value(players[1].id),
+        dayRecordId: Value(day1Id),
+        character: const Value(Character.imp),
+        claimType: const Value(ClaimType.firstClaim),
+      ),
+    );
+    await notifier().advanceDay(); // currentDay → 2
+    // 补记第 1 天死亡——App 无历史存活快照，不自动检测传承（避免 SW 阈值错时点）
+    final suggestion = await notifier().quickToggleDead(players[1], deathDay: 1);
+    expect(suggestion, isNull);
   });
 
   test('endGame：更新对局状态后 currentGameProvider 不再返回该局', () async {

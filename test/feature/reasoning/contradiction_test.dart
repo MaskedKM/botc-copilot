@@ -311,6 +311,68 @@ void main() {
     expect(result, isEmpty);
   });
 
+  test('规则6：声明 ∈ 恶魔 Bluff → bluffClaim（公理3，#136）', () {
+    final result = ContradictionDetector.detect(
+      claims: [_claim(1, Character.chef)], // chef 在 Bluff 名单
+      declarations: [],
+      days: [],
+      playersById: players,
+      dayRecordToDayNumber: {},
+      expectedOutsiders: 0,
+      demonBluffs: {Character.chef},
+    );
+    final bluff = result
+        .where((c) => c.type == ContradictionType.bluffClaim)
+        .single;
+    expect(bluff.playerIds, [1]);
+    expect(bluff.severity, ContradictionSeverity.warning);
+    expect(bluff.description, contains('Bluff'));
+  });
+
+  test('规则6：demonBluffs 为空（非恶魔视角）→ 不检测', () {
+    final result = ContradictionDetector.detect(
+      claims: [_claim(1, Character.chef)],
+      declarations: [],
+      days: [],
+      playersById: players,
+      dayRecordToDayNumber: {},
+      expectedOutsiders: 0,
+      // demonBluffs 默认空集
+    );
+    expect(
+      result.where((c) => c.type == ContradictionType.bluffClaim),
+      isEmpty,
+    );
+  });
+
+  test('规则4：Empath 醉/毒（possiblyTainted）→ 信息为假，不报（#136 公理4）', () {
+    final decl = InfoDeclaration(
+      id: 1,
+      playerId: 2,
+      dayRecordId: 10,
+      characterType: Character.empath,
+      payloadJson: '{"value": 1}',
+      reliability: Reliability.possiblyTainted, // 醉/毒
+      isMine: false,
+    );
+    final result = ContradictionDetector.detect(
+      claims: [
+        _claim(2, Character.empath),
+        _claim(1, Character.chef),
+        _claim(3, Character.monk),
+      ],
+      declarations: [decl],
+      days: [],
+      playersById: players,
+      dayRecordToDayNumber: {10: 2},
+      expectedOutsiders: 0,
+    );
+    expect(
+      result.where((c) => c.type == ContradictionType.empathMismatch),
+      isEmpty,
+    );
+  });
+
   test('规则4：邻居死亡后按座位收缩计算', () {
     // 3号死于第1天，第2天2号的邻居收缩为 1号和4号
     final deadPlayers = {
