@@ -135,6 +135,14 @@ void main() {
         ),
         '占卜师：5 号 + 30 号 → 否',
       );
+      // Ravenkeeper：玩家 + 角色（labelFor 解析座位号，不丢失玩家）
+      expect(
+        InfoPayloadFormatter.summarize(
+          decl(Character.ravenkeeper, '{"playerId": 24, "character": "spy"}'),
+          labelFor: seatLabel,
+        ),
+        '渡鸦守护者：5 号 是 间谍',
+      );
     });
   });
 }

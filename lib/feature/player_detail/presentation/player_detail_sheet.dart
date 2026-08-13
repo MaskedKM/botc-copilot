@@ -730,8 +730,9 @@ class _RecordedInfoSection extends ConsumerWidget {
     // 必须经 playersById 映射为座位号展示，否则多局后 db id > 座位数即错乱。
     final players =
         ref.watch(gamePlayersProvider(gameId)).valueOrNull ?? const <Player>[];
+    final playersById = {for (final p in players) p.id: p};
     String seatLabel(int id) {
-      final p = players.where((p) => p.id == id).firstOrNull;
+      final p = playersById[id];
       return p != null ? '${p.seatNumber}号' : '$id 号';
     }
 
