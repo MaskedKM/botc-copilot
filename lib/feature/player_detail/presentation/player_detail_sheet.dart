@@ -104,8 +104,9 @@ class _PlayerDetailSheetState extends ConsumerState<PlayerDetailSheet> {
   ///
   /// 非己玩家选了角色 chip 但尚未保存时直接录信息会造成「孤儿信息」——
   /// 该信息关联的角色没有对应声明。此处先写声明再录信息，杜绝孤儿。
-  Future<void> _commitDraftClaim() async {
-    if (!_roleTouched || _draftRole == null || _claimAutoCommitted) return;
+  /// 提交草稿声明。返回 false=写失败（调用方应中止后续信息写入，避免孤儿信息，#164 B9）。
+  Future<bool> _commitDraftClaim() async {
+    if (!_roleTouched || _draftRole == null || _claimAutoCommitted) return true;
     final claims = ref
             .read(playerClaimsProvider(widget.player.id))
             .valueOrNull ??
@@ -114,7 +115,7 @@ class _PlayerDetailSheetState extends ConsumerState<PlayerDetailSheet> {
     if (_draftRole == saved) {
       // 草稿与已存声明一致，仅标记，避免重复写
       if (mounted) setState(() => _claimAutoCommitted = true);
-      return;
+      return true;
     }
     final notifier = ref.read(gameBoardProvider(widget.gameId).notifier);
     try {
@@ -125,12 +126,14 @@ class _PlayerDetailSheetState extends ConsumerState<PlayerDetailSheet> {
             character: _draftRole!,
           );
       if (mounted) setState(() => _claimAutoCommitted = true);
+      return true;
     } on Object {
       // #164 B9：声明写失败提示，不标记 committed（下次重试）。
       if (mounted) {
         ScaffoldMessenger.of(context)
             .showSnackBar(const SnackBar(content: Text('声明保存失败，请重试')));
       }
+      return false;
     }
   }
 
@@ -695,7 +698,7 @@ class _InfoInputSection extends ConsumerWidget {
   final bool isMine;
 
   /// 提交信息前回调：确保草稿声明已落库（#134 解耦，杜绝孤儿信息）。
-  final Future<void> Function() onEnsureClaim;
+  final Future<bool> Function() onEnsureClaim;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -709,8 +712,10 @@ class _InfoInputSection extends ConsumerWidget {
           players: players,
           actingPlayerId: playerId,
           onSubmit: (payload) async {
-            // 先落库草稿声明（非己且选了 chip 时），再录信息（#134）
-            await onEnsureClaim();
+            // 先落库草稿声明（非己且选了 chip 时），再录信息（#134）。
+            // 声明写失败则中止——避免信息无对应声明成孤儿（#164 B9 review）。
+            final claimOk = await onEnsureClaim();
+            if (!claimOk) return;
             final notifier = ref.read(gameBoardProvider(gameId).notifier);
             final dayRecordId = await notifier.ensureCurrentDayRecord();
             await ref.read(playerDetailRepositoryProvider).declareInfo(
