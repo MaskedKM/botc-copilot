@@ -645,4 +645,16 @@ void main() {
     expect(find.text('删除这条备注？'), findsNothing);
     expect(find.text('测试备注'), findsOneWidget);
   });
+
+  // #160 P0：角色声明按阵营分组（与开局选角一致），不再平铺 22 chip。
+  testWidgets('角色声明按阵营分组显示（#160）', (tester) async {
+    useTallSurface(tester);
+    await tester.pumpWidget(buildSheet()); // 非 me → 显示「角色声明」
+    await tester.pump();
+
+    expect(find.text('角色声明'), findsOneWidget);
+    for (final header in const ['镇民', '外来者', '爪牙', '恶魔']) {
+      expect(find.text(header), findsOneWidget);
+    }
+  });
 }
