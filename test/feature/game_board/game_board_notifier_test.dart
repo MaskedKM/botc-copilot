@@ -329,6 +329,23 @@ void main() {
     expect(updated[1].deathDay, 2);
   });
 
+  // #151 C1 review：长按标死的 deathCause 按夜晚是否确认区分——夜阶段记
+  // nightKill（Empath 读取前已死，排除邻座），白天阶段记 other（算存活邻居）。
+  test('quickToggleDead：夜阶段记 nightKill / 白天阶段记 other（#151 review）',
+      () async {
+    // 夜晚未确认 → 长按标死 = 夜死
+    await notifier().quickToggleDead(players[1]);
+    var updated = await db.playersDao.watchByGame(gameId).first;
+    expect(updated[1].deathCause, DeathCause.nightKill);
+
+    // 复活后确认夜晚（nightConfirmed=true）→ 长按标死 = 白天死
+    await notifier().revivePlayer(players[1].id);
+    await notifier().recordNightDeath(null);
+    await notifier().quickToggleDead(players[2]);
+    updated = await db.playersDao.watchByGame(gameId).first;
+    expect(updated[2].deathCause, DeathCause.other);
+  });
+
   test('quickToggleDead：标死声明 Imp 的玩家 → 传承候选（#136 公理5）', () async {
     final dayId = await notifier().ensureCurrentDayRecord();
     await db.roleClaimsDao.insertClaim(

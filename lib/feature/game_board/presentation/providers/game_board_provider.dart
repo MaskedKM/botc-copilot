@@ -302,11 +302,15 @@ class GameBoardNotifier extends StateNotifier<GameBoardState> {
     if (player.isAlive) {
       // 防御纵深：clamp 到 [1, currentDay]，避免越界值污染 Empath 判定。
       final day = deathDay?.clamp(1, state.currentDay) ?? state.currentDay;
-      await _db.playersDao.markDead(
-        player.id,
-        day,
-        DeathCause.other,
-      );
+      // 死亡阶段判定（#151 C1 review）：该日夜晚尚未确认 → 视为夜死
+      // （nightKill，Empath 当夜读取前已死 → 排除出邻座）；已确认 → 白天死
+      // （other，Slayer/白天标死，读取时仍存活 → 算邻座）。避免长按记录夜死
+      // 却被「deathCause != nightKill」误算为存活邻居。
+      final dayRec = await _db.dayRecordsDao.getByGameAndDay(_gameId, day);
+      final cause = (dayRec?.nightConfirmed ?? false)
+          ? DeathCause.other
+          : DeathCause.nightKill;
+      await _db.playersDao.markDead(player.id, day, cause);
       // #149 BUG-1：恶魔死亡先传承（与 recordNightDeath 路径统一），非恶魔
       // 死亡才判人头邪恶胜。原先先 _evilWinCheck 短路会跳过传承。
       // 仅当天标死触发传承——补记历史死亡（deathDay < currentDay）时，存活/
