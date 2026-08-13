@@ -108,9 +108,15 @@ class SeatRingPlayer {
       other.hasContradiction == hasContradiction;
 
   @override
-  int get hashCode =>
-      Object.hash(
-      id, name, seatNumber, isAlive, trustLevel, isMe, isPoisoned,
-      suspectedDrunk, hasContradiction,
-    );
+  int get hashCode => Object.hash(
+    id,
+    name,
+    seatNumber,
+    isAlive,
+    trustLevel,
+    isMe,
+    isPoisoned,
+    suspectedDrunk,
+    hasContradiction,
+  );
 }
