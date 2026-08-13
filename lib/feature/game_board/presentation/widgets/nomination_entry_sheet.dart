@@ -509,6 +509,7 @@ class _NominationEntrySheetState extends ConsumerState<NominationEntrySheet> {
     final isVirginFirstNomination =
         latestClaim[_nomineeId!]?.character == Character.virgin &&
         nominee != null &&
+        nominee.isAlive &&
         !nominee.abilityUsed;
 
     // 处决场景：镇民首次提名存活的（未消耗）处女。决定是否弹处决确认。
