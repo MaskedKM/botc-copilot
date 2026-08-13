@@ -3,6 +3,8 @@ import 'package:botc_copilot/core/constants/script.dart';
 import 'package:botc_copilot/core/database/app_database.dart';
 import 'package:botc_copilot/core/database/database_provider.dart';
 import 'package:botc_copilot/feature/setup/presentation/providers/setup_provider.dart';
+import 'package:botc_copilot/shared/models/enums.dart';
+import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -95,6 +97,32 @@ void main() {
     final players = await db.playersDao.watchByGame(gameId).first;
     expect(players.map((p) => p.seatNumber), [1, 2, 3, 4, 5, 6, 7]);
     expect(players.map((p) => p.name), ['A', 'B', 'C', 'D', 'E', 'F', 'G']);
+  });
+
+  test('首局 helpLevel 默认 beginner（#137）', () async {
+    notifier().selectRole(Character.fortuneTeller);
+    final gameId = await notifier().submit();
+    final game = await db.gamesDao.getById(gameId);
+    expect(game!.helpLevel, HelpLevel.beginner);
+  });
+
+  test('后续局继承最近一局 helpLevel（#137）', () async {
+    // 先手动建一局并设为 expert（作为「最近一局」）
+    await db.gamesDao.insertGame(
+      GamesCompanion(
+        script: const Value(Script.troubleBrewing),
+        playerCount: const Value(7),
+        status: const Value(GameStatus.ongoing),
+        createdAt: Value(DateTime(2026, 1, 1)),
+        myRole: const Value(Character.fortuneTeller),
+        helpLevel: const Value(HelpLevel.expert),
+      ),
+    );
+    // 再 submit 一局 → 应继承 expert
+    notifier().selectRole(Character.fortuneTeller);
+    final gameId = await notifier().submit();
+    final game = await db.gamesDao.getById(gameId);
+    expect(game!.helpLevel, HelpLevel.expert);
   });
 
   test('selectMySeat 记录座位号', () {
