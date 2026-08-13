@@ -429,15 +429,24 @@ class _ConsistencyMatrix extends StatelessWidget {
     }
     final ratio = c!.ratio;
     final color = gameColors.goldBright.withValues(alpha: 0.12 + ratio * 0.6);
-    return GestureDetector(
-      onTap: () => _showPair(context, row, col, c, gameColors),
-      child: Container(
-        height: _cellSize,
-        color: color,
-        alignment: Alignment.center,
-        child: Text(
-          '${c.agreedCount}/${participated}',
-          style: AppTextStyles.caption.copyWith(fontSize: 11),
+    // #165 A3：热力图单元格颜色信息读屏不可达——加 Semantics label（同投次数 +
+    // 占比）使颜色语义可达；excludeSemantics 避免裸「5/8」被重复朗读。
+    return Semantics(
+      label: '${row.seatNumber}号与${col.seatNumber}号：'
+          '${c.agreedCount}/$participated 次同投'
+          '（${(ratio * 100).round()}%）',
+      button: true,
+      excludeSemantics: true,
+      child: GestureDetector(
+        onTap: () => _showPair(context, row, col, c, gameColors),
+        child: Container(
+          height: _cellSize,
+          color: color,
+          alignment: Alignment.center,
+          child: Text(
+            '${c.agreedCount}/${participated}',
+            style: AppTextStyles.caption.copyWith(fontSize: 11),
+          ),
         ),
       ),
     );
