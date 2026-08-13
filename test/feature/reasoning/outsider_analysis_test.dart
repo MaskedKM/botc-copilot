@@ -243,4 +243,31 @@ void main() {
       expect(a.claimedOutsiders, 0);
     });
   });
+
+  // #151 S3：Baron 已声明时期望外来者数 = baronAdj（base+2）。
+  group('baronClaimed 偏移（7 人局 base=0, baronAdj=2）', () {
+    test('Baron 声明 + 0 外来者 → under（非 standard，缺 2）', () {
+      final a = analyze(7, [_claim(1, Character.baron)]);
+      expect(a.deviation, OutsiderDeviation.under);
+    });
+
+    test('Baron 声明 + 2 外来者 → standard', () {
+      final a = analyze(7, [
+        _claim(1, Character.baron),
+        _claim(2, Character.butler),
+        _claim(3, Character.saint),
+      ]);
+      expect(a.deviation, OutsiderDeviation.standard);
+    });
+
+    test('Baron 声明 + 3 外来者 → over', () {
+      final a = analyze(7, [
+        _claim(1, Character.baron),
+        _claim(2, Character.butler),
+        _claim(3, Character.saint),
+        _claim(4, Character.recluse),
+      ]);
+      expect(a.deviation, OutsiderDeviation.over);
+    });
+  });
 }
