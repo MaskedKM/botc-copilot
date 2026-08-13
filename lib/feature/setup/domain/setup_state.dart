@@ -52,11 +52,22 @@ class SetupState {
   /// 当前人数对应的游戏配置。
   PlayerSetup get playerSetup => PlayerSetup.forCount(playerCount);
 
+  /// 玩家名步校验错误（#163 P1），null = 通过。
+  ///
+  /// 空名（trim 后）显示残缺；重名在提名 / 投票 / 信息录入 / 时间线中歧义。
+  String? get nameValidationError {
+    final trimmed =
+        playerNames.map((n) => n.trim()).toList(growable: false);
+    if (trimmed.any((n) => n.isEmpty)) return '每个座位都需要名字';
+    if (trimmed.toSet().length != trimmed.length) return '存在重名，请区分玩家';
+    return null;
+  }
+
   /// 当前步骤是否可前进。
   bool get canProceed => switch (step) {
         0 => true, // 剧本必有默认选中
         1 => true, // 人数必有默认值
-        2 => true, // 名字有默认值（A~Z），空名也可继续
+        2 => nameValidationError == null, // 名字：无空名 / 重名（#163 P1）
         3 => myRole != null,
         4 => !submitting,
         _ => false,
