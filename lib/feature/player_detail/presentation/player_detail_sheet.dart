@@ -1211,9 +1211,18 @@ class _AbilitySectionState extends ConsumerState<_AbilitySection> {
           title: const Text('能力已消耗'),
           value: used,
           activeTrackColor: gameColors.inkViolet,
-          onChanged: (v) => ref
-              .read(abilityRepositoryProvider)
-              .setAbilityUsed(widget.playerId, used: v),
+          onChanged: (v) async {
+            await ref
+                .read(abilityRepositoryProvider)
+                .setAbilityUsed(widget.playerId, used: v);
+            if (!mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(v ? '处女能力已标记消耗' : '处女能力已恢复'),
+                duration: const Duration(seconds: 1),
+              ),
+            );
+          },
         ),
         Text(
           '官方规则：处女首次被镇民提名时，提名者立即被处决（当天提名结束）。'
@@ -1432,10 +1441,11 @@ class _MyMinionsSection extends ConsumerWidget {
                     ? null
                     : (_) async {
                         final next = Set<int>.of(selected);
-                        if (next.contains(p.id)) {
-                          next.remove(p.id);
-                        } else {
+                        final isAdd = !next.contains(p.id);
+                        if (isAdd) {
                           next.add(p.id);
+                        } else {
+                          next.remove(p.id);
                         }
                         await ref
                             .read(appDatabaseProvider)
@@ -1444,6 +1454,16 @@ class _MyMinionsSection extends ConsumerWidget {
                               game.id,
                               jsonEncode(next.toList()),
                             );
+                        if (!context.mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              '${isAdd ? "已加入" : "已移除"} '
+                              '${p.seatNumber}号 ${p.name}',
+                            ),
+                            duration: const Duration(seconds: 1),
+                          ),
+                        );
                       },
               ),
           ],
