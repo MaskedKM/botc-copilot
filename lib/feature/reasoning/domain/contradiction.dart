@@ -22,7 +22,10 @@ enum ContradictionType {
   empathMismatch('Empath 信息与邻居声明不符'),
 
   /// 无人死亡夜晚。
-  noDeathNight('无人死亡夜晚');
+  noDeathNight('无人死亡夜晚'),
+
+  /// 声明恶魔 Bluff 角色（公理3，确定性不在场）。
+  bluffClaim('声明恶魔 Bluff 角色');
 
   const ContradictionType(this.nameCn);
 
@@ -80,6 +83,7 @@ abstract final class ContradictionDetector {
     required Map<int, Player> playersById,
     required Map<int, int> dayRecordToDayNumber,
     required int expectedOutsiders,
+    Set<Character> demonBluffs = const {},
     int? myPlayerId,
     Character? myRole,
   }) {
@@ -135,6 +139,7 @@ abstract final class ContradictionDetector {
         labelOf,
       ),
       ..._noDeathNights(days, declarations, dayRecordToDayNumber),
+      ..._bluffClaims(latestClaim, demonBluffs, labelOf),
     ];
   }
 
@@ -268,6 +273,13 @@ abstract final class ContradictionDetector {
       if (decl.characterType != Character.empath) continue;
       final value = _payloadValue(decl.payloadJson);
       if (value == null || value == 0) continue;
+      // 公理4：醉/毒 Empath 信息为假，邻座全好人不构成矛盾（#136）。
+      // reliability 已由 contradictions_provider 的 effectiveReliability overlay
+      // 降级（整局醉 + 按天毒），故此处直接判。
+      if (decl.reliability == Reliability.possiblyTainted ||
+          decl.reliability == Reliability.invalidated) {
+        continue;
+      }
       final day = dayRecordToDayNumber[decl.dayRecordId];
       final empath = playersById[decl.playerId];
       if (day == null || empath == null) continue;
@@ -343,6 +355,31 @@ abstract final class ContradictionDetector {
             ),
             severity: ContradictionSeverity.info,
             dayNumber: d.dayNumber,
+          ),
+    ];
+  }
+
+  /// 规则 6：某玩家声明 ∈ 恶魔 Bluff（公理3，确定性不在场）。
+  ///
+  /// Bluff 的 3 个好人角色是恶魔方确定性得知的「不在场」角色；声明其一 = 假声明。
+  /// 仅「我是恶魔」视角可用（demonBluffsJson 仅恶魔录入）。
+  static List<Contradiction> _bluffClaims(
+    Map<int, RoleClaim> latestClaim,
+    Set<Character> demonBluffs,
+    String Function(int) labelOf,
+  ) {
+    if (demonBluffs.isEmpty) return [];
+    return [
+      for (final e in latestClaim.entries)
+        if (e.value.claimType != ClaimType.revealedOnDeath &&
+            demonBluffs.contains(e.value.character))
+          Contradiction(
+            type: ContradictionType.bluffClaim,
+            playerIds: [e.key],
+            description:
+                '${labelOf(e.key)} 声明 ${e.value.character.nameCn}，'
+                '但该角色在恶魔 Bluff 名单中（确定性不在场）——声明必假。',
+            severity: ContradictionSeverity.warning,
           ),
     ];
   }
