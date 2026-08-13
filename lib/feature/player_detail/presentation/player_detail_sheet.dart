@@ -623,7 +623,7 @@ class _RoleClaimSection extends ConsumerWidget {
               style: AppTextStyles.caption.copyWith(
                 color: team.isGood
                     ? context.gameColors.goldBright
-                    : context.gameColors.blood,
+                    : context.gameColors.bloodBright,
               ),
             ),
           ),
