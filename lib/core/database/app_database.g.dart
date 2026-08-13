@@ -4499,6 +4499,497 @@ class BehaviorNotesCompanion extends UpdateCompanion<BehaviorNote> {
   }
 }
 
+class $DemonInheritancesTable extends DemonInheritances
+    with TableInfo<$DemonInheritancesTable, DemonInheritance> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $DemonInheritancesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _gameIdMeta = const VerificationMeta('gameId');
+  @override
+  late final GeneratedColumn<int> gameId = GeneratedColumn<int>(
+    'game_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES games (id) ON DELETE CASCADE',
+    ),
+  );
+  static const VerificationMeta _dayNumberMeta = const VerificationMeta(
+    'dayNumber',
+  );
+  @override
+  late final GeneratedColumn<int> dayNumber = GeneratedColumn<int>(
+    'day_number',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _fromPlayerIdMeta = const VerificationMeta(
+    'fromPlayerId',
+  );
+  @override
+  late final GeneratedColumn<int> fromPlayerId = GeneratedColumn<int>(
+    'from_player_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES players (id) ON DELETE CASCADE',
+    ),
+  );
+  static const VerificationMeta _toPlayerIdMeta = const VerificationMeta(
+    'toPlayerId',
+  );
+  @override
+  late final GeneratedColumn<int> toPlayerId = GeneratedColumn<int>(
+    'to_player_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES players (id) ON DELETE SET NULL',
+    ),
+  );
+  @override
+  late final GeneratedColumnWithTypeConverter<SuccessionTrigger, String>
+  trigger = GeneratedColumn<String>(
+    'trigger',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  ).withConverter<SuccessionTrigger>($DemonInheritancesTable.$convertertrigger);
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    gameId,
+    dayNumber,
+    fromPlayerId,
+    toPlayerId,
+    trigger,
+    createdAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'demon_inheritances';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<DemonInheritance> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('game_id')) {
+      context.handle(
+        _gameIdMeta,
+        gameId.isAcceptableOrUnknown(data['game_id']!, _gameIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_gameIdMeta);
+    }
+    if (data.containsKey('day_number')) {
+      context.handle(
+        _dayNumberMeta,
+        dayNumber.isAcceptableOrUnknown(data['day_number']!, _dayNumberMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_dayNumberMeta);
+    }
+    if (data.containsKey('from_player_id')) {
+      context.handle(
+        _fromPlayerIdMeta,
+        fromPlayerId.isAcceptableOrUnknown(
+          data['from_player_id']!,
+          _fromPlayerIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_fromPlayerIdMeta);
+    }
+    if (data.containsKey('to_player_id')) {
+      context.handle(
+        _toPlayerIdMeta,
+        toPlayerId.isAcceptableOrUnknown(
+          data['to_player_id']!,
+          _toPlayerIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  DemonInheritance map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return DemonInheritance(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      gameId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}game_id'],
+      )!,
+      dayNumber: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}day_number'],
+      )!,
+      fromPlayerId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}from_player_id'],
+      )!,
+      toPlayerId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}to_player_id'],
+      ),
+      trigger: $DemonInheritancesTable.$convertertrigger.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}trigger'],
+        )!,
+      ),
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+    );
+  }
+
+  @override
+  $DemonInheritancesTable createAlias(String alias) {
+    return $DemonInheritancesTable(attachedDatabase, alias);
+  }
+
+  static JsonTypeConverter2<SuccessionTrigger, String, String>
+  $convertertrigger = const EnumNameConverter<SuccessionTrigger>(
+    SuccessionTrigger.values,
+  );
+}
+
+class DemonInheritance extends DataClass
+    implements Insertable<DemonInheritance> {
+  /// 自增主键。
+  final int id;
+
+  /// 所属对局。
+  final int gameId;
+
+  /// 传承发生的天数。
+  final int dayNumber;
+
+  /// 原恶魔（死者）。
+  final int fromPlayerId;
+
+  /// 继承人（新恶魔）。空 = 传承发生但继承人未知。
+  final int? toPlayerId;
+
+  /// 传承机制（绯红女继承 / 恶魔自杀传位）。
+  final SuccessionTrigger trigger;
+
+  /// 记录时间。
+  final DateTime createdAt;
+  const DemonInheritance({
+    required this.id,
+    required this.gameId,
+    required this.dayNumber,
+    required this.fromPlayerId,
+    this.toPlayerId,
+    required this.trigger,
+    required this.createdAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['game_id'] = Variable<int>(gameId);
+    map['day_number'] = Variable<int>(dayNumber);
+    map['from_player_id'] = Variable<int>(fromPlayerId);
+    if (!nullToAbsent || toPlayerId != null) {
+      map['to_player_id'] = Variable<int>(toPlayerId);
+    }
+    {
+      map['trigger'] = Variable<String>(
+        $DemonInheritancesTable.$convertertrigger.toSql(trigger),
+      );
+    }
+    map['created_at'] = Variable<DateTime>(createdAt);
+    return map;
+  }
+
+  DemonInheritancesCompanion toCompanion(bool nullToAbsent) {
+    return DemonInheritancesCompanion(
+      id: Value(id),
+      gameId: Value(gameId),
+      dayNumber: Value(dayNumber),
+      fromPlayerId: Value(fromPlayerId),
+      toPlayerId: toPlayerId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(toPlayerId),
+      trigger: Value(trigger),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory DemonInheritance.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return DemonInheritance(
+      id: serializer.fromJson<int>(json['id']),
+      gameId: serializer.fromJson<int>(json['gameId']),
+      dayNumber: serializer.fromJson<int>(json['dayNumber']),
+      fromPlayerId: serializer.fromJson<int>(json['fromPlayerId']),
+      toPlayerId: serializer.fromJson<int?>(json['toPlayerId']),
+      trigger: $DemonInheritancesTable.$convertertrigger.fromJson(
+        serializer.fromJson<String>(json['trigger']),
+      ),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'gameId': serializer.toJson<int>(gameId),
+      'dayNumber': serializer.toJson<int>(dayNumber),
+      'fromPlayerId': serializer.toJson<int>(fromPlayerId),
+      'toPlayerId': serializer.toJson<int?>(toPlayerId),
+      'trigger': serializer.toJson<String>(
+        $DemonInheritancesTable.$convertertrigger.toJson(trigger),
+      ),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+    };
+  }
+
+  DemonInheritance copyWith({
+    int? id,
+    int? gameId,
+    int? dayNumber,
+    int? fromPlayerId,
+    Value<int?> toPlayerId = const Value.absent(),
+    SuccessionTrigger? trigger,
+    DateTime? createdAt,
+  }) => DemonInheritance(
+    id: id ?? this.id,
+    gameId: gameId ?? this.gameId,
+    dayNumber: dayNumber ?? this.dayNumber,
+    fromPlayerId: fromPlayerId ?? this.fromPlayerId,
+    toPlayerId: toPlayerId.present ? toPlayerId.value : this.toPlayerId,
+    trigger: trigger ?? this.trigger,
+    createdAt: createdAt ?? this.createdAt,
+  );
+  DemonInheritance copyWithCompanion(DemonInheritancesCompanion data) {
+    return DemonInheritance(
+      id: data.id.present ? data.id.value : this.id,
+      gameId: data.gameId.present ? data.gameId.value : this.gameId,
+      dayNumber: data.dayNumber.present ? data.dayNumber.value : this.dayNumber,
+      fromPlayerId: data.fromPlayerId.present
+          ? data.fromPlayerId.value
+          : this.fromPlayerId,
+      toPlayerId: data.toPlayerId.present
+          ? data.toPlayerId.value
+          : this.toPlayerId,
+      trigger: data.trigger.present ? data.trigger.value : this.trigger,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('DemonInheritance(')
+          ..write('id: $id, ')
+          ..write('gameId: $gameId, ')
+          ..write('dayNumber: $dayNumber, ')
+          ..write('fromPlayerId: $fromPlayerId, ')
+          ..write('toPlayerId: $toPlayerId, ')
+          ..write('trigger: $trigger, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    gameId,
+    dayNumber,
+    fromPlayerId,
+    toPlayerId,
+    trigger,
+    createdAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is DemonInheritance &&
+          other.id == this.id &&
+          other.gameId == this.gameId &&
+          other.dayNumber == this.dayNumber &&
+          other.fromPlayerId == this.fromPlayerId &&
+          other.toPlayerId == this.toPlayerId &&
+          other.trigger == this.trigger &&
+          other.createdAt == this.createdAt);
+}
+
+class DemonInheritancesCompanion extends UpdateCompanion<DemonInheritance> {
+  final Value<int> id;
+  final Value<int> gameId;
+  final Value<int> dayNumber;
+  final Value<int> fromPlayerId;
+  final Value<int?> toPlayerId;
+  final Value<SuccessionTrigger> trigger;
+  final Value<DateTime> createdAt;
+  const DemonInheritancesCompanion({
+    this.id = const Value.absent(),
+    this.gameId = const Value.absent(),
+    this.dayNumber = const Value.absent(),
+    this.fromPlayerId = const Value.absent(),
+    this.toPlayerId = const Value.absent(),
+    this.trigger = const Value.absent(),
+    this.createdAt = const Value.absent(),
+  });
+  DemonInheritancesCompanion.insert({
+    this.id = const Value.absent(),
+    required int gameId,
+    required int dayNumber,
+    required int fromPlayerId,
+    this.toPlayerId = const Value.absent(),
+    required SuccessionTrigger trigger,
+    this.createdAt = const Value.absent(),
+  }) : gameId = Value(gameId),
+       dayNumber = Value(dayNumber),
+       fromPlayerId = Value(fromPlayerId),
+       trigger = Value(trigger);
+  static Insertable<DemonInheritance> custom({
+    Expression<int>? id,
+    Expression<int>? gameId,
+    Expression<int>? dayNumber,
+    Expression<int>? fromPlayerId,
+    Expression<int>? toPlayerId,
+    Expression<String>? trigger,
+    Expression<DateTime>? createdAt,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (gameId != null) 'game_id': gameId,
+      if (dayNumber != null) 'day_number': dayNumber,
+      if (fromPlayerId != null) 'from_player_id': fromPlayerId,
+      if (toPlayerId != null) 'to_player_id': toPlayerId,
+      if (trigger != null) 'trigger': trigger,
+      if (createdAt != null) 'created_at': createdAt,
+    });
+  }
+
+  DemonInheritancesCompanion copyWith({
+    Value<int>? id,
+    Value<int>? gameId,
+    Value<int>? dayNumber,
+    Value<int>? fromPlayerId,
+    Value<int?>? toPlayerId,
+    Value<SuccessionTrigger>? trigger,
+    Value<DateTime>? createdAt,
+  }) {
+    return DemonInheritancesCompanion(
+      id: id ?? this.id,
+      gameId: gameId ?? this.gameId,
+      dayNumber: dayNumber ?? this.dayNumber,
+      fromPlayerId: fromPlayerId ?? this.fromPlayerId,
+      toPlayerId: toPlayerId ?? this.toPlayerId,
+      trigger: trigger ?? this.trigger,
+      createdAt: createdAt ?? this.createdAt,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (gameId.present) {
+      map['game_id'] = Variable<int>(gameId.value);
+    }
+    if (dayNumber.present) {
+      map['day_number'] = Variable<int>(dayNumber.value);
+    }
+    if (fromPlayerId.present) {
+      map['from_player_id'] = Variable<int>(fromPlayerId.value);
+    }
+    if (toPlayerId.present) {
+      map['to_player_id'] = Variable<int>(toPlayerId.value);
+    }
+    if (trigger.present) {
+      map['trigger'] = Variable<String>(
+        $DemonInheritancesTable.$convertertrigger.toSql(trigger.value),
+      );
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('DemonInheritancesCompanion(')
+          ..write('id: $id, ')
+          ..write('gameId: $gameId, ')
+          ..write('dayNumber: $dayNumber, ')
+          ..write('fromPlayerId: $fromPlayerId, ')
+          ..write('toPlayerId: $toPlayerId, ')
+          ..write('trigger: $trigger, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -4513,6 +5004,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $NominationsTable nominations = $NominationsTable(this);
   late final $PoisonStatusesTable poisonStatuses = $PoisonStatusesTable(this);
   late final $BehaviorNotesTable behaviorNotes = $BehaviorNotesTable(this);
+  late final $DemonInheritancesTable demonInheritances =
+      $DemonInheritancesTable(this);
   late final GamesDao gamesDao = GamesDao(this as AppDatabase);
   late final PlayersDao playersDao = PlayersDao(this as AppDatabase);
   late final DayRecordsDao dayRecordsDao = DayRecordsDao(this as AppDatabase);
@@ -4530,6 +5023,9 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final BehaviorNotesDao behaviorNotesDao = BehaviorNotesDao(
     this as AppDatabase,
   );
+  late final DemonInheritancesDao demonInheritancesDao = DemonInheritancesDao(
+    this as AppDatabase,
+  );
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -4544,6 +5040,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     nominations,
     poisonStatuses,
     behaviorNotes,
+    demonInheritances,
   ];
   @override
   StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules([
@@ -4644,6 +5141,27 @@ abstract class _$AppDatabase extends GeneratedDatabase {
         limitUpdateKind: UpdateKind.delete,
       ),
       result: [TableUpdate('behavior_notes', kind: UpdateKind.delete)],
+    ),
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'games',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('demon_inheritances', kind: UpdateKind.delete)],
+    ),
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'players',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('demon_inheritances', kind: UpdateKind.delete)],
+    ),
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'players',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('demon_inheritances', kind: UpdateKind.update)],
     ),
   ]);
 }
@@ -4783,6 +5301,27 @@ final class $$GamesTableReferences
     ).filter((f) => f.gameId.id.sqlEquals($_itemColumn<int>('id')!));
 
     final cache = $_typedResult.readTableOrNull(_behaviorNotesRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
+  static MultiTypedResultKey<$DemonInheritancesTable, List<DemonInheritance>>
+  _demonInheritancesRefsTable(_$AppDatabase db) =>
+      MultiTypedResultKey.fromTable(
+        db.demonInheritances,
+        aliasName: 'games__id__demon_inheritances__game_id',
+      );
+
+  $$DemonInheritancesTableProcessedTableManager get demonInheritancesRefs {
+    final manager = $$DemonInheritancesTableTableManager(
+      $_db,
+      $_db.demonInheritances,
+    ).filter((f) => f.gameId.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(
+      _demonInheritancesRefsTable($_db),
+    );
     return ProcessedTableManager(
       manager.$state.copyWith(prefetchedData: cache),
     );
@@ -4992,6 +5531,31 @@ class $$GamesTableFilterComposer extends Composer<_$AppDatabase, $GamesTable> {
           }) => $$BehaviorNotesTableFilterComposer(
             $db: $db,
             $table: $db.behaviorNotes,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> demonInheritancesRefs(
+    Expression<bool> Function($$DemonInheritancesTableFilterComposer f) f,
+  ) {
+    final $$DemonInheritancesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.demonInheritances,
+      getReferencedColumn: (t) => t.gameId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$DemonInheritancesTableFilterComposer(
+            $db: $db,
+            $table: $db.demonInheritances,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -5258,6 +5822,32 @@ class $$GamesTableAnnotationComposer
     );
     return f(composer);
   }
+
+  Expression<T> demonInheritancesRefs<T extends Object>(
+    Expression<T> Function($$DemonInheritancesTableAnnotationComposer a) f,
+  ) {
+    final $$DemonInheritancesTableAnnotationComposer composer =
+        $composerBuilder(
+          composer: this,
+          getCurrentColumn: (t) => t.id,
+          referencedTable: $db.demonInheritances,
+          getReferencedColumn: (t) => t.gameId,
+          builder:
+              (
+                joinBuilder, {
+                $addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer,
+              }) => $$DemonInheritancesTableAnnotationComposer(
+                $db: $db,
+                $table: $db.demonInheritances,
+                $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                joinBuilder: joinBuilder,
+                $removeJoinBuilderFromRootComposer:
+                    $removeJoinBuilderFromRootComposer,
+              ),
+        );
+    return f(composer);
+  }
 }
 
 class $$GamesTableTableManager
@@ -5280,6 +5870,7 @@ class $$GamesTableTableManager
             bool nominationsRefs,
             bool poisonStatusesRefs,
             bool behaviorNotesRefs,
+            bool demonInheritancesRefs,
           })
         > {
   $$GamesTableTableManager(_$AppDatabase db, $GamesTable table)
@@ -5355,6 +5946,7 @@ class $$GamesTableTableManager
                 nominationsRefs = false,
                 poisonStatusesRefs = false,
                 behaviorNotesRefs = false,
+                demonInheritancesRefs = false,
               }) {
                 return PrefetchHooks(
                   db: db,
@@ -5365,6 +5957,7 @@ class $$GamesTableTableManager
                     if (nominationsRefs) db.nominations,
                     if (poisonStatusesRefs) db.poisonStatuses,
                     if (behaviorNotesRefs) db.behaviorNotes,
+                    if (demonInheritancesRefs) db.demonInheritances,
                   ],
                   addJoins: null,
                   getPrefetchedDataCallback: (items) async {
@@ -5479,6 +6072,27 @@ class $$GamesTableTableManager
                               ),
                           typedResults: items,
                         ),
+                      if (demonInheritancesRefs)
+                        await $_getPrefetchedData<
+                          Game,
+                          $GamesTable,
+                          DemonInheritance
+                        >(
+                          currentTable: table,
+                          referencedTable: $$GamesTableReferences
+                              ._demonInheritancesRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$GamesTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).demonInheritancesRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.gameId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
                     ];
                   },
                 );
@@ -5506,6 +6120,7 @@ typedef $$GamesTableProcessedTableManager =
         bool nominationsRefs,
         bool poisonStatusesRefs,
         bool behaviorNotesRefs,
+        bool demonInheritancesRefs,
       })
     >;
 typedef $$PlayersTableCreateCompanionBuilder =
@@ -5675,6 +6290,47 @@ final class $$PlayersTableReferences
     ).filter((f) => f.playerId.id.sqlEquals($_itemColumn<int>('id')!));
 
     final cache = $_typedResult.readTableOrNull(_behaviorNotesRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
+  static MultiTypedResultKey<$DemonInheritancesTable, List<DemonInheritance>>
+  _successionFromPlayersTable(_$AppDatabase db) =>
+      MultiTypedResultKey.fromTable(
+        db.demonInheritances,
+        aliasName: 'players__id__demon_inheritances__from_player_id',
+      );
+
+  $$DemonInheritancesTableProcessedTableManager get successionFromPlayers {
+    final manager = $$DemonInheritancesTableTableManager(
+      $_db,
+      $_db.demonInheritances,
+    ).filter((f) => f.fromPlayerId.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(
+      _successionFromPlayersTable($_db),
+    );
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
+  static MultiTypedResultKey<$DemonInheritancesTable, List<DemonInheritance>>
+  _successionToPlayersTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.demonInheritances,
+    aliasName: 'players__id__demon_inheritances__to_player_id',
+  );
+
+  $$DemonInheritancesTableProcessedTableManager get successionToPlayers {
+    final manager = $$DemonInheritancesTableTableManager(
+      $_db,
+      $_db.demonInheritances,
+    ).filter((f) => f.toPlayerId.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(
+      _successionToPlayersTable($_db),
+    );
     return ProcessedTableManager(
       manager.$state.copyWith(prefetchedData: cache),
     );
@@ -5920,6 +6576,56 @@ class $$PlayersTableFilterComposer
           }) => $$BehaviorNotesTableFilterComposer(
             $db: $db,
             $table: $db.behaviorNotes,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> successionFromPlayers(
+    Expression<bool> Function($$DemonInheritancesTableFilterComposer f) f,
+  ) {
+    final $$DemonInheritancesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.demonInheritances,
+      getReferencedColumn: (t) => t.fromPlayerId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$DemonInheritancesTableFilterComposer(
+            $db: $db,
+            $table: $db.demonInheritances,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> successionToPlayers(
+    Expression<bool> Function($$DemonInheritancesTableFilterComposer f) f,
+  ) {
+    final $$DemonInheritancesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.demonInheritances,
+      getReferencedColumn: (t) => t.toPlayerId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$DemonInheritancesTableFilterComposer(
+            $db: $db,
+            $table: $db.demonInheritances,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -6242,6 +6948,58 @@ class $$PlayersTableAnnotationComposer
     );
     return f(composer);
   }
+
+  Expression<T> successionFromPlayers<T extends Object>(
+    Expression<T> Function($$DemonInheritancesTableAnnotationComposer a) f,
+  ) {
+    final $$DemonInheritancesTableAnnotationComposer composer =
+        $composerBuilder(
+          composer: this,
+          getCurrentColumn: (t) => t.id,
+          referencedTable: $db.demonInheritances,
+          getReferencedColumn: (t) => t.fromPlayerId,
+          builder:
+              (
+                joinBuilder, {
+                $addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer,
+              }) => $$DemonInheritancesTableAnnotationComposer(
+                $db: $db,
+                $table: $db.demonInheritances,
+                $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                joinBuilder: joinBuilder,
+                $removeJoinBuilderFromRootComposer:
+                    $removeJoinBuilderFromRootComposer,
+              ),
+        );
+    return f(composer);
+  }
+
+  Expression<T> successionToPlayers<T extends Object>(
+    Expression<T> Function($$DemonInheritancesTableAnnotationComposer a) f,
+  ) {
+    final $$DemonInheritancesTableAnnotationComposer composer =
+        $composerBuilder(
+          composer: this,
+          getCurrentColumn: (t) => t.id,
+          referencedTable: $db.demonInheritances,
+          getReferencedColumn: (t) => t.toPlayerId,
+          builder:
+              (
+                joinBuilder, {
+                $addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer,
+              }) => $$DemonInheritancesTableAnnotationComposer(
+                $db: $db,
+                $table: $db.demonInheritances,
+                $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                joinBuilder: joinBuilder,
+                $removeJoinBuilderFromRootComposer:
+                    $removeJoinBuilderFromRootComposer,
+              ),
+        );
+    return f(composer);
+  }
 }
 
 class $$PlayersTableTableManager
@@ -6266,6 +7024,8 @@ class $$PlayersTableTableManager
             bool trustLogsRefs,
             bool poisonStatusesRefs,
             bool behaviorNotesRefs,
+            bool successionFromPlayers,
+            bool successionToPlayers,
           })
         > {
   $$PlayersTableTableManager(_$AppDatabase db, $PlayersTable table)
@@ -6341,6 +7101,8 @@ class $$PlayersTableTableManager
                 trustLogsRefs = false,
                 poisonStatusesRefs = false,
                 behaviorNotesRefs = false,
+                successionFromPlayers = false,
+                successionToPlayers = false,
               }) {
                 return PrefetchHooks(
                   db: db,
@@ -6352,6 +7114,8 @@ class $$PlayersTableTableManager
                     if (trustLogsRefs) db.trustLogs,
                     if (poisonStatusesRefs) db.poisonStatuses,
                     if (behaviorNotesRefs) db.behaviorNotes,
+                    if (successionFromPlayers) db.demonInheritances,
+                    if (successionToPlayers) db.demonInheritances,
                   ],
                   addJoins:
                       <
@@ -6534,6 +7298,48 @@ class $$PlayersTableTableManager
                               ),
                           typedResults: items,
                         ),
+                      if (successionFromPlayers)
+                        await $_getPrefetchedData<
+                          Player,
+                          $PlayersTable,
+                          DemonInheritance
+                        >(
+                          currentTable: table,
+                          referencedTable: $$PlayersTableReferences
+                              ._successionFromPlayersTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$PlayersTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).successionFromPlayers,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.fromPlayerId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                      if (successionToPlayers)
+                        await $_getPrefetchedData<
+                          Player,
+                          $PlayersTable,
+                          DemonInheritance
+                        >(
+                          currentTable: table,
+                          referencedTable: $$PlayersTableReferences
+                              ._successionToPlayersTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$PlayersTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).successionToPlayers,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.toPlayerId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
                     ];
                   },
                 );
@@ -6563,6 +7369,8 @@ typedef $$PlayersTableProcessedTableManager =
         bool trustLogsRefs,
         bool poisonStatusesRefs,
         bool behaviorNotesRefs,
+        bool successionFromPlayers,
+        bool successionToPlayers,
       })
     >;
 typedef $$DayRecordsTableCreateCompanionBuilder =
@@ -10168,6 +10976,553 @@ typedef $$BehaviorNotesTableProcessedTableManager =
       BehaviorNote,
       PrefetchHooks Function({bool gameId, bool playerId})
     >;
+typedef $$DemonInheritancesTableCreateCompanionBuilder =
+    DemonInheritancesCompanion Function({
+      Value<int> id,
+      required int gameId,
+      required int dayNumber,
+      required int fromPlayerId,
+      Value<int?> toPlayerId,
+      required SuccessionTrigger trigger,
+      Value<DateTime> createdAt,
+    });
+typedef $$DemonInheritancesTableUpdateCompanionBuilder =
+    DemonInheritancesCompanion Function({
+      Value<int> id,
+      Value<int> gameId,
+      Value<int> dayNumber,
+      Value<int> fromPlayerId,
+      Value<int?> toPlayerId,
+      Value<SuccessionTrigger> trigger,
+      Value<DateTime> createdAt,
+    });
+
+final class $$DemonInheritancesTableReferences
+    extends
+        BaseReferences<
+          _$AppDatabase,
+          $DemonInheritancesTable,
+          DemonInheritance
+        > {
+  $$DemonInheritancesTableReferences(
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
+
+  static $GamesTable _gameIdTable(_$AppDatabase db) =>
+      db.games.createAlias('demon_inheritances__game_id__games__id');
+
+  $$GamesTableProcessedTableManager get gameId {
+    final $_column = $_itemColumn<int>('game_id')!;
+
+    final manager = $$GamesTableTableManager(
+      $_db,
+      $_db.games,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_gameIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+
+  static $PlayersTable _fromPlayerIdTable(_$AppDatabase db) =>
+      db.players.createAlias('demon_inheritances__from_player_id__players__id');
+
+  $$PlayersTableProcessedTableManager get fromPlayerId {
+    final $_column = $_itemColumn<int>('from_player_id')!;
+
+    final manager = $$PlayersTableTableManager(
+      $_db,
+      $_db.players,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_fromPlayerIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+
+  static $PlayersTable _toPlayerIdTable(_$AppDatabase db) =>
+      db.players.createAlias('demon_inheritances__to_player_id__players__id');
+
+  $$PlayersTableProcessedTableManager? get toPlayerId {
+    final $_column = $_itemColumn<int>('to_player_id');
+    if ($_column == null) return null;
+    final manager = $$PlayersTableTableManager(
+      $_db,
+      $_db.players,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_toPlayerIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$DemonInheritancesTableFilterComposer
+    extends Composer<_$AppDatabase, $DemonInheritancesTable> {
+  $$DemonInheritancesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get dayNumber => $composableBuilder(
+    column: $table.dayNumber,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnWithTypeConverterFilters<SuccessionTrigger, SuccessionTrigger, String>
+  get trigger => $composableBuilder(
+    column: $table.trigger,
+    builder: (column) => ColumnWithTypeConverterFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$GamesTableFilterComposer get gameId {
+    final $$GamesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.gameId,
+      referencedTable: $db.games,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$GamesTableFilterComposer(
+            $db: $db,
+            $table: $db.games,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$PlayersTableFilterComposer get fromPlayerId {
+    final $$PlayersTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.fromPlayerId,
+      referencedTable: $db.players,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$PlayersTableFilterComposer(
+            $db: $db,
+            $table: $db.players,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$PlayersTableFilterComposer get toPlayerId {
+    final $$PlayersTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.toPlayerId,
+      referencedTable: $db.players,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$PlayersTableFilterComposer(
+            $db: $db,
+            $table: $db.players,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$DemonInheritancesTableOrderingComposer
+    extends Composer<_$AppDatabase, $DemonInheritancesTable> {
+  $$DemonInheritancesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get dayNumber => $composableBuilder(
+    column: $table.dayNumber,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get trigger => $composableBuilder(
+    column: $table.trigger,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$GamesTableOrderingComposer get gameId {
+    final $$GamesTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.gameId,
+      referencedTable: $db.games,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$GamesTableOrderingComposer(
+            $db: $db,
+            $table: $db.games,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$PlayersTableOrderingComposer get fromPlayerId {
+    final $$PlayersTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.fromPlayerId,
+      referencedTable: $db.players,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$PlayersTableOrderingComposer(
+            $db: $db,
+            $table: $db.players,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$PlayersTableOrderingComposer get toPlayerId {
+    final $$PlayersTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.toPlayerId,
+      referencedTable: $db.players,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$PlayersTableOrderingComposer(
+            $db: $db,
+            $table: $db.players,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$DemonInheritancesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $DemonInheritancesTable> {
+  $$DemonInheritancesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<int> get dayNumber =>
+      $composableBuilder(column: $table.dayNumber, builder: (column) => column);
+
+  GeneratedColumnWithTypeConverter<SuccessionTrigger, String> get trigger =>
+      $composableBuilder(column: $table.trigger, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  $$GamesTableAnnotationComposer get gameId {
+    final $$GamesTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.gameId,
+      referencedTable: $db.games,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$GamesTableAnnotationComposer(
+            $db: $db,
+            $table: $db.games,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$PlayersTableAnnotationComposer get fromPlayerId {
+    final $$PlayersTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.fromPlayerId,
+      referencedTable: $db.players,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$PlayersTableAnnotationComposer(
+            $db: $db,
+            $table: $db.players,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$PlayersTableAnnotationComposer get toPlayerId {
+    final $$PlayersTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.toPlayerId,
+      referencedTable: $db.players,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$PlayersTableAnnotationComposer(
+            $db: $db,
+            $table: $db.players,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$DemonInheritancesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $DemonInheritancesTable,
+          DemonInheritance,
+          $$DemonInheritancesTableFilterComposer,
+          $$DemonInheritancesTableOrderingComposer,
+          $$DemonInheritancesTableAnnotationComposer,
+          $$DemonInheritancesTableCreateCompanionBuilder,
+          $$DemonInheritancesTableUpdateCompanionBuilder,
+          (DemonInheritance, $$DemonInheritancesTableReferences),
+          DemonInheritance,
+          PrefetchHooks Function({
+            bool gameId,
+            bool fromPlayerId,
+            bool toPlayerId,
+          })
+        > {
+  $$DemonInheritancesTableTableManager(
+    _$AppDatabase db,
+    $DemonInheritancesTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$DemonInheritancesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$DemonInheritancesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$DemonInheritancesTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<int> gameId = const Value.absent(),
+                Value<int> dayNumber = const Value.absent(),
+                Value<int> fromPlayerId = const Value.absent(),
+                Value<int?> toPlayerId = const Value.absent(),
+                Value<SuccessionTrigger> trigger = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+              }) => DemonInheritancesCompanion(
+                id: id,
+                gameId: gameId,
+                dayNumber: dayNumber,
+                fromPlayerId: fromPlayerId,
+                toPlayerId: toPlayerId,
+                trigger: trigger,
+                createdAt: createdAt,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required int gameId,
+                required int dayNumber,
+                required int fromPlayerId,
+                Value<int?> toPlayerId = const Value.absent(),
+                required SuccessionTrigger trigger,
+                Value<DateTime> createdAt = const Value.absent(),
+              }) => DemonInheritancesCompanion.insert(
+                id: id,
+                gameId: gameId,
+                dayNumber: dayNumber,
+                fromPlayerId: fromPlayerId,
+                toPlayerId: toPlayerId,
+                trigger: trigger,
+                createdAt: createdAt,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$DemonInheritancesTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback:
+              ({gameId = false, fromPlayerId = false, toPlayerId = false}) {
+                return PrefetchHooks(
+                  db: db,
+                  explicitlyWatchedTables: [],
+                  addJoins:
+                      <
+                        T extends TableManagerState<
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic
+                        >
+                      >(state) {
+                        if (gameId) {
+                          state =
+                              state.withJoin(
+                                    currentTable: table,
+                                    currentColumn: table.gameId,
+                                    referencedTable:
+                                        $$DemonInheritancesTableReferences
+                                            ._gameIdTable(db),
+                                    referencedColumn:
+                                        $$DemonInheritancesTableReferences
+                                            ._gameIdTable(db)
+                                            .id,
+                                  )
+                                  as T;
+                        }
+                        if (fromPlayerId) {
+                          state =
+                              state.withJoin(
+                                    currentTable: table,
+                                    currentColumn: table.fromPlayerId,
+                                    referencedTable:
+                                        $$DemonInheritancesTableReferences
+                                            ._fromPlayerIdTable(db),
+                                    referencedColumn:
+                                        $$DemonInheritancesTableReferences
+                                            ._fromPlayerIdTable(db)
+                                            .id,
+                                  )
+                                  as T;
+                        }
+                        if (toPlayerId) {
+                          state =
+                              state.withJoin(
+                                    currentTable: table,
+                                    currentColumn: table.toPlayerId,
+                                    referencedTable:
+                                        $$DemonInheritancesTableReferences
+                                            ._toPlayerIdTable(db),
+                                    referencedColumn:
+                                        $$DemonInheritancesTableReferences
+                                            ._toPlayerIdTable(db)
+                                            .id,
+                                  )
+                                  as T;
+                        }
+
+                        return state;
+                      },
+                  getPrefetchedDataCallback: (items) async {
+                    return [];
+                  },
+                );
+              },
+        ),
+      );
+}
+
+typedef $$DemonInheritancesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $DemonInheritancesTable,
+      DemonInheritance,
+      $$DemonInheritancesTableFilterComposer,
+      $$DemonInheritancesTableOrderingComposer,
+      $$DemonInheritancesTableAnnotationComposer,
+      $$DemonInheritancesTableCreateCompanionBuilder,
+      $$DemonInheritancesTableUpdateCompanionBuilder,
+      (DemonInheritance, $$DemonInheritancesTableReferences),
+      DemonInheritance,
+      PrefetchHooks Function({bool gameId, bool fromPlayerId, bool toPlayerId})
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -10190,4 +11545,6 @@ class $AppDatabaseManager {
       $$PoisonStatusesTableTableManager(_db, _db.poisonStatuses);
   $$BehaviorNotesTableTableManager get behaviorNotes =>
       $$BehaviorNotesTableTableManager(_db, _db.behaviorNotes);
+  $$DemonInheritancesTableTableManager get demonInheritances =>
+      $$DemonInheritancesTableTableManager(_db, _db.demonInheritances);
 }

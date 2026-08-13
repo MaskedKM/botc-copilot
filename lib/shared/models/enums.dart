@@ -127,3 +127,34 @@ enum PoisonSource {
   /// 中文显示名。
   final String nameCn;
 }
+
+/// 恶魔传承触发机制(issue #89 公理5)。
+enum SuccessionTrigger {
+  /// Imp 夜间自杀传位:恶魔/说书人选一名存活爪牙继承。
+  suicideByImp('恶魔自杀传位'),
+
+  /// 绯红女自动继承:恶魔死亡 + SW 存活 + 死前 ≥5 存活 → SW 成新恶魔。
+  scarletWoman('绯红女继承');
+
+  const SuccessionTrigger(this.nameCn);
+
+  /// 中文显示名。
+  final String nameCn;
+}
+
+/// 恶魔死亡方式(issue #89 传承检测用，不持久化）。
+enum DeathWay {
+  /// Imp 夜间自杀。
+  suicide('自杀'),
+
+  /// 白天处决。
+  execution('处决'),
+
+  /// Slayer 击杀。
+  slayer('猎杀');
+
+  const DeathWay(this.nameCn);
+
+  /// 中文显示名。
+  final String nameCn;
+}
