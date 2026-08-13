@@ -102,7 +102,7 @@ abstract final class ContradictionDetector {
     // 已确认角色（issue #82）：仅死亡揭示视为「确认」（村规流程）。
     final confirmedRoles = <int, Character>{}; // playerId → confirmed
     for (final c in claims) {
-      if (c.claimType.name == 'revealedOnDeath') {
+      if (c.claimType == ClaimType.revealedOnDeath) {
         confirmedRoles[c.playerId] = c.character;
       }
     }
@@ -147,7 +147,7 @@ abstract final class ContradictionDetector {
   ) {
     final byCharacter = <Character, List<int>>{};
     for (final e in latestClaim.entries) {
-      if (e.value.claimType.name == 'revealedOnDeath') continue;
+      if (e.value.claimType == ClaimType.revealedOnDeath) continue;
       // 只看好人角色（镇民/外来者）——爪牙/恶魔重复声明不构成矛盾信息
       if (e.value.character.team == Team.townsfolk ||
           e.value.character.team == Team.outsider) {
@@ -181,7 +181,7 @@ abstract final class ContradictionDetector {
   ) {
     final result = <Contradiction>[];
     for (final e in latestClaim.entries) {
-      if (e.value.claimType.name == 'revealedOnDeath') continue;
+      if (e.value.claimType == ClaimType.revealedOnDeath) continue;
       // 死亡揭示（村规确认）冲突
       if (confirmedRoles.values.contains(e.value.character) &&
           !confirmedRoles.containsKey(e.key)) {
