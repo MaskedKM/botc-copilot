@@ -16,7 +16,9 @@ import 'package:botc_copilot/shared/widgets/help_tooltip.dart';
 import 'package:botc_copilot/feature/game_board/presentation/providers/game_board_provider.dart';
 import 'package:botc_copilot/feature/player_detail/data/player_detail_repository.dart';
 import 'package:botc_copilot/feature/player_detail/domain/info_payload_formatter.dart';
+import 'package:botc_copilot/feature/player_detail/domain/next_unclaimed_player.dart';
 import 'package:botc_copilot/feature/player_detail/presentation/widgets/info_input_factory.dart';
+import 'package:botc_copilot/feature/reasoning/data/contradictions_provider.dart';
 import 'package:botc_copilot/shared/game_private.dart';
 import 'package:botc_copilot/shared/models/enums.dart';
 import 'package:botc_copilot/shared/reliability.dart';
@@ -35,6 +37,7 @@ class PlayerDetailSheet extends ConsumerStatefulWidget {
   const PlayerDetailSheet({
     required this.gameId,
     required this.player,
+    this.enableChain = false,
     super.key,
   });
 
@@ -44,20 +47,29 @@ class PlayerDetailSheet extends ConsumerStatefulWidget {
   /// 目标玩家。
   final Player player;
 
-  /// 弹出玩家详情。
-  static Future<void> show(
+  /// 是否启用「保存并下一位」首夜队列（#134）。圆环点按开启；矛盾列表等
+  /// 查看入口关闭。仅非己、进行中时实际显示该按钮。
+  final bool enableChain;
+
+  /// 弹出玩家详情；返回值 = 「保存并下一位」时下一个待开玩家，否则 null。
+  static Future<Player?> show(
     BuildContext context, {
     required int gameId,
     required Player player,
+    bool enableChain = false,
   }) {
-    return showModalBottomSheet<void>(
+    return showModalBottomSheet<Player?>(
       context: context,
       isScrollControlled: true,
       builder: (_) => Padding(
         padding: EdgeInsets.only(
           bottom: MediaQuery.of(context).viewInsets.bottom,
         ),
-        child: PlayerDetailSheet(gameId: gameId, player: player),
+        child: PlayerDetailSheet(
+          gameId: gameId,
+          player: player,
+          enableChain: enableChain,
+        ),
       ),
     );
   }
@@ -125,8 +137,8 @@ class _PlayerDetailSheetState extends ConsumerState<PlayerDetailSheet> {
       (_poisonTouched && _draftPoison != initialPoison) ||
       (_drunkTouched && _draftDrunk != initialDrunk);
 
-  /// 提交所有草稿变更到 DB，完成后关闭。
-  Future<void> _save({
+  /// 提交所有草稿变更到 DB（不关闭弹层）。_save / _saveAndNext 共用。
+  Future<void> _commitChanges({
     required Character? initialRole,
     required TrustLevel initialTrust,
     required bool initialPoison,
@@ -178,12 +190,50 @@ class _PlayerDetailSheetState extends ConsumerState<PlayerDetailSheet> {
     } finally {
       if (mounted) setState(() => _saving = false);
     }
+  }
+
+  /// 保存并关闭弹层。
+  Future<void> _save({
+    required Character? initialRole,
+    required TrustLevel initialTrust,
+    required bool initialPoison,
+    required bool initialDrunk,
+    required int day,
+  }) async {
+    await _commitChanges(
+      initialRole: initialRole,
+      initialTrust: initialTrust,
+      initialPoison: initialPoison,
+      initialDrunk: initialDrunk,
+      day: day,
+    );
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('已保存')),
       );
-      Navigator.of(context).pop();
+      Navigator.of(context).pop(null);
     }
+  }
+
+  /// 保存并打开下一个未声明的玩家（首夜队列加速器，#134）。
+  Future<void> _saveAndNext({
+    required Character? initialRole,
+    required TrustLevel initialTrust,
+    required bool initialPoison,
+    required bool initialDrunk,
+    required int day,
+    required Player next,
+  }) async {
+    await _commitChanges(
+      initialRole: initialRole,
+      initialTrust: initialTrust,
+      initialPoison: initialPoison,
+      initialDrunk: initialDrunk,
+      day: day,
+    );
+    if (!mounted) return;
+    // 把下一个玩家作为弹层返回值；调用方循环打开（_openDetailChain）。
+    Navigator.of(context).pop(next);
   }
 
   /// 有未保存修改时弹「丢弃修改？」确认；无修改直接关闭。
@@ -267,6 +317,20 @@ class _PlayerDetailSheetState extends ConsumerState<PlayerDetailSheet> {
       initialPoison: initialPoison,
       initialDrunk: initialDrunk,
     );
+
+    // 「保存并下一位」候选（仅 enableChain 且非己、进行中时计算，#134）。
+    final chainEnabled = widget.enableChain && !isMe && !readOnly;
+    final allClaims =
+        ref.watch(gameClaimsProvider(widget.gameId)).valueOrNull ??
+            const <RoleClaim>[];
+    final nextPlayer = chainEnabled
+        ? nextUnclaimedPlayer(
+            players: players,
+            claimedPlayerIds: allClaims.map((c) => c.playerId).toSet(),
+            fromPlayerId: playerId,
+            myPlayerId: game?.myPlayerId,
+          )
+        : null;
 
     return PopScope(
       // 有未保存修改时阻止直接返回 / 下拉关闭，改走确认。
@@ -437,18 +501,43 @@ class _PlayerDetailSheetState extends ConsumerState<PlayerDetailSheet> {
               // 保存按钮仅进行中显示（复盘只读，#134）
               if (!readOnly) ...[
                 const SizedBox(height: 20),
-                FilledButton.icon(
-                  onPressed: (dirty && !_saving)
-                      ? () => _save(
-                            initialRole: initialRole,
-                            initialTrust: initialTrust,
-                            initialPoison: initialPoison,
-                            initialDrunk: initialDrunk,
-                            day: day,
-                          )
-                      : null,
-                  icon: const Icon(Icons.save_outlined),
-                  label: Text(_saving ? '保存中…' : '保存'),
+                Row(
+                  children: [
+                    Expanded(
+                      child: FilledButton.icon(
+                        onPressed: (dirty && !_saving)
+                            ? () => _save(
+                                  initialRole: initialRole,
+                                  initialTrust: initialTrust,
+                                  initialPoison: initialPoison,
+                                  initialDrunk: initialDrunk,
+                                  day: day,
+                                )
+                            : null,
+                        icon: const Icon(Icons.save_outlined),
+                        label: Text(_saving ? '保存中…' : '保存'),
+                      ),
+                    ),
+                    // 保存并下一位（首夜队列加速器，#134）：保存当前并自动
+                    // 跳到下一个未声明玩家。无未声明者时禁用。
+                    if (chainEnabled) ...[
+                      const SizedBox(width: 8),
+                      FilledButton.icon(
+                        onPressed: (nextPlayer != null && !_saving)
+                            ? () => _saveAndNext(
+                                  initialRole: initialRole,
+                                  initialTrust: initialTrust,
+                                  initialPoison: initialPoison,
+                                  initialDrunk: initialDrunk,
+                                  day: day,
+                                  next: nextPlayer,
+                                )
+                            : null,
+                        icon: const Icon(Icons.skip_next),
+                        label: const Text('下一位'),
+                      ),
+                    ],
+                  ],
                 ),
               ],
             ],

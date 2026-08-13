@@ -251,11 +251,7 @@ class _GameBoardBody extends ConsumerWidget {
                           .where((p) => p.id == id)
                           .firstOrNull;
                       if (player != null) {
-                        PlayerDetailSheet.show(
-                          context,
-                          gameId: gameId,
-                          player: player,
-                        );
+                        _openDetailChain(context, player);
                       }
                     },
                     onPlayerLongPress: game.status != GameStatus.ongoing
@@ -339,6 +335,26 @@ class _GameBoardBody extends ConsumerWidget {
   ///
   /// 信任度直选 / 快速备注 / 标记死亡（含 #136 传承检测），免去开整个玩家
   /// 详情滚 6 段。
+  /// 圆环点按 → 玩家详情链（#134 首夜队列）。
+  ///
+  /// 循环 `await PlayerDetailSheet.show`：sheet 返回下一个待开玩家（点
+  /// 「下一位」时）则继续打开，否则退出。await 保证上一弹层动画结束再开
+  /// 下一弹层，无堆叠/闪烁。
+  Future<void> _openDetailChain(
+    BuildContext context,
+    Player start,
+  ) async {
+    Player? current = start;
+    while (current != null) {
+      current = await PlayerDetailSheet.show(
+        context,
+        gameId: gameId,
+        player: current,
+        enableChain: true,
+      );
+    }
+  }
+
   Future<void> _showQuickActions(
     BuildContext context,
     WidgetRef ref,
