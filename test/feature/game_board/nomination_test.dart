@@ -298,6 +298,20 @@ void main() {
       expect(error, '今日已处决，提名阶段已结束');
     });
 
+    test('提名者已死亡 → 拒绝（防御纵深，#91）', () async {
+      final error = await repo.addNomination(
+        gameId: gameId,
+        dayRecordId: dayRecordId,
+        nominatorId: players[6].id, // 7 号在 setUp 中已 markDead
+        nomineeId: players[1].id,
+        votes: votesFor([1, 2, 3]),
+        players: players,
+        todayNominations: [],
+        allNominations: [],
+      );
+      expect(error, '提名者已死亡，不可提名');
+    });
+
     test('死票用过后不可再用', () async {
       // 第一次：7 号用死票
       await repo.addNomination(
