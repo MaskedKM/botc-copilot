@@ -35,11 +35,14 @@ Future<void> handleSuccession(
   }
 
   // 继承人候选：
-  // - 自杀：我是恶魔→私密爪牙名单；好人→存活声明爪牙；SW 满足时加 SW。
-  // - 处决/Slayer：规则上仅 SW 可继承（checkDemonDeath 已保证 SW 在场），
-  //   无 SW 则善良胜，故候选只含 SW，避免误选其他爪牙。
+  // - SW 满足时**强制 SW**（官方 "passes first"——SW eligible 时必须 SW 继承，
+  //   优先于自杀选其他爪牙；#149 S-1 已 WebSearch 核实 Wiki）。
+  // - 无 SW + 自杀：我是恶魔→私密爪牙名单；好人→存活声明爪牙。
+  // - 处决/Slayer：仅 SW 可继承（checkDemonDeath 保证 SW 在场），无 SW 则善良胜。
   final heirSet = <int>{};
-  if (candidate.way == DeathWay.suicide) {
+  if (candidate.scarletWomanPlayerId != null) {
+    heirSet.add(candidate.scarletWomanPlayerId!);
+  } else if (candidate.way == DeathWay.suicide) {
     final isDemonMe = game?.myRole == Character.imp &&
         game?.myPlayerId == candidate.demonPlayerId;
     if (isDemonMe && game != null) {
@@ -53,9 +56,6 @@ Future<void> handleSuccession(
         }
       }
     }
-  }
-  if (candidate.scarletWomanPlayerId != null) {
-    heirSet.add(candidate.scarletWomanPlayerId!);
   }
   final heirs = heirSet.map((id) => (playerId: id, name: nameOf(id))).toList();
 
