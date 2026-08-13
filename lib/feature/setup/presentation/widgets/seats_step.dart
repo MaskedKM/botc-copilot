@@ -15,6 +15,9 @@ class SeatsStep extends ConsumerWidget {
     // controller 管理，避免每次击键重建导致焦点丢失。
     final rowCount =
         ref.watch(setupProvider.select((s) => s.playerNames.length));
+    // 仅在合法性翻转时重建（非每次击键），保焦点（#163 P1）。
+    final nameError =
+        ref.watch(setupProvider.select((s) => s.nameValidationError));
     final notifier = ref.read(setupProvider.notifier);
     final gameColors = context.gameColors;
 
@@ -33,6 +36,15 @@ class SeatsStep extends ConsumerWidget {
             style: AppTextStyles.caption.copyWith(color: gameColors.inkViolet),
           ),
         ),
+        if (nameError != null)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+            child: Text(
+              nameError,
+              style: AppTextStyles.caption
+                  .copyWith(color: gameColors.bloodBright),
+            ),
+          ),
         Expanded(
           child: ReorderableListView.builder(
             padding: const EdgeInsets.symmetric(horizontal: 16),
