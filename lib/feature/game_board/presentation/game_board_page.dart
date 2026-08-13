@@ -14,6 +14,8 @@ import 'package:botc_copilot/feature/game_board/presentation/widgets/day_panels.
 import 'package:botc_copilot/feature/game_board/presentation/widgets/my_info_sheet.dart';
 import 'package:botc_copilot/feature/game_board/presentation/widgets/seat_ring.dart';
 import 'package:botc_copilot/feature/game_board/presentation/widgets/voting_panel.dart';
+import 'package:botc_copilot/feature/player_detail/data/behavior_note_repository.dart';
+import 'package:botc_copilot/feature/player_detail/data/player_detail_repository.dart';
 import 'package:botc_copilot/feature/player_detail/presentation/player_detail_sheet.dart';
 import 'package:botc_copilot/feature/reasoning/data/contradictions_provider.dart';
 import 'package:botc_copilot/feature/reasoning/presentation/reasoning_dashboard.dart';
@@ -258,7 +260,7 @@ class _GameBoardBody extends ConsumerWidget {
                           },
                     onPlayerLongPress: game.status != GameStatus.ongoing
                         ? null
-                        : (id) => _quickToggleDead(context, ref, id),
+                        : (id) => _showQuickActions(context, ref, id),
                     centerChild: _DayBadge(day: boardState.currentDay),
                   ),
                 ),
@@ -331,6 +333,35 @@ class _GameBoardBody extends ConsumerWidget {
         );
       }
     }
+  }
+
+  /// 长按座位 → 快捷操作菜单（UI-STYLE §6.1，issue #134）。
+  ///
+  /// 信任度直选 / 快速备注 / 标记死亡（含 #136 传承检测），免去开整个玩家
+  /// 详情滚 6 段。
+  Future<void> _showQuickActions(
+    BuildContext context,
+    WidgetRef ref,
+    int playerId,
+  ) async {
+    final players = ref.read(gamePlayersProvider(gameId)).valueOrNull ?? [];
+    final player = players.where((p) => p.id == playerId).firstOrNull;
+    if (player == null) return;
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (_) => Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom,
+        ),
+        child: _QuickActionsSheet(
+          game: game,
+          player: player,
+          onDeath: () => _quickToggleDead(context, ref, playerId),
+        ),
+      ),
+    );
   }
 
   Future<void> _quickToggleDead(
@@ -521,6 +552,184 @@ class _ContextHint extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// 长按快捷操作弹层（issue #134，UI-STYLE §6.1）。
+///
+/// 信任度直选 / 快速备注 / 标记死亡——首夜高频操作不必打开完整玩家详情。
+class _QuickActionsSheet extends ConsumerStatefulWidget {
+  const _QuickActionsSheet({
+    required this.game,
+    required this.player,
+    required this.onDeath,
+  });
+
+  /// 当前对局。
+  final Game game;
+
+  /// 目标玩家。
+  final Player player;
+
+  /// 「标记死亡/复活」回调（关闭快捷菜单后由父级走 [_GameBoardBody._quickToggleDead]）。
+  final VoidCallback onDeath;
+
+  @override
+  ConsumerState<_QuickActionsSheet> createState() =>
+      _QuickActionsSheetState();
+}
+
+class _QuickActionsSheetState extends ConsumerState<_QuickActionsSheet> {
+  final _noteController = TextEditingController();
+  bool _noteOpen = false;
+
+  @override
+  void dispose() {
+    _noteController.dispose();
+    super.dispose();
+  }
+
+  int get _gameId => widget.game.id;
+
+  int get _day =>
+      ref.read(gameBoardProvider(_gameId).select((s) => s.currentDay));
+
+  Future<void> _setTrust(TrustLevel level) async {
+    await ref.read(playerDetailRepositoryProvider).setTrustLevel(
+          gameId: _gameId,
+          playerId: widget.player.id,
+          day: _day,
+          level: level,
+        );
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('${widget.player.seatNumber}号 → ${level.nameCn}'),
+          duration: const Duration(seconds: 1),
+        ),
+      );
+    }
+  }
+
+  Future<void> _addNote() async {
+    final note = _noteController.text.trim();
+    if (note.isEmpty) return;
+    await ref.read(behaviorNoteRepositoryProvider).addNote(
+          gameId: _gameId,
+          playerId: widget.player.id,
+          dayNumber: _day,
+          note: note,
+        );
+    _noteController.clear();
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('备注已添加'),
+          duration: Duration(seconds: 1),
+        ),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final gameColors = context.gameColors;
+    final trustMap =
+        ref.watch(latestTrustLevelsProvider(_gameId)).valueOrNull ??
+            const <int, TrustLevel>{};
+    final current = trustMap[widget.player.id] ?? TrustLevel.unknown;
+
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '${widget.player.seatNumber}号 ${widget.player.name}',
+              style: AppTextStyles.title,
+            ),
+            const SizedBox(height: 12),
+            const Text('信任度', style: AppTextStyles.headline),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 4,
+              children: [
+                for (final level in TrustLevel.values)
+                  ChoiceChip(
+                    label: Text(level.nameCn),
+                    selected: current == level,
+                    selectedColor: gameColors.ofTrustLevel(level),
+                    onSelected: (_) => _setTrust(level),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                const Expanded(
+                  child: Text('快速备注', style: AppTextStyles.headline),
+                ),
+                TextButton.icon(
+                  onPressed: () =>
+                      setState(() => _noteOpen = !_noteOpen),
+                  icon: Icon(
+                    _noteOpen ? Icons.expand_less : Icons.expand_more,
+                    size: 20,
+                  ),
+                  label: const Text('备注'),
+                ),
+              ],
+            ),
+            if (_noteOpen) ...[
+              const SizedBox(height: 4),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _noteController,
+                      textInputAction: TextInputAction.done,
+                      decoration: const InputDecoration(
+                        hintText: '如：投票犹豫 / 主动带票冲 X号',
+                        isDense: true,
+                      ),
+                      onSubmitted: (_) => _addNote(),
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: '添加',
+                    icon: const Icon(Icons.add),
+                    onPressed: _addNote,
+                  ),
+                ],
+              ),
+            ],
+            const SizedBox(height: 8),
+            const Divider(),
+            ListTile(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(
+                widget.player.isAlive
+                    ? Icons.dangerous_outlined
+                    : Icons.favorite,
+                color: gameColors.blood,
+              ),
+              title: Text(
+                widget.player.isAlive ? '标记死亡…' : '复活…',
+                style: TextStyle(color: gameColors.blood),
+              ),
+              onTap: () {
+                Navigator.of(context).pop();
+                widget.onDeath();
+              },
+            ),
+          ],
+        ),
       ),
     );
   }
