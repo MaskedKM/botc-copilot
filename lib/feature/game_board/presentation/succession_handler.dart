@@ -89,6 +89,22 @@ Future<void> handleSuccession(
         role: reveal,
       );
     }
+    // #149 BUG-1 场景B：传承完成后再判人头邪恶胜（Imp 自杀 + 爪牙传承后
+    // 存活 ≤ 2）。SW 传承必在存活 ≥4 时发生（不误触）；仅普通传位（自杀）
+    // 可能落到 ≤2，此时恶魔仍在场 → 邪恶胜。
+    if (!context.mounted) return;
+    final aliveAfter = (await db.playersDao.watchByGame(gameId).first)
+        .where((p) => p.isAlive)
+        .length;
+    if (GameEndRules.isEvilWinCandidate(aliveAfter)) {
+      final evil = await EndGameDialog.showEvilCandidate(
+        context,
+        aliveCount: aliveAfter,
+      );
+      if ((evil ?? false) && context.mounted) {
+        await notifier.endGame(goodWin: false);
+      }
+    }
   } else {
     // 恶魔真死 → 善良胜
     await notifier.endGame(

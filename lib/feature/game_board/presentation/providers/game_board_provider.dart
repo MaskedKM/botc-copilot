@@ -160,16 +160,16 @@ class GameBoardNotifier extends StateNotifier<GameBoardState> {
       }
     });
     if (playerId == null) return null;
-    final evil = await _evilWinCheck();
-    if (evil != null) return evil;
-    // 恶魔自杀传承检测(issue #89):死者疑似恶魔(声明/真身 Imp,或用户标
-    // demonCandidate——好人视角真恶魔不声明 Imp,靠信任度兜底)→ 传承候选。
+    // #149 BUG-1：恶魔死亡时**先**解析传承（公理5：有爪牙→传承/继续，
+    // 无爪牙→善良胜），**再**判人头邪恶胜。原先先 _evilWinCheck 短路会跳过
+    // 传承——Imp 自杀且无爪牙时误判邪恶胜（应善良胜），取消则卡死。
     final claimed = await _effectiveCharacter(playerId);
     if (SuccessionRules.isDemonDeath(claimed) ||
         await _isDemonCandidate(playerId)) {
       return checkDemonDeath(playerId, way: DeathWay.suicide);
     }
-    return null;
+    // 非恶魔死亡 → 判人头邪恶胜（存活 ≤ 2）。
+    return _evilWinCheck();
   }
 
   /// 记录白天处决（null = 无处决）。
@@ -307,12 +307,10 @@ class GameBoardNotifier extends StateNotifier<GameBoardState> {
         day,
         DeathCause.other,
       );
-      final evil = await _evilWinCheck();
-      if (evil != null) return evil;
-      // 恶魔传承检测（#136 公理5，与 recordNightDeath 路径统一）：
-      // 长按标死者疑似恶魔（声明/真身 Imp，或被标 demonCandidate）→ 传承候选。
-      // 仅当天标死触发——补记历史死亡（deathDay < currentDay）时，存活/SW 阈值/
-      // 毒查均需按死亡时点算，App 无历史快照，故补记不自动检测（留给用户手动）。
+      // #149 BUG-1：恶魔死亡先传承（与 recordNightDeath 路径统一），非恶魔
+      // 死亡才判人头邪恶胜。原先先 _evilWinCheck 短路会跳过传承。
+      // 仅当天标死触发传承——补记历史死亡（deathDay < currentDay）时，存活/
+      // SW 阈值/毒查均需按死亡时点算，App 无历史快照，故补记不自动检测。
       final claimed = await _effectiveCharacter(player.id);
       final isToday = deathDay == null || deathDay == state.currentDay;
       if (isToday &&
@@ -320,7 +318,7 @@ class GameBoardNotifier extends StateNotifier<GameBoardState> {
               await _isDemonCandidate(player.id))) {
         return checkDemonDeath(player.id, way: DeathWay.suicide);
       }
-      return null;
+      return _evilWinCheck();
     } else {
       await _db.playersDao.revive(player.id);
       return null;
