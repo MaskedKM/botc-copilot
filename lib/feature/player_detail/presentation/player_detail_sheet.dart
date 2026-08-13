@@ -77,7 +77,39 @@ class _PlayerDetailSheetState extends ConsumerState<PlayerDetailSheet> {
   bool _drunkTouched = false;
   bool _draftDrunk = false;
 
+  /// 草稿声明是否已随信息提交自动落库（#134 解耦）。
+  ///
+  /// 信息提交会先写声明；此标记让 `_isDirty`/`_save` 的角色块跳过，避免
+  /// 声明流刷新前（pre-refresh 窗口）重复插入声明。
+  bool _claimAutoCommitted = false;
+
   bool _saving = false;
+
+  /// 信息提交前确保草稿声明已落库（#134 解耦）。
+  ///
+  /// 非己玩家选了角色 chip 但尚未保存时直接录信息会造成「孤儿信息」——
+  /// 该信息关联的角色没有对应声明。此处先写声明再录信息，杜绝孤儿。
+  Future<void> _commitDraftClaim() async {
+    if (!_roleTouched || _draftRole == null || _claimAutoCommitted) return;
+    final claims = ref
+            .read(playerClaimsProvider(widget.player.id))
+            .valueOrNull ??
+        const <RoleClaim>[];
+    final saved = claims.isEmpty ? null : claims.last.character;
+    if (_draftRole == saved) {
+      // 草稿与已存声明一致，仅标记，避免重复写
+      if (mounted) setState(() => _claimAutoCommitted = true);
+      return;
+    }
+    final notifier = ref.read(gameBoardProvider(widget.gameId).notifier);
+    final dayRecordId = await notifier.ensureCurrentDayRecord();
+    await ref.read(playerDetailRepositoryProvider).claimRole(
+          playerId: widget.player.id,
+          dayRecordId: dayRecordId,
+          character: _draftRole!,
+        );
+    if (mounted) setState(() => _claimAutoCommitted = true);
+  }
 
   /// 是否存在未保存的修改。
   bool _isDirty({
@@ -86,7 +118,9 @@ class _PlayerDetailSheetState extends ConsumerState<PlayerDetailSheet> {
     required bool initialPoison,
     required bool initialDrunk,
   }) =>
-      (_roleTouched && _draftRole != initialRole) ||
+      (_roleTouched &&
+              !_claimAutoCommitted &&
+              _draftRole != initialRole) ||
       (_trustTouched && _draftTrust != initialTrust) ||
       (_poisonTouched && _draftPoison != initialPoison) ||
       (_drunkTouched && _draftDrunk != initialDrunk);
@@ -105,8 +139,11 @@ class _PlayerDetailSheetState extends ConsumerState<PlayerDetailSheet> {
       final poisonRepo = ref.read(poisonRepositoryProvider);
       final notifier = ref.read(gameBoardProvider(widget.gameId).notifier);
 
-      // 角色声明（仅当改了且选了角色）
-      if (_roleTouched && _draftRole != null && _draftRole != initialRole) {
+      // 角色声明（仅当改了且选了角色；已随信息自动落库则跳过，#134）
+      if (_roleTouched &&
+          !_claimAutoCommitted &&
+          _draftRole != null &&
+          _draftRole != initialRole) {
         final dayRecordId = await notifier.ensureCurrentDayRecord();
         await repo.claimRole(
           playerId: widget.player.id,
@@ -298,6 +335,8 @@ class _PlayerDetailSheetState extends ConsumerState<PlayerDetailSheet> {
                   onSelect: (c) => setState(() {
                     _roleTouched = true;
                     _draftRole = c;
+                    // 改草稿后重置：允许新角色随信息提交重新自动落库（#134）
+                    _claimAutoCommitted = false;
                   }),
                 ),
               // 一次性能力：我座位按真实角色，他人按声明角色
@@ -315,26 +354,22 @@ class _PlayerDetailSheetState extends ConsumerState<PlayerDetailSheet> {
                 ),
               ],
               const SizedBox(height: 16),
-              // 信息录入：我座位直接以真实角色录入（isMine=true），不要求
-              // 先声明角色（#105）。他人仍需先保存声明，避免孤儿信息记录。
-              if (effectiveRole != null)
+              // 信息录入（#134 解耦）：我座位按真实角色；他人按**草稿**角色
+              // （选 chip 即刻出现录入区），提交时自动落库声明，免去
+              // 「保存→关→重开」。我座位仍 isMine=true（#105）。
+              if (isMe ? myRole != null : displayRole != null)
                 _InfoInputSection(
                   gameId: widget.gameId,
                   playerId: playerId,
                   day: day,
-                  character: effectiveRole,
+                  character: isMe ? myRole! : displayRole!,
                   players: players,
                   isMine: isMe,
+                  onEnsureClaim: _commitDraftClaim,
                 )
               else if (isMe)
                 Text(
                   '开局未设置角色，无法录入信息。',
-                  style: AppTextStyles.caption
-                      .copyWith(color: context.gameColors.inkViolet),
-                )
-              else if (displayRole != null)
-                Text(
-                  '点「保存」确认声明后，即可录入 ${displayRole.nameCn} 的信息。',
                   style: AppTextStyles.caption
                       .copyWith(color: context.gameColors.inkViolet),
                 )
@@ -464,6 +499,7 @@ class _InfoInputSection extends ConsumerWidget {
     required this.day,
     required this.character,
     required this.players,
+    required this.onEnsureClaim,
     this.isMine = false,
   });
 
@@ -475,6 +511,9 @@ class _InfoInputSection extends ConsumerWidget {
 
   /// 是否录入「我的」信息（我座位以真实角色录入，写入 isMine=true，#105）。
   final bool isMine;
+
+  /// 提交信息前回调：确保草稿声明已落库（#134 解耦，杜绝孤儿信息）。
+  final Future<void> Function() onEnsureClaim;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -488,6 +527,8 @@ class _InfoInputSection extends ConsumerWidget {
           players: players,
           actingPlayerId: playerId,
           onSubmit: (payload) async {
+            // 先落库草稿声明（非己且选了 chip 时），再录信息（#134）
+            await onEnsureClaim();
             final notifier = ref.read(gameBoardProvider(gameId).notifier);
             final dayRecordId = await notifier.ensureCurrentDayRecord();
             await ref.read(playerDetailRepositoryProvider).declareInfo(
