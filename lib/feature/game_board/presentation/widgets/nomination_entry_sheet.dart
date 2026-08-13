@@ -13,6 +13,7 @@ import 'package:botc_copilot/feature/reasoning/data/dependency_chain_provider.da
 import 'package:botc_copilot/feature/reasoning/domain/latest_claim.dart';
 import 'package:botc_copilot/shared/widgets/help_tooltip.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// 提名录入弹层：选提名者 → 选被提名者 → 逐人投票。
@@ -291,6 +292,7 @@ class _NominationEntrySheetState extends ConsumerState<NominationEntrySheet> {
                     isDense: true,
                     border: OutlineInputBorder(),
                   ),
+                  inputFormatters: [LengthLimitingTextInputFormatter(1000)],
                 ),
               ],
               // 新手提示：提名/投票规则（issue #41）

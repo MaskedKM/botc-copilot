@@ -6,6 +6,7 @@ import 'package:botc_copilot/core/database/app_database.dart';
 import 'package:botc_copilot/core/theme/app_text_styles.dart';
 import 'package:botc_copilot/feature/player_detail/presentation/widgets/player_pair_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 /// 信息输入工厂：根据角色的 InfoInputType 返回对应输入组件。
 ///
@@ -468,6 +469,7 @@ class _FreeTextInputState extends State<_FreeTextInput> {
               hintText: '记录信息…',
               isDense: true,
             ),
+            inputFormatters: [LengthLimitingTextInputFormatter(500)],
             onChanged: (_) => setState(() {}),
           ),
         ),

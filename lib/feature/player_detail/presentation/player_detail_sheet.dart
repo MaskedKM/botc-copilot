@@ -25,6 +25,7 @@ import 'package:botc_copilot/shared/game_private.dart';
 import 'package:botc_copilot/shared/models/enums.dart';
 import 'package:botc_copilot/shared/reliability.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// 玩家详情底部弹层（issue #7 / #69）。
@@ -1084,6 +1085,7 @@ class _BehaviorNoteSectionState extends ConsumerState<_BehaviorNoteSection> {
                     hintText: '如：投票时犹豫 / 主动带票冲 X号',
                     isDense: true,
                   ),
+                  inputFormatters: [LengthLimitingTextInputFormatter(500)],
                   onSubmitted: (_) => _submit(),
                 ),
               ),

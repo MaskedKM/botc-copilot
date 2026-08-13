@@ -22,6 +22,7 @@ import 'package:botc_copilot/feature/reasoning/data/contradictions_provider.dart
 import 'package:botc_copilot/feature/reasoning/presentation/reasoning_dashboard.dart';
 import 'package:botc_copilot/shared/models/enums.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// 对局主界面（issue #6）：座位圆环 + 当日面板。
@@ -755,6 +756,7 @@ class _QuickActionsSheetState extends ConsumerState<_QuickActionsSheet> {
                         hintText: '如：投票犹豫 / 主动带票冲 X号',
                         isDense: true,
                       ),
+                      inputFormatters: [LengthLimitingTextInputFormatter(500)],
                       onSubmitted: (_) => _addNote(),
                     ),
                   ),
