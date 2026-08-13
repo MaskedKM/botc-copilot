@@ -51,5 +51,20 @@ void main() {
       expect(Character.saint.isGood, isTrue);
       expect(Character.mayor.isGood, isTrue);
     });
+
+    // #152 BUG-1：恶魔 Bluff 候选 = 不在场的好人角色（镇民 + 外来者）。
+    // confirm_step 用 c.team.isGood 筛选；此处守住「好人阵营不含爪牙/恶魔」契约。
+    test('Bluff 候选（team.isGood）只含镇民 + 外来者，不含爪牙/恶魔（#152）', () {
+      final bluffEligible = Character.values.where((c) => c.team.isGood).toSet();
+      // 含镇民、外来者
+      expect(bluffEligible, contains(Character.chef)); // 镇民
+      expect(bluffEligible, contains(Character.saint)); // 外来者
+      // 不含任何爪牙或恶魔
+      for (final c in Character.values) {
+        if (c.team == Team.minion || c.team == Team.demon) {
+          expect(bluffEligible, isNot(contains(c)), reason: '${c.name} 不应在 Bluff 候选');
+        }
+      }
+    });
   });
 }

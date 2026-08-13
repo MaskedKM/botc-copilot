@@ -285,15 +285,16 @@ abstract final class ContradictionDetector {
       if (day == null || empath == null) continue;
 
       // 当天存活者的座位集合（deathDay 为空或 > 当天）。
-      // 当天被处决者仍算存活邻居（处决在 Empath 读取之后），当夜被杀者
-      // 不算（被杀在 Empath 读取之前）——issue #78。
+      // Empath 在当夜读取（早于该日所有白天事件）：同日**非夜杀**死亡者
+      // （处决 / Slayer 击杀 / 长按标死，均为白天）读取时仍存活，算邻居；
+      // 同日夜杀者读取前已死，不算——issue #78 / #151 C1。
       final aliveThen = playersById.values
           .where(
             (p) =>
                 p.deathDay == null ||
                 p.deathDay! > day ||
                 (p.deathDay == day &&
-                    p.deathCause == DeathCause.execution),
+                    p.deathCause != DeathCause.nightKill),
           )
           .toList();
       final neighbors = _aliveNeighbors(empath, aliveThen);

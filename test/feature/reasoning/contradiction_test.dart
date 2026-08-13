@@ -466,6 +466,33 @@ void main() {
     expect(result, isEmpty);
   });
 
+  test('规则4：当天 Slayer/长按标死的邻居仍算存活（#151 C1）', () {
+    // 3 号当天死于 other（Slayer 击杀 / 长按标死，均白天）→ Empath 当夜
+    // 读取时仍存活，邻居仍为 1、3（与 execution 同）。旧代码漏算 other 会
+    // 把 3 排除 → 邻居 [1,4] → 报 1 匹配 → 不报警（错误）。
+    final deadPlayers = {
+      ...players,
+      3: _player(3, 3, deathDay: 2, deathCause: DeathCause.other),
+    };
+    final result = ContradictionDetector.detect(
+      claims: [
+        _claim(2, Character.empath),
+        _claim(1, Character.chef),
+        _claim(3, Character.butler),
+        _claim(4, Character.poisoner), // 若 3 被错误排除，会成为右邻居
+      ],
+      declarations: [_empathDecl(2, 10, 1)],
+      days: [],
+      playersById: deadPlayers,
+      dayRecordToDayNumber: {10: 2},
+      expectedOutsiders: 1,
+    );
+    // 3 仍算邻居 → 邻居 1、3 皆好人 → 报 1 邪恶 → mismatch，涉及 2、1、3
+    expect(result, hasLength(1));
+    expect(result[0].playerIds, containsAll([2, 1, 3]));
+    expect(result[0].playerIds, isNot(contains(4)));
+  });
+
   test('规则5：无人死亡夜晚 → noDeathNight 提示', () {
     final result = ContradictionDetector.detect(
       claims: [],

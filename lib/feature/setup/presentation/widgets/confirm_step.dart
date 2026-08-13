@@ -115,7 +115,10 @@ class ConfirmStep extends ConsumerWidget {
                       runSpacing: 4,
                       children: [
                         for (final c in Character.values.where(
-                          (c) => c.team != Team.demon,
+                          // #152 BUG-1：官方 Bluff = 3 个不在场的好人角色
+                          // （镇民 + 外来者）。原 `!= demon` 误含爪牙（Poisoner/
+                          // Spy/SW/Baron），污染角色矩阵标注与排除法矛盾检测。
+                          (c) => c.team.isGood,
                         ))
                           ChoiceChip(
                             label: Text(c.nameCn),

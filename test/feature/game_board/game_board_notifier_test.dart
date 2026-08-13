@@ -117,6 +117,40 @@ void main() {
     expect(updated[1].deathCause, isNull);
   });
 
+  // #149 BUG-1：恶魔死亡应先传承（DemonSuccessionCandidate），不得被
+  // _evilWinCheck 短路成 EvilWinCandidate（Imp 自杀无爪牙时应善良胜，非邪恶胜）。
+  test('recordNightDeath：恶魔死先传承，不短路邪恶胜（#149 BUG-1）', () async {
+    // 我是 Imp（座位1），杀到剩 3 存活（我 + 2 好人，无爪牙）
+    await db.gamesDao.updateMyRole(gameId, Character.imp);
+    await db.gamesDao.updateMyPlayerId(gameId, players[0].id);
+    for (final i in [2, 3, 4, 5]) {
+      await db.playersDao.markDead(players[i].id, 1, DeathCause.nightKill);
+    }
+    // Imp 夜死 → 返回传承候选（先传承/善良胜），非 EvilWinCandidate
+    final suggestion = await notifier().recordNightDeath(players[0].id);
+    expect(suggestion, isA<DemonSuccessionCandidate>());
+  });
+
+  test('recordNightDeath：非恶魔死 + 存活 ≤2 → 邪恶胜候选（#149）', () async {
+    // 杀到 3 存活（均好人：myPlayerId 未设）
+    for (final i in [2, 3, 4, 5]) {
+      await db.playersDao.markDead(players[i].id, 1, DeathCause.nightKill);
+    }
+    // players[1]（好人）夜死 → 非恶魔 → 人头邪恶胜
+    final suggestion = await notifier().recordNightDeath(players[1].id);
+    expect(suggestion, isA<EvilWinCandidate>());
+  });
+
+  test('quickToggleDead：恶魔长按标死先传承（#149 BUG-1）', () async {
+    await db.gamesDao.updateMyRole(gameId, Character.imp);
+    await db.gamesDao.updateMyPlayerId(gameId, players[0].id);
+    for (final i in [2, 3, 4, 5]) {
+      await db.playersDao.markDead(players[i].id, 1, DeathCause.nightKill);
+    }
+    final suggestion = await notifier().quickToggleDead(players[0]);
+    expect(suggestion, isA<DemonSuccessionCandidate>());
+  });
+
   test('recordExecution：处决标记死亡', () async {
     await notifier().recordExecution(players[4].id);
     final updated = await db.playersDao.watchByGame(gameId).first;
@@ -293,6 +327,23 @@ void main() {
     await notifier().quickToggleDead(players[1], deathDay: 99);
     final updated = await db.playersDao.watchByGame(gameId).first;
     expect(updated[1].deathDay, 2);
+  });
+
+  // #151 C1 review：长按标死的 deathCause 按夜晚是否确认区分——夜阶段记
+  // nightKill（Empath 读取前已死，排除邻座），白天阶段记 other（算存活邻居）。
+  test('quickToggleDead：夜阶段记 nightKill / 白天阶段记 other（#151 review）',
+      () async {
+    // 夜晚未确认 → 长按标死 = 夜死
+    await notifier().quickToggleDead(players[1]);
+    var updated = await db.playersDao.watchByGame(gameId).first;
+    expect(updated[1].deathCause, DeathCause.nightKill);
+
+    // 复活后确认夜晚（nightConfirmed=true）→ 长按标死 = 白天死
+    await notifier().revivePlayer(players[1].id);
+    await notifier().recordNightDeath(null);
+    await notifier().quickToggleDead(players[2]);
+    updated = await db.playersDao.watchByGame(gameId).first;
+    expect(updated[2].deathCause, DeathCause.other);
   });
 
   test('quickToggleDead：标死声明 Imp 的玩家 → 传承候选（#136 公理5）', () async {
