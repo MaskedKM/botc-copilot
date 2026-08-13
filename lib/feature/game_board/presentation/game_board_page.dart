@@ -224,7 +224,7 @@ class _GameBoardBody extends ConsumerWidget {
                   style: AppTextStyles.headline.copyWith(
                     color: game.status == GameStatus.goodWin
                         ? gameColors.trustConfirmedGood
-                        : gameColors.blood,
+                        : gameColors.bloodBright,
                   ),
                 ),
               ),

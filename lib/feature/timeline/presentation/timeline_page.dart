@@ -64,7 +64,7 @@ class TimelinePage extends ConsumerWidget {
                         style: AppTextStyles.headline.copyWith(
                           color: goodWin
                               ? gameColors.trustConfirmedGood
-                              : gameColors.blood,
+                              : gameColors.bloodBright,
                         ),
                       ),
                     ],
