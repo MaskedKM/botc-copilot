@@ -71,8 +71,9 @@ class _GameCard extends ConsumerWidget {
     return Dismissible(
       key: ValueKey('game-${game.id}'),
       direction: DismissDirection.endToStart,
-      confirmDismiss: (_) => _confirmDelete(context),
-      onDismissed: (_) => _delete(ref),
+      // 删除在 confirmDismiss 内完成——成功才返回 true（卡片消失），失败返回
+      // false（卡片复位）+ SnackBar，避免「视觉消失但 DB 行仍在」（#158 home-1）。
+      confirmDismiss: (_) => _confirmAndDelete(context, ref),
       background: Container(
         alignment: Alignment.centerRight,
         padding: const EdgeInsets.only(right: 16),
@@ -105,8 +106,8 @@ class _GameCard extends ConsumerWidget {
     );
   }
 
-  Future<bool?> _confirmDelete(BuildContext context) {
-    return showDialog<bool>(
+  Future<bool> _confirmAndDelete(BuildContext context, WidgetRef ref) async {
+    final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('删除对局'),
@@ -126,11 +127,17 @@ class _GameCard extends ConsumerWidget {
         ],
       ),
     );
-  }
-
-  Future<void> _delete(WidgetRef ref) async {
-    final db = ref.read(appDatabaseProvider);
-    await db.gamesDao.deleteGame(game.id);
+    if (confirmed != true) return false; // 取消 → 不删除、卡片复位
+    try {
+      await ref.read(appDatabaseProvider).gamesDao.deleteGame(game.id);
+      return true; // 成功 → 卡片消失
+    } on Object {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('删除失败，请重试')));
+      }
+      return false; // 失败 → 卡片复位（#158 home-1）
+    }
   }
 }
 
