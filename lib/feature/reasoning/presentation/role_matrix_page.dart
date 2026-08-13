@@ -256,7 +256,7 @@ class _MatrixTable extends StatelessWidget {
         quarterTurns: 3,
         child: Text(
           col.character.nameCn,
-          style: AppTextStyles.caption.copyWith(color: color, fontSize: 10),
+          style: AppTextStyles.caption.copyWith(color: color, fontSize: 11),
           overflow: TextOverflow.ellipsis,
         ),
       ),

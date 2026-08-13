@@ -562,7 +562,7 @@ class _DayBadge extends StatelessWidget {
         const SizedBox(height: 2),
         const Text(
           '◆',
-          style: TextStyle(color: AppColors.lineGold, fontSize: 10),
+          style: TextStyle(color: AppColors.lineGold, fontSize: 11),
         ),
       ],
     );

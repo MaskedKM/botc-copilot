@@ -346,7 +346,7 @@ Widget _refChip(String text, GameColors gameColors) {
       color: gameColors.inkViolet.withValues(alpha: 0.12),
       borderRadius: BorderRadius.circular(4),
     ),
-    child: Text(text, style: AppTextStyles.caption.copyWith(fontSize: 10)),
+    child: Text(text, style: AppTextStyles.caption.copyWith(fontSize: 11)),
   );
 }
 
