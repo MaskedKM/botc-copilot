@@ -2,6 +2,7 @@ import 'package:botc_copilot/core/constants/character.dart';
 import 'package:botc_copilot/core/database/app_database.dart';
 import 'package:botc_copilot/core/database/database_provider.dart';
 import 'package:botc_copilot/feature/game_board/domain/game_end.dart';
+import 'package:botc_copilot/feature/game_board/domain/succession.dart';
 import 'package:botc_copilot/shared/models/enums.dart';
 import 'package:drift/drift.dart' hide Column;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -63,6 +64,13 @@ final latestTrustLevelsProvider =
     }
     return result;
   });
+});
+
+/// 某局的恶魔传承事件（issue #89）。
+final gameSuccessionsProvider =
+    StreamProvider.family<List<DemonInheritance>, int>((ref, gameId) {
+  final db = ref.watch(appDatabaseProvider);
+  return db.demonInheritancesDao.watchByGame(gameId);
 });
 
 /// 当前对局的帮助层级（issue #41，默认 normal）。
@@ -151,7 +159,16 @@ class GameBoardNotifier extends StateNotifier<GameBoardState> {
       }
     });
     if (playerId == null) return null;
-    return _evilWinCheck();
+    final evil = await _evilWinCheck();
+    if (evil != null) return evil;
+    // 恶魔自杀传承检测(issue #89):死者疑似恶魔(声明/真身 Imp,或用户标
+    // demonCandidate——好人视角真恶魔不声明 Imp,靠信任度兜底)→ 传承候选。
+    final claimed = await _effectiveCharacter(playerId);
+    if (SuccessionRules.isDemonDeath(claimed) ||
+        await _isDemonCandidate(playerId)) {
+      return checkDemonDeath(playerId, way: DeathWay.suicide);
+    }
+    return null;
   }
 
   /// 记录白天处决（null = 无处决）。
@@ -346,6 +363,154 @@ class GameBoardNotifier extends StateNotifier<GameBoardState> {
       }
     }
     return false;
+  }
+
+  /// 玩家有效角色（我是该座位→myRole 真身，他人→最新公开声明）。
+  ///
+  /// 用于规则判定：夜死警告、传承触发等关注**真实能力**的场景。
+  Future<Character?> _effectiveCharacter(int playerId) async {
+    final game = await _db.gamesDao.getById(_gameId);
+    if (game?.myPlayerId == playerId) return game?.myRole;
+    final claims = await _db.roleClaimsDao.watchByPlayer(playerId).first;
+    return claims.isNotEmpty ? claims.last.character : null;
+  }
+
+  /// 玩家是否被标记为恶魔候选（夜死传承触发的兜底）。
+  ///
+  /// 好人视角下真恶魔不会声明 Imp，单靠声明/真身会漏判；信任度被标为
+  /// demonCandidate 的玩家夜死时也提示传承，由用户在确认框裁决。
+  Future<bool> _isDemonCandidate(int playerId) async {
+    final logs = await _db.trustLogsDao.watchByGame(_gameId).first;
+    TrustLevel? latest;
+    for (final l in logs) {
+      if (l.playerId == playerId) latest = l.trustLevel;
+    }
+    return latest == TrustLevel.demonCandidate;
+  }
+
+  /// 恶魔死亡后的传承检测（issue #89 公理5，三路径统一入口）。
+  ///
+  /// [way]：[DeathWay.suicide]（Imp 夜间自杀）/ [DeathWay.execution]
+  /// （处决恶魔，用户已确认）/ [DeathWay.slayer]（Slayer 击杀恶魔）。
+  ///
+  /// 返回 [DemonSuccessionCandidate] 让 UI 弹确认框：
+  /// - SW 满足（在场存活 + 死前 ≥5 + 首次）→ 绯红女优先继承；
+  /// - 自杀 + 无 SW → 普通传位（选存活爪牙）；
+  /// - 处决/Slayer + 无 SW → 返回 null（善良胜，不传位）。
+  Future<GameEndSuggestion?> checkDemonDeath(
+    int demonPlayerId, {
+    required DeathWay way,
+  }) async {
+    final players = await _db.playersDao.watchByGame(_gameId).first;
+    final aliveAfter = players.where((p) => p.isAlive).length;
+    final thresholdMet =
+        SuccessionRules.isScarletWomanThreshold(aliveAfter);
+    final firstTime = !await _db.demonInheritancesDao
+        .hasScarletWomanSuccession(_gameId);
+    int? swId;
+    var swTainted = false;
+    if (thresholdMet && firstTime) {
+      final sw = await _scarletWomanInPlay();
+      if (sw != null) {
+        swId = sw.playerId;
+        swTainted = sw.tainted;
+      }
+    }
+    final swHappens = swId != null;
+    // 处决/Slayer 仅在 SW 在场时才产生候选；自杀总有候选（普通传位 or SW）。
+    if (!swHappens && way != DeathWay.suicide) return null;
+    final demon = players.where((p) => p.id == demonPlayerId).firstOrNull;
+    return DemonSuccessionCandidate(
+      demonPlayerId: demonPlayerId,
+      demonName: demon != null ? '${demon.seatNumber}号 ${demon.name}' : '?',
+      way: way,
+      aliveCountAfter: aliveAfter,
+      scarletWomanEligible: swHappens,
+      scarletWomanPlayerId: swId,
+      scarletWomanTainted: swTainted,
+    );
+  }
+
+  /// 绯红女是否在场存活（issue #89 门控）。
+  ///
+  /// 返回 SW 的 playerId 与 tainted（被标毒/醉）：「我」是 SW 取 myRole；
+  /// 否则取最新声明 == SW 且存活。tainted = suspectedDrunk（整局醉）或当日
+  /// 活跃毒（Poisoner）——仅作提示，App 不能确认真身毒/醉。
+  Future<({int playerId, bool tainted})?> _scarletWomanInPlay() async {
+    final game = await _db.gamesDao.getById(_gameId);
+    final players = await _db.playersDao.watchByGame(_gameId).first;
+    final byId = {for (final p in players) p.id: p};
+    // 我是 SW 且存活
+    final myId = game?.myPlayerId;
+    if (game?.myRole == Character.scarletWoman &&
+        myId != null &&
+        byId[myId]?.isAlive == true) {
+      return (playerId: myId, tainted: await _tainted(myId, byId));
+    }
+    // 最新声明 SW 且存活
+    final claims = await _db.roleClaimsDao.watchByGame(_gameId).first;
+    final latestByPlayer = <int, Character>{};
+    for (final c in claims) {
+      latestByPlayer[c.playerId] = c.character;
+    }
+    for (final entry in latestByPlayer.entries) {
+      if (entry.value == Character.scarletWoman &&
+          byId[entry.key]?.isAlive == true) {
+        return (
+          playerId: entry.key,
+          tainted: await _tainted(entry.key, byId),
+        );
+      }
+    }
+    return null;
+  }
+
+  /// 玩家是否被标记毒/醉（整局 suspectedDrunk 或当日活跃毒）。
+  ///
+  /// 注：按天毒（PoisonStatuses）的精确时序（当夜+次日生效）见 issue #109，
+  /// 此处仅查当日 isActive 作近似——传承的 tainted 只作「警告不阻止」提示，
+  /// App 无法确认真身毒/醉，由用户在确认框最终裁决。
+  Future<bool> _tainted(int playerId, Map<int, Player> byId) async {
+    final drunk = byId[playerId]?.suspectedDrunk ?? false;
+    if (drunk) return true;
+    final ps = await _db.poisonStatusesDao.findByPlayerAndDay(
+      playerId,
+      state.currentDay,
+    );
+    return ps?.isActive ?? false;
+  }
+
+  /// 记录传承事件 + 更新恶魔候选（issue #89）。
+  ///
+  /// 写入 DemonInheritances（fromPlayerId → toPlayerId）；若 [toPlayerId]
+  /// 非空，标记其为恶魔候选（TrustLog），使推理面板恶魔池反映继承人。
+  Future<void> recordSuccession({
+    required int fromPlayerId,
+    int? toPlayerId,
+    required SuccessionTrigger trigger,
+  }) async {
+    await _db.transaction(() async {
+      await _db.demonInheritancesDao.insertSuccession(
+        DemonInheritancesCompanion(
+          gameId: Value(_gameId),
+          dayNumber: Value(state.currentDay),
+          fromPlayerId: Value(fromPlayerId),
+          toPlayerId:
+              toPlayerId != null ? Value(toPlayerId) : const Value.absent(),
+          trigger: Value(trigger),
+        ),
+      );
+      if (toPlayerId != null) {
+        await _db.trustLogsDao.insertLog(
+          TrustLogsCompanion(
+            gameId: Value(_gameId),
+            playerId: Value(toPlayerId),
+            dayNumber: Value(state.currentDay),
+            trustLevel: const Value(TrustLevel.demonCandidate),
+          ),
+        );
+      }
+    });
   }
 
   /// 撤销最近一次推进（仅当天为预建的空记录时，issue #87）。

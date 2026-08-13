@@ -4,6 +4,8 @@ import 'package:botc_copilot/core/theme/app_colors.dart';
 import 'package:botc_copilot/core/theme/app_text_styles.dart';
 import 'package:botc_copilot/core/theme/game_colors.dart';
 import 'package:botc_copilot/feature/game_board/data/poison_repository.dart';
+import 'package:botc_copilot/feature/game_board/domain/game_end.dart';
+import 'package:botc_copilot/feature/game_board/presentation/succession_handler.dart';
 import 'package:botc_copilot/feature/player_detail/data/ability_repository.dart';
 import 'package:botc_copilot/feature/player_detail/data/behavior_note_repository.dart';
 import 'package:botc_copilot/shared/widgets/help_tooltip.dart';
@@ -1025,18 +1027,28 @@ class _AbilitySectionState extends ConsumerState<_AbilitySection> {
           wasPoisoned: _wasPoisoned,
           day: widget.day,
         );
-    if (mounted) {
-      setState(() => _submitting = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            result == SlayerGuessResult.killed
-                ? '击杀成功：目标已死亡。若目标为恶魔，游戏结束'
-                    '（善良胜；绯红女在场且存活 ≥5 则恶魔已传承）'
-                : '未击杀（目标非恶魔 或 你被毒/醉），能力已永久消耗',
-          ),
-        ),
+    if (!mounted) return;
+    setState(() => _submitting = false);
+    // recordSlayerGuess 仅在 targetIsDemon && !wasPoisoned 时返回 killed。
+    if (result == SlayerGuessResult.killed) {
+      // 击中恶魔 → 查 SW 传承（在场则不终局），否则善良胜（issue #89）
+      final notifier = ref.read(gameBoardProvider(widget.gameId).notifier);
+      final succ = await notifier.checkDemonDeath(
+        _targetId!,
+        way: DeathWay.slayer,
       );
+      if (!mounted) return;
+      if (succ is DemonSuccessionCandidate) {
+        await handleSuccession(context, ref, widget.gameId, succ);
+      } else {
+        await notifier.endGame(goodWin: true, revealedPlayerId: _targetId);
+      }
+      return;
     }
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('未击杀（目标非恶魔 或 你被毒/醉），能力已永久消耗'),
+      ),
+    );
   }
 }

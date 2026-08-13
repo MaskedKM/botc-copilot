@@ -280,3 +280,42 @@ class TrustLogs extends Table {
   /// 信任度等级。
   TextColumn get trustLevel => textEnum<TrustLevel>()();
 }
+
+/// 恶魔传承事件表（issue #89 公理5）：恶魔死亡 → 爪牙继承的离散事件。
+///
+/// 每条记录 = 一次传承（append-only）：
+/// - 绯红女优先（SW 存活 + 死前 ≥5 → SW 自动继承，恶魔不可选）；
+/// - 否则 Imp 自杀时恶魔/说书人选一名存活爪牙继承；
+/// - 处决/Slayer 杀恶魔 + 无 SW → 善良胜（不产生传承记录）。
+///
+/// [toPlayerId] 为空表示「传承发生但继承人未知」（好人推断视角，App
+/// 不知真实爪牙）。最新记录的 `toPlayerId`（非空）= 推理面板「当前恶魔」。
+class DemonInheritances extends Table {
+  /// 自增主键。
+  IntColumn get id => integer().autoIncrement()();
+
+  /// 所属对局。
+  IntColumn get gameId =>
+      integer().references(Games, #id, onDelete: KeyAction.cascade)();
+
+  /// 传承发生的天数。
+  IntColumn get dayNumber => integer()();
+
+  /// 原恶魔（死者）。
+  @ReferenceName('successionFromPlayers')
+  IntColumn get fromPlayerId =>
+      integer().references(Players, #id, onDelete: KeyAction.cascade)();
+
+  /// 继承人（新恶魔）。空 = 传承发生但继承人未知。
+  @ReferenceName('successionToPlayers')
+  IntColumn get toPlayerId => integer()
+      .nullable()
+      .references(Players, #id, onDelete: KeyAction.setNull)();
+
+  /// 传承机制（绯红女继承 / 恶魔自杀传位）。
+  TextColumn get trigger => textEnum<SuccessionTrigger>()();
+
+  /// 记录时间。
+  DateTimeColumn get createdAt =>
+      dateTime().withDefault(currentDateAndTime)();
+}

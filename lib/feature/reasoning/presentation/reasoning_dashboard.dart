@@ -39,6 +39,8 @@ class _ReasoningDashboardState extends ConsumerState<ReasoningDashboard> {
     final trustLevels =
         ref.watch(latestTrustLevelsProvider(widget.gameId)).valueOrNull ??
             {};
+    final successions =
+        ref.watch(gameSuccessionsProvider(widget.gameId)).valueOrNull ?? [];
     final gameColors = context.gameColors;
 
     // 按信任度分组（可选只看存活）
@@ -65,6 +67,14 @@ class _ReasoningDashboardState extends ConsumerState<ReasoningDashboard> {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
+        // 恶魔传承链（issue #89）：发生传承时置顶展示 from→to。
+        if (successions.isNotEmpty) ...[
+          _LatestSuccessionSection(
+            successions: successions,
+            playersById: {for (final p in players) p.id: p},
+          ),
+          const SizedBox(height: 8),
+        ],
         // 恶魔候选池（置顶，核心视图）
         _DemonPoolSection(pool: demonPool, total: players.length),
         const SizedBox(height: 8),
@@ -154,6 +164,73 @@ class _ReasoningDashboardState extends ConsumerState<ReasoningDashboard> {
         // 矛盾检测（issue #38 面板内嵌）
         ContradictionPanel(gameId: widget.gameId),
       ],
+    );
+  }
+}
+
+/// 恶魔传承链展示（issue #89）：最新一次 from→to，附累计次数。
+///
+/// 继承人（toPlayerId）非空时已被 [recordSuccession] 标为 demonCandidate，
+/// 自动进入恶魔候选池；此处额外展示传承方向与机制。
+class _LatestSuccessionSection extends StatelessWidget {
+  const _LatestSuccessionSection({
+    required this.successions,
+    required this.playersById,
+  });
+
+  final List<DemonInheritance> successions;
+  final Map<int, Player> playersById;
+
+  @override
+  Widget build(BuildContext context) {
+    if (successions.isEmpty) return const SizedBox.shrink();
+    final latest = successions.last;
+    final gameColors = context.gameColors;
+    String nameOf(int id) {
+      final p = playersById[id];
+      return p != null ? '${p.seatNumber}号 ${p.name}' : '?';
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: gameColors.blood.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: gameColors.blood.withValues(alpha: 0.4)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.swap_horiz, size: 18, color: gameColors.blood),
+              const SizedBox(width: 6),
+              Text(
+                '恶魔传承（第 ${latest.dayNumber} 天）',
+                style: AppTextStyles.headline.copyWith(color: gameColors.blood),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            latest.toPlayerId != null
+                ? '${nameOf(latest.fromPlayerId)} → ${nameOf(latest.toPlayerId!)}'
+                    '（${latest.trigger.nameCn}）'
+                : '${nameOf(latest.fromPlayerId)} 传承，继承人未知'
+                    '（${latest.trigger.nameCn}）',
+            style: AppTextStyles.body,
+          ),
+          if (successions.length > 1)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                '共 ${successions.length} 次传承',
+                style: AppTextStyles.caption
+                    .copyWith(color: gameColors.inkViolet),
+              ),
+            ),
+        ],
+      ),
     );
   }
 }

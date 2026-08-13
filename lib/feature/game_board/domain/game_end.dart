@@ -1,4 +1,5 @@
 import 'package:botc_copilot/core/constants/character.dart';
+import 'package:botc_copilot/shared/models/enums.dart';
 
 /// 对局结束建议（issue #37）。
 ///
@@ -47,6 +48,50 @@ class MayorVictoryCandidate extends GameEndSuggestion {
   final int aliveCount;
 }
 
+/// 恶魔死亡，可能传承或善良胜（issue #89 公理5）。
+///
+/// 三种触发路径：Imp 夜间自杀（[DeathWay.suicide]）、白天处决恶魔
+/// （[DeathWay.execution]）、Slayer 击杀恶魔（[DeathWay.slayer]）。
+/// 与 [MayorVictoryCandidate] 同级——需用户在确认框裁决：
+/// - [scarletWomanEligible] = true → 绯红女自动继承，预选 SW 为继承人；
+/// - 否则自杀路径 → 选一名存活爪牙继承；处决/Slayer 路径 → 善良胜。
+///
+/// [scarletWomanTainted] 仅作提示（SW 被标毒/醉时按规则可能不触发，由
+/// 用户裁决）——App 无法确认真身毒/醉，遵循「警告不阻止」原则。
+class DemonSuccessionCandidate extends GameEndSuggestion {
+  /// 创建候选。
+  const DemonSuccessionCandidate({
+    required this.demonPlayerId,
+    required this.demonName,
+    required this.way,
+    required this.aliveCountAfter,
+    required this.scarletWomanEligible,
+    required this.scarletWomanPlayerId,
+    required this.scarletWomanTainted,
+  });
+
+  /// 死亡的恶魔玩家 id。
+  final int demonPlayerId;
+
+  /// 恶魔显示名（座位号+名字）。
+  final String demonName;
+
+  /// 恶魔死亡方式。
+  final DeathWay way;
+
+  /// 死后存活人数（用于阈值判断与显示）。
+  final int aliveCountAfter;
+
+  /// SW 是否满足继承条件（在场存活 + 死前 ≥5 + 首次）。
+  final bool scarletWomanEligible;
+
+  /// SW 玩家 id（[scarletWomanEligible] 为 true 时非空）。
+  final int? scarletWomanPlayerId;
+
+  /// SW 是否被标记毒/醉（提示用，不改变 [scarletWomanEligible]）。
+  final bool scarletWomanTainted;
+}
+
 /// 对局结束规则（纯函数，可测试）。
 abstract final class GameEndRules {
   /// 处决阈值之外的核心规则：存活 ≤ 2 时邪恶获胜候选。
@@ -72,5 +117,28 @@ class GameEndResult {
   final bool? goodWin;
 
   /// 可选：被处决者揭示的角色（死亡揭示声明）。
+  final Character? revealedRole;
+}
+
+/// 传承确认结果（dialog 返回，issue #89）。
+class SuccessionResult {
+  /// 创建结果。
+  const SuccessionResult({
+    required this.occurred,
+    this.toPlayerId,
+    this.trigger,
+    this.revealedRole,
+  });
+
+  /// true = 传承发生（游戏继续）；false = 恶魔真死，善良胜。
+  final bool occurred;
+
+  /// 继承人（新恶魔）。occurred=true 且继承人已知时非空。
+  final int? toPlayerId;
+
+  /// 传承机制。
+  final SuccessionTrigger? trigger;
+
+  /// 可选：恶魔的死亡揭示角色（处决/Slayer 路径用）。
   final Character? revealedRole;
 }

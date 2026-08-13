@@ -135,6 +135,8 @@ class _EventTile extends StatelessWidget {
           (Icons.edit_note, gameColors.inkViolet),
       TimelineEventType.nomination =>
           (Icons.how_to_vote, gameColors.goldBright),
+      TimelineEventType.demonSuccession =>
+          (Icons.swap_horiz, gameColors.blood),
     };
 
     return Padding(

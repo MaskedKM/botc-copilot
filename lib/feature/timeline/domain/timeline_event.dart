@@ -29,6 +29,9 @@ enum TimelineEventType {
 
   /// 行为备注（issue #36）。
   behaviorNote,
+
+  /// 恶魔传承（Imp 自杀→爪牙继承 / 绯红女继承，issue #89）。
+  demonSuccession,
 }
 
 /// 一条时间线事件。
@@ -74,6 +77,7 @@ abstract final class TimelineBuilder {
     List<PoisonStatus> poisonStatuses = const [],
     List<BehaviorNote> behaviorNotes = const [],
     List<Nomination> nominations = const [],
+    List<DemonInheritance> successions = const [],
   }) {
     String nameOf(int? playerId) {
       if (playerId == null) return '';
@@ -193,6 +197,18 @@ abstract final class TimelineBuilder {
                 type: TimelineEventType.behaviorNote,
                 summary: '${nameOf(note.playerId)}：${note.note}',
                 playerId: note.playerId,
+              ),
+            // 恶魔传承（issue #89）：置于当日末尾——处决/Slayer 触发的传承
+            // 必须晚于其触发事件（处决），夜死触发的同在此处亦不早于夜死。
+            for (final s in successions.where(
+              (s) => s.dayNumber == day.dayNumber,
+            ))
+              TimelineEvent(
+                type: TimelineEventType.demonSuccession,
+                summary: s.toPlayerId != null
+                    ? '${nameOf(s.fromPlayerId)}（恶魔）→ ${nameOf(s.toPlayerId)} 传承（${s.trigger.nameCn}）'
+                    : '${nameOf(s.fromPlayerId)}（恶魔）传承，继承人未知（${s.trigger.nameCn}）',
+                playerId: s.toPlayerId ?? s.fromPlayerId,
               ),
           ],
         ),

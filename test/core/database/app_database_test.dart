@@ -235,4 +235,51 @@ void main() {
       expect(all, hasLength(2));
     });
   });
+
+  group('DemonInheritancesDao（issue #89）', () {
+    test('记录传承 + watchByGame + 首次判定 + 最新查询', () async {
+      final (gameId, playerIds) = await seedGame();
+      await db.demonInheritancesDao.insertSuccession(
+        DemonInheritancesCompanion(
+          gameId: Value(gameId),
+          dayNumber: const Value(1),
+          fromPlayerId: Value(playerIds[0]),
+          toPlayerId: Value(playerIds[1]),
+          trigger: const Value(SuccessionTrigger.scarletWoman),
+        ),
+      );
+      final succs = await db.demonInheritancesDao.watchByGame(gameId).first;
+      expect(succs, hasLength(1));
+      expect(succs.single.trigger, SuccessionTrigger.scarletWoman);
+      expect(
+        await db.demonInheritancesDao.hasScarletWomanSuccession(gameId),
+        isTrue,
+      );
+
+      // 再记一次自杀传位（不算 SW 传承；且应成为「最新」）
+      await db.demonInheritancesDao.insertSuccession(
+        DemonInheritancesCompanion(
+          gameId: Value(gameId),
+          dayNumber: const Value(2),
+          fromPlayerId: Value(playerIds[1]),
+          toPlayerId: Value(playerIds[2]),
+          trigger: const Value(SuccessionTrigger.suicideByImp),
+        ),
+      );
+      expect(
+        await db.demonInheritancesDao.hasScarletWomanSuccession(gameId),
+        isTrue,
+      );
+      final latest = await db.demonInheritancesDao.getLatestByGame(gameId);
+      expect(latest!.trigger, SuccessionTrigger.suicideByImp);
+    });
+
+    test('无传承 → hasScarletWomanSuccession = false', () async {
+      final (gameId, _) = await seedGame();
+      expect(
+        await db.demonInheritancesDao.hasScarletWomanSuccession(gameId),
+        isFalse,
+      );
+    });
+  });
 }

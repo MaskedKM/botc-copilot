@@ -4,6 +4,7 @@ import 'package:botc_copilot/core/constants/character.dart';
 import 'package:botc_copilot/core/constants/script.dart';
 import 'package:botc_copilot/core/database/daos/behavior_notes_dao.dart';
 import 'package:botc_copilot/core/database/daos/day_records_dao.dart';
+import 'package:botc_copilot/core/database/daos/demon_inheritances_dao.dart';
 import 'package:botc_copilot/core/database/daos/games_dao.dart';
 import 'package:botc_copilot/core/database/daos/info_declarations_dao.dart';
 import 'package:botc_copilot/core/database/daos/nominations_dao.dart';
@@ -37,6 +38,7 @@ part 'app_database.g.dart';
     Nominations,
     PoisonStatuses,
     BehaviorNotes,
+    DemonInheritances,
   ],
   daos: [
     GamesDao,
@@ -48,6 +50,7 @@ part 'app_database.g.dart';
     NominationsDao,
     PoisonStatusesDao,
     BehaviorNotesDao,
+    DemonInheritancesDao,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -58,7 +61,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 11;
+  int get schemaVersion => 12;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -110,6 +113,10 @@ class AppDatabase extends _$AppDatabase {
           // v10 → v11：games 加 myMinionIdsJson（恶魔私密爪牙名单，issue #108）
           if (from < 11) {
             await m.addColumn(games, games.myMinionIdsJson);
+          }
+          // v11 → v12：新增 demon_inheritances 表（恶魔传承事件，issue #89）
+          if (from < 12) {
+            await m.createTable(demonInheritances);
           }
         },
         beforeOpen: (details) async {
