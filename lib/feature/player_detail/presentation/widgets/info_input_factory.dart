@@ -1,5 +1,6 @@
 import 'package:botc_copilot/core/constants/character.dart';
 import 'package:botc_copilot/core/constants/info_input_type.dart';
+import 'package:botc_copilot/core/constants/player_setup.dart';
 import 'package:botc_copilot/core/constants/team.dart';
 import 'package:botc_copilot/core/database/app_database.dart';
 import 'package:botc_copilot/core/theme/app_text_styles.dart';
@@ -23,8 +24,11 @@ abstract final class InfoInputFactory {
   }) {
     return switch (character.infoInputType) {
       InfoInputType.none => const _NoInput(),
+      // Chef：相邻邪恶对数。用 evilCount（容纳 Recluse 注册为邪恶的边缘——
+      // TB 唯一幻影邪恶来源，可能使相邻对 +1；基础 max=evilCount−1）。
+      // clamp 防御首帧 players 为空（forCount 对越界人数抛异常）。
       InfoInputType.numberRange => _NumberInput(
-          max: (players.length / 2).floor(), // Chef 最大对数
+          max: PlayerSetup.forCount(players.length.clamp(5, 15)).evilCount,
           onSubmit: onSubmit,
         ),
       InfoInputType.numberZeroToTwo =>

@@ -291,11 +291,19 @@ class GameBoardNotifier extends StateNotifier<GameBoardState> {
   }
 
   /// 快速切换死亡/复活（长按快捷操作）。
-  Future<GameEndSuggestion?> quickToggleDead(Player player) async {
+  ///
+  /// [deathDay] 指定死亡天数（补记历史死亡时需准确，否则污染 Empath 邻座
+  /// 判定/矛盾检测）；默认当前天。
+  Future<GameEndSuggestion?> quickToggleDead(
+    Player player, {
+    int? deathDay,
+  }) async {
     if (player.isAlive) {
+      // 防御纵深：clamp 到 [1, currentDay]，避免越界值污染 Empath 判定。
+      final day = deathDay?.clamp(1, state.currentDay) ?? state.currentDay;
       await _db.playersDao.markDead(
         player.id,
-        state.currentDay,
+        day,
         DeathCause.other,
       );
       return _evilWinCheck();

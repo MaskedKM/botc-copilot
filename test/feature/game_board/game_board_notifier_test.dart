@@ -273,6 +273,27 @@ void main() {
     expect(updated[1].isAlive, isTrue);
   });
 
+  test('quickToggleDead：指定 deathDay 补记历史死亡（#91）', () async {
+    // 推进到第 3 天
+    await notifier().advanceDay();
+    await notifier().advanceDay();
+    expect(state().currentDay, 3);
+    // 补记第 1 天的死亡——deathDay 应为指定值，而非当前天 3
+    await notifier().quickToggleDead(players[1], deathDay: 1);
+    final updated = await db.playersDao.watchByGame(gameId).first;
+    expect(updated[1].isAlive, isFalse);
+    expect(updated[1].deathDay, 1);
+  });
+
+  test('quickToggleDead：deathDay 越界自动 clamp（防御纵深）', () async {
+    await notifier().advanceDay();
+    expect(state().currentDay, 2);
+    // 99 远超当前天 → clamp 到 currentDay
+    await notifier().quickToggleDead(players[1], deathDay: 99);
+    final updated = await db.playersDao.watchByGame(gameId).first;
+    expect(updated[1].deathDay, 2);
+  });
+
   test('endGame：更新对局状态后 currentGameProvider 不再返回该局', () async {
     await notifier().endGame(goodWin: true);
     final game = await db.gamesDao.getById(gameId);

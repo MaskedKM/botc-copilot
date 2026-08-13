@@ -51,6 +51,11 @@ class NominationRepository {
     String? defenseText,
   }) async {
     // 规则校验
+    // 防御纵深：提名者必须存活（官方死者不可提名，仅死票投票权）。
+    final nominator = players.where((p) => p.id == nominatorId).firstOrNull;
+    if (nominator != null && !nominator.isAlive) {
+      return '提名者已死亡，不可提名';
+    }
     if (NominationRules.hasNominatedToday(todayNominations, nominatorId)) {
       return '该玩家今天已提名过';
     }
