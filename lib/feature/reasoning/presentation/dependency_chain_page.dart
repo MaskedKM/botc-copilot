@@ -1,4 +1,5 @@
 import 'package:botc_copilot/core/database/app_database.dart';
+import 'package:botc_copilot/core/router.dart';
 import 'package:botc_copilot/core/theme/app_text_styles.dart';
 import 'package:botc_copilot/core/theme/game_colors.dart';
 import 'package:botc_copilot/feature/game_board/presentation/providers/game_board_provider.dart';
@@ -9,6 +10,7 @@ import 'package:botc_copilot/shared/models/enums.dart';
 import 'package:botc_copilot/shared/widgets/loading_error_view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 /// 信息依赖链可视化（issue #58）。
 ///
@@ -22,13 +24,9 @@ class DependencyChainPage extends ConsumerWidget {
   /// 对局 id。
   final int gameId;
 
-  /// 打开页面。
+  /// 打开页面（#138：入路由表）。
   static void show(BuildContext context, {required int gameId}) {
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => DependencyChainPage(gameId: gameId),
-      ),
-    );
+    context.push(AppRoutes.dependencyChain(gameId));
   }
 
   @override
