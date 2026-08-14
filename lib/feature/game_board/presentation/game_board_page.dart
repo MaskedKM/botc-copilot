@@ -273,12 +273,19 @@ class _GameBoardBody extends ConsumerWidget {
                 length: 4,
                 child: Column(
                   children: [
-                    const TabBar(
+                    // #160 #8：推理 Tab 加矛盾计数 badge，提升核心卖点可发现性。
+                    TabBar(
                       tabs: [
-                        Tab(text: '夜晚'),
-                        Tab(text: '白天'),
-                        Tab(text: '投票'),
-                        Tab(text: '推理'),
+                        const Tab(text: '夜晚'),
+                        const Tab(text: '白天'),
+                        const Tab(text: '投票'),
+                        Tab(
+                          child: Badge(
+                            isLabelVisible: contradictions.isNotEmpty,
+                            label: Text('${contradictions.length}'),
+                            child: const Text('推理'),
+                          ),
+                        ),
                       ],
                     ),
                     Expanded(
