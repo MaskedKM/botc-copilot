@@ -64,8 +64,9 @@ class Deduction {
 ///   SW 传承是爪牙变恶魔、成员集合不变；邪恶只减（死亡）不增。
 /// - **计数收缩**：`minAliveEvil = max(0, E - 可能邪恶的死者数)`，其中
 ///   可能邪恶的死者 = 死亡总数 - 已揭示善良的死者（后者不可能邪恶）。
-///   当「存活 ∧ 未确认好人」的玩家数恰等于 minAliveEvil 时，未确认死者
-///   必然全为善良、且该剩余集就是全部存活邪恶（否则与确认好人矛盾）。
+///   当「存活 ∧ 未确认好人」的玩家数恰等于 minAliveEvil 时，**未确认
+///   （未揭示）的死者必然全为邪恶**、且该剩余集就是全部存活邪恶（否则
+///   与确认好人矛盾——等式迫使「邪恶死亡数 = 可能邪恶的死亡数」）。
 /// - **弱排除时效**：读数只证明**当时**非恶魔；此后传承可让爪牙成为新
 ///   恶魔——故任何传承记录的继承人豁免弱排除。
 ///
@@ -200,6 +201,8 @@ abstract final class EliminationEngine {
           '${labelFor(pid)} 同时有善良与邪恶的确认依据，请核对死亡揭示/我的角色录入',
     ];
 
+    final playersById = {for (final p in players) p.id: p};
+
     // ---- 确认层 4：现任恶魔（最新传承记录优先，其次 myRole 恶魔）----
     int? demonId;
     Deduction? demonReason;
@@ -207,10 +210,15 @@ abstract final class EliminationEngine {
       for (final s in successions)
         if (s.toPlayerId != null) s.toPlayerId!,
     };
-    if (successions.isNotEmpty) {
-      final latest = successions.last;
+    // 防御排序：drift watch 无排序保证，不依赖调用方有序（review F3）。
+    final ordered = [...successions]
+      ..sort((a, b) => a.id.compareTo(b.id));
+    if (ordered.isNotEmpty) {
+      final latest = ordered.last;
       final target = latest.toPlayerId;
-      if (target != null) {
+      // 目标须存活：恶魔死亡必触发新传承/善良胜——最新目标已死说明
+      // 后续传承未录入，现任恶魔实际未知，不确认（review F2）。
+      if (target != null && playersById[target]?.isAlive == true) {
         demonId = target;
         demonReason = Deduction(
           source: DeductionSource.succession,
@@ -229,7 +237,6 @@ abstract final class EliminationEngine {
     }
 
     // ---- 确认层 5：邪恶计数收缩 ----
-    final playersById = {for (final p in players) p.id: p};
     final aliveIds = [
       for (final p in players)
         if (p.isAlive) p.id,
@@ -254,6 +261,10 @@ abstract final class EliminationEngine {
       anomalies.add('存活玩家（${aliveIds.length} 人）少于存活邪恶上界'
           '（$maxAliveEvil）——数据不一致，请核对');
     }
+    if (maxAliveEvil < 0) {
+      anomalies.add('已确认死亡的邪恶（$deadConfirmedEvil 人）超过配置邪恶总数'
+          '（$evilTotal）——请核对死亡揭示或对局人数');
+    }
 
     final goodAlive = confirmedGood.keys.where(aliveIds.contains).toSet();
     final others = aliveIds.where((id) => !goodAlive.contains(id)).toSet();
@@ -267,7 +278,7 @@ abstract final class EliminationEngine {
         source: DeductionSource.evilCountForcing,
         description: '存活未确认好人仅 ${others.length} 人 = 存活邪恶下界'
             '（$evilTotal 邪恶 - $deadPossiblyEvil 可能邪恶的死者），'
-            '该集合即全部存活邪恶（且未确认的死者均为善良）',
+            '该集合即全部存活邪恶，且未确认（未揭示）的死者均为邪恶',
       );
       for (final pid in forcedEvil) {
         addEvil(pid, forcingDeduction);

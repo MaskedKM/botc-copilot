@@ -184,6 +184,57 @@ void main() {
       expect(board.confirmedDemonPlayerId, isNull);
     });
 
+    test('最新传承目标已死 → 不确认现任恶魔（review F2）', () {
+      // 4 号曾继承恶魔但随后死亡——其恶魔死亡必有后续传承/善良胜；
+      // 最新记录仍指向死者说明后续未录入，现任恶魔实际未知。
+      final board = evaluate(
+        players: {
+          1: _player(1, 1, deathDay: 2),
+          4: _player(4, 4, deathDay: 4),
+          for (var i in [2, 3, 5, 6, 7]) i: _player(i, i),
+        },
+        successions: [_succession(1, 1, 4)],
+      );
+      expect(board.confirmedDemonPlayerId, isNull);
+      // 死目标不在候选（已死），其余存活照常
+      expect(board.demonCandidates, isNot(contains(4)));
+    });
+
+    test('传承记录无序传入 → 按 id 取最新（review F3）', () {
+      final board = evaluate(
+        players: {
+          1: _player(1, 1, deathDay: 2),
+          5: _player(5, 5, deathDay: 4), // 第 4 天 5 号（新恶魔）也死了
+          for (var i in [2, 3, 4, 6, 7]) i: _player(i, i),
+        },
+        successions: [
+          _succession(2, 5, 6, day: 4), // id 大 = 最新：6 号现任
+          _succession(1, 1, 5, day: 2),
+        ],
+      );
+      expect(board.confirmedDemonPlayerId, 6);
+    });
+
+    test('已确认死亡邪恶超过配置 → anomaly（review F4）', () {
+      final board = evaluate(
+        players: {
+          for (var i = 1; i <= 3; i++)
+            i: _player(i, i, deathDay: 2), // 3 个揭示邪恶死者 > E=2
+          for (var i = 4; i <= 7; i++) i: _player(i, i),
+        },
+        confirmedRoles: {
+          1: Character.poisoner,
+          2: Character.scarletWoman,
+          3: Character.imp,
+        },
+      );
+      expect(board.maxAliveEvil, -1);
+      expect(
+        board.anomalies.any((a) => a.contains('超过配置邪恶总数')),
+        isTrue,
+      );
+    });
+
     test('善恶双确认 → anomaly 提示核对', () {
       final board = evaluate(
         players: {
@@ -228,6 +279,28 @@ void main() {
       );
       expect(board.demonCandidates, containsAll([6, 7]));
       expect(board.anomalies, isEmpty);
+    });
+
+    test('收缩依据文案：未确认死者均为邪恶（review F1 方向修正）', () {
+      final board = evaluate(
+        players: {
+          for (var i = 1; i <= 4; i++) i: _player(i, i, deathDay: 2),
+          for (var i = 5; i <= 7; i++) i: _player(i, i),
+        },
+        confirmedRoles: {
+          1: Character.monk,
+          2: Character.chef,
+          3: Character.empath,
+          4: Character.fortuneTeller,
+        },
+        myPlayerId: 5,
+        myRole: Character.slayer,
+      );
+      final forcing = board.confirmedEvil[6]!
+          .firstWhere((d) => d.source == DeductionSource.evilCountForcing);
+      // 数学结论：等式迫使「邪恶死亡数 = 可能邪恶的死亡数」→ 未确认死者全为邪恶
+      expect(forcing.description, contains('均为邪恶'));
+      expect(forcing.description, isNot(contains('均为善良')));
     });
 
     test('未揭示死者可能占邪恶槽：下界按「可能邪恶的死者」计', () {
