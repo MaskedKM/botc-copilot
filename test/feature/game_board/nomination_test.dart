@@ -120,10 +120,11 @@ void main() {
       expect(NominationRules.isPassed(votesFor([1, 2]), 6), isFalse);
     });
 
-    group('butlerVoteRestricted（管家投票限制，#115）', () {
-      test('管家赞成 + 主人赞成 → 不限', () {
+    group('butlerVoteRestricted（管家投票限制，#115 / #210）', () {
+      test('存活管家：赞成 + 主人赞成 → 不限', () {
         expect(
           NominationRules.butlerVoteRestricted(
+            butlerAlive: true,
             butlerVote: Vote.forVote,
             masterVote: Vote.forVote,
           ),
@@ -131,9 +132,10 @@ void main() {
         );
       });
 
-      test('管家赞成 + 主人反对/弃权/未录 → 受限（此票无效）', () {
+      test('存活管家：赞成 + 主人反对/弃权/未录 → 受限（此票无效）', () {
         expect(
           NominationRules.butlerVoteRestricted(
+            butlerAlive: true,
             butlerVote: Vote.forVote,
             masterVote: Vote.against,
           ),
@@ -141,6 +143,7 @@ void main() {
         );
         expect(
           NominationRules.butlerVoteRestricted(
+            butlerAlive: true,
             butlerVote: Vote.forVote,
             masterVote: Vote.abstain,
           ),
@@ -148,6 +151,7 @@ void main() {
         );
         expect(
           NominationRules.butlerVoteRestricted(
+            butlerAlive: true,
             butlerVote: Vote.forVote,
             masterVote: null,
           ),
@@ -155,9 +159,10 @@ void main() {
         );
       });
 
-      test('管家非赞成（反对/弃权/未录）→ 不限（管家不举手无约束）', () {
+      test('存活管家：非赞成（反对/弃权/未录）→ 不限（不举手无约束）', () {
         expect(
           NominationRules.butlerVoteRestricted(
+            butlerAlive: true,
             butlerVote: Vote.against,
             masterVote: Vote.forVote,
           ),
@@ -165,7 +170,28 @@ void main() {
         );
         expect(
           NominationRules.butlerVoteRestricted(
+            butlerAlive: true,
             butlerVote: null,
+            masterVote: null,
+          ),
+          isFalse,
+        );
+      });
+
+      test('死管家：死票自由，主人未赞成也不受限（#210 官方）', () {
+        // 官方：管家死亡后能力失效、约束解除，幽灵票可自由使用。
+        expect(
+          NominationRules.butlerVoteRestricted(
+            butlerAlive: false,
+            butlerVote: Vote.forVote,
+            masterVote: Vote.against,
+          ),
+          isFalse,
+        );
+        expect(
+          NominationRules.butlerVoteRestricted(
+            butlerAlive: false,
+            butlerVote: Vote.forVote,
             masterVote: null,
           ),
           isFalse,

@@ -143,6 +143,7 @@ class _NominationEntrySheetState extends ConsumerState<NominationEntrySheet> {
       butlerInfo[entry.key] = (
         masterSeat: masterSeat,
         restricted: NominationRules.butlerVoteRestricted(
+          butlerAlive: playersById[entry.key]?.isAlive ?? true,
           butlerVote: _votes[entry.key],
           masterVote: _votes[entry.value],
         ),
@@ -514,6 +515,7 @@ class _NominationEntrySheetState extends ConsumerState<NominationEntrySheet> {
     final violations = <int>[]; // 命中的管家 id
     for (final entry in butlerMaster.entries) {
       if (NominationRules.butlerVoteRestricted(
+        butlerAlive: playersById[entry.key]?.isAlive ?? true,
         butlerVote: _votes[entry.key],
         masterVote: _votes[entry.value],
       )) {
