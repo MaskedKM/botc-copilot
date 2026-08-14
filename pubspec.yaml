@@ -43,8 +43,9 @@ dependencies:
   path_provider: ^2.1.6
   path: ^1.9.1
   characters: ^1.4.1
-
+  meta: ^1.17.0
 dev_dependencies:
+  sqlite3: ^3.5.1
   flutter_test:
     sdk: flutter
 
