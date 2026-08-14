@@ -1,5 +1,6 @@
 import 'package:botc_copilot/core/database/app_database.dart';
 import 'package:botc_copilot/feature/game_board/presentation/providers/game_board_provider.dart';
+import 'package:botc_copilot/feature/reasoning/data/elimination_board_provider.dart';
 import 'package:botc_copilot/feature/reasoning/data/setup_analysis_provider.dart';
 import 'package:botc_copilot/feature/reasoning/presentation/reasoning_dashboard.dart';
 import 'package:botc_copilot/shared/models/enums.dart';
@@ -45,6 +46,12 @@ void main() {
         ),
         // 配置分析面板（#59）不经真实 DB：返回 null → 面板 shrink。
         setupAnalysisProvider.overrideWith((ref, gameId) => null),
+        // 排除法棋盘（#214）同理：null → 面板 shrink，不碰真实 DB。
+        eliminationBoardProvider.overrideWith((ref, gameId) => null),
+        // 传承链流同理（dashboard 直接 watch，防 FakeAsync 挂起回调）。
+        gameSuccessionsProvider.overrideWith(
+          (ref, gameId) => Stream.value(const []),
+        ),
       ],
       child: const MaterialApp(
         home: Scaffold(body: ReasoningDashboard(gameId: 1)),
@@ -90,6 +97,10 @@ void main() {
           ),
           latestTrustLevelsProvider.overrideWith(
             (ref, gameId) => Stream.value(const {}),
+          ),
+          eliminationBoardProvider.overrideWith((ref, gameId) => null),
+          gameSuccessionsProvider.overrideWith(
+            (ref, gameId) => Stream.value(const []),
           ),
         ],
         child: const MaterialApp(

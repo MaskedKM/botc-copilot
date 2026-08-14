@@ -5,6 +5,7 @@ import 'package:botc_copilot/feature/game_board/presentation/providers/game_boar
 import 'package:botc_copilot/feature/player_detail/presentation/player_detail_sheet.dart';
 import 'package:botc_copilot/feature/reasoning/presentation/character_reference_page.dart';
 import 'package:botc_copilot/feature/reasoning/presentation/contradiction_panel.dart';
+import 'package:botc_copilot/feature/reasoning/presentation/elimination_board_panel.dart';
 import 'package:botc_copilot/feature/reasoning/presentation/dependency_chain_page.dart';
 import 'package:botc_copilot/feature/reasoning/presentation/role_matrix_page.dart';
 import 'package:botc_copilot/feature/reasoning/presentation/setup_analysis_panel.dart';
@@ -75,7 +76,11 @@ class _ReasoningDashboardState extends ConsumerState<ReasoningDashboard> {
           ),
           const SizedBox(height: 8),
         ],
-        // 恶魔候选池（置顶，核心视图）
+        // 排除法棋盘（#214 自动演绎）：置于手动候选池之前——依据驱动的
+        // 自动收敛先看，手动信任度标记随后互补。
+        EliminationBoardPanel(gameId: widget.gameId),
+        const SizedBox(height: 8),
+        // 恶魔候选池（手动信任度标记，置顶核心视图）
         _DemonPoolSection(pool: demonPool, total: players.length),
         const SizedBox(height: 8),
         // 声明矩阵 + 角色参考入口（issue #40 / #60）
