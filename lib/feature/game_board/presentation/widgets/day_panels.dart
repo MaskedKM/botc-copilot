@@ -7,6 +7,7 @@ import 'package:botc_copilot/core/database/database_provider.dart';
 import 'package:botc_copilot/core/theme/app_text_styles.dart';
 import 'package:botc_copilot/core/theme/game_colors.dart';
 import 'package:botc_copilot/feature/game_board/data/nomination_repository.dart';
+import 'package:botc_copilot/feature/game_board/data/poison_repository.dart';
 import 'package:botc_copilot/feature/game_board/domain/game_end.dart';
 import 'package:botc_copilot/feature/game_board/domain/night_death_rules.dart';
 import 'package:botc_copilot/feature/game_board/domain/nomination_rules.dart';
@@ -193,6 +194,8 @@ class DayPanel extends ConsumerWidget {
       padding: const EdgeInsets.all(16),
       children: [
         Text('第 $day 天 · 白天处决', style: AppTextStyles.headline),
+        // 和平主义者醉潮（BMR，#217 增量4C）：爪牙被处决 → 全员日级醉。
+        _MinstrelTideCard(gameId: gameId, day: day, players: players),
         const SizedBox(height: 12),
         Wrap(
           spacing: 8,
@@ -587,4 +590,60 @@ Future<bool> _monkProtectedThisNight(
     }
   }
   return false;
+}
+
+
+/// 和平主义者醉潮卡（BMR，#217 增量4C）。
+///
+/// 官方：爪牙被处决时，其余所有玩家（除旅行者）醉至次日黄昏（公理4
+/// 醉=毒）。开 = 当日全员按天 taint（回溯降级已录信息）；关 = 清除并
+/// 按 #122 对称恢复。仅 BMR 对局显示。
+class _MinstrelTideCard extends ConsumerWidget {
+  const _MinstrelTideCard({
+    required this.gameId,
+    required this.day,
+    required this.players,
+  });
+
+  final int gameId;
+  final int day;
+  final List<Player> players;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final script = ref.watch(
+          gameByIdProvider(gameId).select((g) => g.valueOrNull?.script),
+        ) ??
+        Script.troubleBrewing;
+    if (script != Script.badMoonRising) return const SizedBox.shrink();
+    final ongoing = ref.watch(isGameOngoingProvider(gameId));
+    final rows =
+        ref.watch(gamePoisonStatusesProvider(gameId)).valueOrNull ?? [];
+    final isOn = rows.any(
+      (r) =>
+          r.dayNumber == day && r.source == PoisonSource.minstrel,
+    );
+    final gameColors = context.gameColors;
+    return Card(
+      child: SwitchListTile(
+        title: const Text('和平主义者醉潮（当日全员）'),
+        subtitle: Text(
+          '官方：爪牙被处决时，其余所有玩家醉至次日黄昏——当天全员信息'
+          '按可能不可靠处理。',
+          style: AppTextStyles.caption.copyWith(color: gameColors.inkViolet),
+        ),
+        value: isOn,
+        activeTrackColor: gameColors.inkViolet,
+        onChanged: ongoing
+            ? (v) =>
+                ref.read(poisonRepositoryProvider).setMinstrelTide(
+                  gameId: gameId,
+                  playerIds: [for (final p in players) p.id],
+                  dayNumber: day,
+                  on: v,
+                )
+            : null,
+      ),
+    );
+  }
 }

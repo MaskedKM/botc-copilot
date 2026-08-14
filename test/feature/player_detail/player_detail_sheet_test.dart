@@ -100,6 +100,15 @@ class _FakePoisonRepository implements PoisonRepository {
     required int dayNumber,
   }) async =>
       false;
+
+  @override
+  Future<void> setMinstrelTide({
+    required int gameId,
+    required List<int> playerIds,
+    required int dayNumber,
+    required bool on,
+  }) async {}
+
 }
 
 /// 不碰 DB 的 GameBoardNotifier（currentDay 固定 1，dayRecordId 固定 1）。

@@ -165,4 +165,46 @@ void main() {
       throwsA(isA<Object>()),
     );
   });
+
+  group('#217 增量4C：和平主义者醉潮', () {
+    test('开 = 全员当日醉潮记录（source=minstrel）', () async {
+      await repo.setMinstrelTide(
+        gameId: gameId,
+        playerIds: [for (final p in players) p.id],
+        dayNumber: 3,
+        on: true,
+      );
+      final statuses = await db.poisonStatusesDao.watchByGame(gameId).first;
+      expect(statuses.length, players.length);
+      expect(statuses.every((s) => s.source == PoisonSource.minstrel), isTrue);
+    });
+
+    test('已有标毒者不覆盖来源；关 = 清醉潮并保留他人标毒', () async {
+      await repo.toggleStatus(
+        gameId: gameId,
+        playerId: players[0].id,
+        dayNumber: 3,
+      );
+      await repo.setMinstrelTide(
+        gameId: gameId,
+        playerIds: [for (final p in players) p.id],
+        dayNumber: 3,
+        on: true,
+      );
+      var statuses = await db.poisonStatusesDao.watchByGame(gameId).first;
+      expect(statuses.length, players.length);
+      expect(
+        statuses.firstWhere((s) => s.playerId == players[0].id).source,
+        PoisonSource.poisoner, // 不覆盖
+      );
+      await repo.setMinstrelTide(
+        gameId: gameId,
+        playerIds: [for (final p in players) p.id],
+        dayNumber: 3,
+        on: false,
+      );
+      statuses = await db.poisonStatusesDao.watchByGame(gameId).first;
+      expect(statuses.length, 1); // 仅剩 players[0] 的标毒
+    });
+  });
 }
