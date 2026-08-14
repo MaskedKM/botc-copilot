@@ -4,6 +4,7 @@ import 'package:botc_copilot/core/constants/script_definition.dart';
 import 'package:botc_copilot/core/constants/character_reference.dart';
 import 'package:botc_copilot/core/constants/team.dart';
 import 'package:botc_copilot/core/database/app_database.dart';
+import 'package:botc_copilot/feature/reasoning/domain/latest_claim.dart';
 import 'package:botc_copilot/core/theme/app_text_styles.dart';
 import 'package:botc_copilot/core/theme/game_colors.dart';
 import 'package:botc_copilot/feature/game_board/presentation/providers/game_board_provider.dart';
@@ -48,10 +49,7 @@ class _CharacterReferencePageState
 
   /// 每玩家最新声明的角色集合（含死亡揭示）= 「在场声明角色」。
   Set<Character> _claimedSet(List<RoleClaim> claims) {
-    final latest = <int, Character>{};
-    for (final c in claims) {
-      latest[c.playerId] = c.character;
-    }
+    final latest = latestCharacterByPlayer(claims);
     return latest.values.toSet();
   }
 

@@ -3,6 +3,7 @@ import 'package:botc_copilot/core/constants/script.dart';
 import 'package:botc_copilot/core/database/database_provider.dart';
 import 'package:botc_copilot/feature/game_board/domain/game_end.dart';
 import 'package:botc_copilot/feature/game_board/domain/succession.dart';
+import 'package:botc_copilot/feature/reasoning/domain/latest_claim.dart';
 import 'package:botc_copilot/feature/game_board/presentation/providers/game_board_provider.dart';
 import 'package:botc_copilot/feature/game_board/presentation/widgets/end_game_dialog.dart';
 import 'package:botc_copilot/shared/game_private.dart';
@@ -26,10 +27,7 @@ Future<void> handleSuccession(
   final game = await db.gamesDao.getById(gameId);
   final players = await db.playersDao.watchByGame(gameId).first;
   final claims = await db.roleClaimsDao.watchByGame(gameId).first;
-  final latest = <int, Character>{};
-  for (final c in claims) {
-    latest[c.playerId] = c.character;
-  }
+  final latest = latestCharacterByPlayer(claims);
   String nameOf(int id) {
     final p = players.where((p) => p.id == id).firstOrNull;
     return p != null ? '${p.seatNumber}号 ${p.name}' : '?';

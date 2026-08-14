@@ -13,6 +13,18 @@ import 'package:botc_copilot/shared/models/enums.dart';
 /// 语义：[myRole] 是玩家**被告知/相信**的角色（Drunk 存的是镇民 bluff）。
 /// 原样注入即可——Drunk 因此保持"隐藏"（不计入外来者），保留 #59 的
 /// under-count 信号（App 无法也不应识破 Drunk 的自我欺骗）。
+/// 每玩家最新声明（#221 统一内联实现）。
+///
+/// 前置：[claims] 为 `watchByGame` 结果（id 升序 = 时间序），后者覆盖前者。
+Map<int, RoleClaim> latestByPlayer(List<RoleClaim> claims) => {
+      for (final c in claims) c.playerId: c,
+    };
+
+/// [latestByPlayer] 的角色速查（playerId → 最新声明角色）。
+Map<int, Character> latestCharacterByPlayer(List<RoleClaim> claims) => {
+      for (final c in claims) c.playerId: c.character,
+    };
+
 Map<int, RoleClaim> latestClaimWithSelf(
   List<RoleClaim> claims, {
   required int? myPlayerId,
