@@ -34,6 +34,14 @@ enum InfoInputType {
   /// payload: {"playerId": n}
   singlePlayerTarget,
 
+  /// 选 2 名玩家 + 数字 0-2（BMR 侍女：得知两人中几人夜间醒来）。
+  /// payload: {"playerIds": [a, b], "value": n}
+  twoPlayersNumber,
+
+  /// 选 2 名玩家（BMR 旅店老板：保护目标）。
+  /// payload: {"playerIds": [a, b]}
+  twoPlayersTarget,
+
   /// 自由文本（其余角色的通用兜底）。
   freeText,
 }

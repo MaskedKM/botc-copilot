@@ -72,6 +72,10 @@ abstract final class InfoInputFactory {
           excludePlayerId:
               character.canTargetSelf ? null : actingPlayerId,
         ),
+      InfoInputType.twoPlayersNumber => _TwoPlayersNumberInput(
+          players: players, onSubmit: onSubmit),
+      InfoInputType.twoPlayersTarget => _TwoPlayersTargetInput(
+          players: players, onSubmit: onSubmit),
       InfoInputType.freeText => _FreeTextInput(onSubmit: onSubmit),
     };
   }
@@ -494,6 +498,116 @@ class _FreeTextInputState extends State<_FreeTextInput> {
               ? () => widget.onSubmit({'text': _controller.text.trim()})
               : null,
           child: const Text('记录'),
+        ),
+      ],
+    );
+  }
+}
+
+/// 双人 + 0-2 数字（BMR 侍女：得知两人中几人夜间醒来）。
+/// payload: {"playerIds": [a, b], "value": n}
+class _TwoPlayersNumberInput extends StatefulWidget {
+  const _TwoPlayersNumberInput({
+    required this.players,
+    required this.onSubmit,
+  });
+
+  final List<Player> players;
+  final void Function(Map<String, Object?>) onSubmit;
+
+  @override
+  State<_TwoPlayersNumberInput> createState() => _TwoPlayersNumberInputState();
+}
+
+class _TwoPlayersNumberInputState extends State<_TwoPlayersNumberInput> {
+  final Set<int> _selected = {};
+  int? _value;
+
+  @override
+  Widget build(BuildContext context) {
+    final ready = _selected.length == 2 && _value != null;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        PlayerPairPicker(
+          players: widget.players,
+          selected: _selected,
+          onChanged: (s) => setState(() {
+            _selected
+              ..clear()
+              ..addAll(s);
+          }),
+        ),
+        const SizedBox(height: 8),
+        SegmentedButton<int>(
+          segments: const [
+            ButtonSegment(value: 0, label: Text('0 人')),
+            ButtonSegment(value: 1, label: Text('1 人')),
+            ButtonSegment(value: 2, label: Text('2 人')),
+          ],
+          selected: {_value ?? -1},
+          onSelectionChanged: (s) => setState(() => _value = s.first),
+        ),
+        const SizedBox(height: 8),
+        Align(
+          alignment: Alignment.centerRight,
+          child: FilledButton(
+            onPressed: ready
+                ? () => widget.onSubmit({
+                      'playerIds': _selected.toList(),
+                      'value': _value,
+                    })
+                : null,
+            child: const Text('保存'),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// 双人保护目标（BMR 旅店老板）。
+/// payload: {"playerIds": [a, b]}
+class _TwoPlayersTargetInput extends StatefulWidget {
+  const _TwoPlayersTargetInput({
+    required this.players,
+    required this.onSubmit,
+  });
+
+  final List<Player> players;
+  final void Function(Map<String, Object?>) onSubmit;
+
+  @override
+  State<_TwoPlayersTargetInput> createState() => _TwoPlayersTargetInputState();
+}
+
+class _TwoPlayersTargetInputState extends State<_TwoPlayersTargetInput> {
+  final Set<int> _selected = {};
+
+  @override
+  Widget build(BuildContext context) {
+    final ready = _selected.length == 2;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        PlayerPairPicker(
+          players: widget.players,
+          selected: _selected,
+          onChanged: (s) => setState(() {
+            _selected
+              ..clear()
+              ..addAll(s);
+          }),
+        ),
+        const SizedBox(height: 8),
+        Align(
+          alignment: Alignment.centerRight,
+          child: FilledButton(
+            onPressed: ready
+                ? () => widget.onSubmit({'playerIds': _selected.toList()})
+                : null,
+            child: const Text('保存'),
+          ),
         ),
       ],
     );
