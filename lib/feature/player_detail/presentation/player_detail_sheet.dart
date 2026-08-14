@@ -814,7 +814,7 @@ class _InfoInputSection extends ConsumerWidget {
 /// 当前声明角色的信息列在「已录入信息」；换声明后旧角色的信息归入
 /// 「改口历史」，弱化显示但不丢失——既避免新旧角色信息混在一起，
 /// 又保留改口轨迹供复盘。
-class _RecordedInfoSection extends ConsumerWidget {
+class _RecordedInfoSection extends ConsumerStatefulWidget {
   const _RecordedInfoSection({
     required this.gameId,
     required this.playerId,
@@ -823,7 +823,7 @@ class _RecordedInfoSection extends ConsumerWidget {
     this.readOnly = false,
   });
 
-  /// 对局 id（用于解析目标玩家 db id → 座位号，#145）。
+  /// 对局 id（用于解析目标玩家 db id → 座位号，#145；解析 dayRecordId → 天数，#71）。
   final int gameId;
 
   final int playerId;
@@ -838,31 +838,63 @@ class _RecordedInfoSection extends ConsumerWidget {
   final bool readOnly;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_RecordedInfoSection> createState() =>
+      _RecordedInfoSectionState();
+}
+
+class _RecordedInfoSectionState extends ConsumerState<_RecordedInfoSection> {
+  /// 是否展开当前角色的全部信息（默认仅最近 5 条，#71）。
+  bool _showAllCurrent = false;
+
+  /// 是否展开改口历史（其他角色）的全部信息（#71）。
+  bool _showAllHistory = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final ref = this.ref;
     final declarations =
-        ref.watch(playerDeclarationsProvider(playerId)).valueOrNull ?? [];
+        ref.watch(playerDeclarationsProvider(widget.playerId)).valueOrNull ??
+            [];
     if (declarations.isEmpty) return const SizedBox.shrink();
 
-    // 解析 payload 内目标玩家 db id → 座位号（#145）。playerId 是 db id，
-    // 必须经 playersById 映射为座位号展示，否则多局后 db id > 座位数即错乱。
-    final players =
-        ref.watch(gamePlayersProvider(gameId)).valueOrNull ?? const <Player>[];
+    // 解析 payload 内目标玩家 db id → 座位号（#145）。
+    final players = ref
+            .watch(gamePlayersProvider(widget.gameId))
+            .valueOrNull ??
+        const <Player>[];
     final playersById = {for (final p in players) p.id: p};
     String seatLabel(int id) {
       final p = playersById[id];
       return p != null ? '${p.seatNumber}号' : '$id 号';
     }
 
-    Future<void> Function()? deleteFor(InfoDeclaration d) => readOnly
+    // 解析 dayRecordId → 第 N 天（信息声明无 dayNumber 列，#71）。
+    final dayRecords =
+        ref.watch(gameDayRecordsProvider(widget.gameId)).valueOrNull ??
+            const <DayRecord>[];
+    final dayNumberOf = {for (final d in dayRecords) d.id: d.dayNumber};
+    int? dayOf(InfoDeclaration d) => dayNumberOf[d.dayRecordId];
+
+    Future<void> Function()? deleteFor(InfoDeclaration d) => widget.readOnly
         ? null
         : () => _confirmDeleteDeclaration(context, ref, d.id);
 
-    final current = currentRole == null
+    final current = widget.currentRole == null
         ? declarations
-        : declarations.where((d) => d.characterType == currentRole).toList();
-    final history = currentRole == null
+        : declarations
+            .where((d) => d.characterType == widget.currentRole)
+            .toList();
+    final history = widget.currentRole == null
         ? const <InfoDeclaration>[]
-        : declarations.where((d) => d.characterType != currentRole).toList();
+        : declarations
+            .where((d) => d.characterType != widget.currentRole)
+            .toList();
+
+    // 默认仅展示最近 5 条；展开后显示全部（#71）。
+    final currentShown =
+        _showAllCurrent ? current.reversed : current.reversed.take(5);
+    final historyShown =
+        _showAllHistory ? history.reversed : history.reversed.take(5);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -871,18 +903,29 @@ class _RecordedInfoSection extends ConsumerWidget {
         const SizedBox(height: 8),
         if (current.isEmpty)
           Text(
-            currentRole == null ? '暂无' : '尚无 ${currentRole!.nameCn} 的信息',
+            widget.currentRole == null
+                ? '暂无'
+                : '尚无 ${widget.currentRole!.nameCn} 的信息',
             style: AppTextStyles.caption
                 .copyWith(color: context.gameColors.inkViolet),
           )
-        else
-          for (final decl in current.reversed.take(5))
+        else ...[
+          for (final decl in currentShown)
             _InfoRow(
               decl: decl,
               labelFor: seatLabel,
-              authorSuspectedDrunk: authorSuspectedDrunk,
+              dayNumber: dayOf(decl),
+              authorSuspectedDrunk: widget.authorSuspectedDrunk,
               onDelete: deleteFor(decl),
             ),
+          if (current.length > 5)
+            _HistoryExpandToggle(
+              expanded: _showAllCurrent,
+              count: current.length,
+              onTap: () =>
+                  setState(() => _showAllCurrent = !_showAllCurrent),
+            ),
+        ],
         if (history.isNotEmpty) ...[
           const SizedBox(height: 12),
           Text(
@@ -891,16 +934,62 @@ class _RecordedInfoSection extends ConsumerWidget {
                 .copyWith(color: context.gameColors.inkViolet),
           ),
           const SizedBox(height: 4),
-          for (final decl in history.reversed.take(5))
+          for (final decl in historyShown)
             _InfoRow(
               decl: decl,
               dimmed: true,
               labelFor: seatLabel,
-              authorSuspectedDrunk: authorSuspectedDrunk,
+              dayNumber: dayOf(decl),
+              authorSuspectedDrunk: widget.authorSuspectedDrunk,
               onDelete: deleteFor(decl),
+            ),
+          if (history.length > 5)
+            _HistoryExpandToggle(
+              expanded: _showAllHistory,
+              count: history.length,
+              onTap: () =>
+                  setState(() => _showAllHistory = !_showAllHistory),
             ),
         ],
       ],
+    );
+  }
+}
+
+/// 「查看全部 / 收起」切换按钮（信息/备注历史展开，#71）。
+class _HistoryExpandToggle extends StatelessWidget {
+  const _HistoryExpandToggle({
+    required this.expanded,
+    required this.count,
+    required this.onTap,
+    this.collapsedLabel,
+  });
+
+  final bool expanded;
+  final int count;
+  final VoidCallback onTap;
+
+  /// 折叠态完整文案（默认「查看全部」；备注历史用「查看历史」，#71）。
+  final String? collapsedLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 2),
+      child: TextButton.icon(
+        onPressed: onTap,
+        icon: Icon(expanded ? Icons.expand_less : Icons.expand_more, size: 18),
+        label: Text(
+          expanded ? '收起' : (collapsedLabel ?? '查看全部（共 $count 条）'),
+        ),
+        style: TextButton.styleFrom(
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          minimumSize: const Size(0, 32),
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          foregroundColor: context.gameColors.inkViolet,
+          textStyle: AppTextStyles.caption,
+        ),
+      ),
     );
   }
 }
@@ -911,6 +1000,7 @@ class _InfoRow extends StatelessWidget {
     required this.decl,
     required this.labelFor,
     this.dimmed = false,
+    this.dayNumber,
     this.authorSuspectedDrunk = false,
     this.onDelete,
   });
@@ -922,6 +1012,9 @@ class _InfoRow extends StatelessWidget {
 
   /// 弱化显示（改口历史）：删除线 + 灰色。
   final bool dimmed;
+
+  /// 该条信息所属天数（由 dayRecordId 解析，#71）；null = 无法解析则不显示。
+  final int? dayNumber;
 
   /// 作者是否被疑醉（整局 overlay 叠加可靠性圆点，#109）。
   final bool authorSuspectedDrunk;
@@ -947,6 +1040,14 @@ class _InfoRow extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 8),
+          if (dayNumber != null) ...[
+            Text(
+              '第$dayNumber天',
+              style: AppTextStyles.caption
+                  .copyWith(color: context.gameColors.inkViolet),
+            ),
+            const SizedBox(width: 6),
+          ],
           Expanded(
             child: Text(
               InfoPayloadFormatter.summarize(decl, labelFor: labelFor),
@@ -1141,6 +1242,9 @@ class _BehaviorNoteSection extends ConsumerStatefulWidget {
 class _BehaviorNoteSectionState extends ConsumerState<_BehaviorNoteSection> {
   final _controller = TextEditingController();
 
+  /// 是否展开历史备注（其他天，#71）。
+  bool _showHistory = false;
+
   @override
   void dispose() {
     _controller.dispose();
@@ -1162,12 +1266,50 @@ class _BehaviorNoteSectionState extends ConsumerState<_BehaviorNoteSection> {
     widget.onDraftChanged?.call(false); // 提交后草稿清空（#160 #5）
   }
 
+  /// 单条备注行（今日 / 历史共用，#71）。
+  Widget _noteRow(BuildContext context, BehaviorNote n) {
+    final gameColors = context.gameColors;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('· ', style: AppTextStyles.body),
+          Expanded(
+            child: Text(n.note, style: AppTextStyles.body),
+          ),
+          if (!widget.readOnly)
+            IconButton(
+              tooltip: '删除备注',
+              iconSize: 20,
+              // #165 A2：去 compact 恢复 ≥44dp 命中区。
+              icon: Icon(Icons.close, color: gameColors.inkViolet),
+              onPressed: () => _confirmDeleteNote(context, ref, n.id),
+            ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final todayNotes = ref
-            .watch(playerDayNotesProvider((widget.playerId, widget.day)))
+    // 拉取该玩家全部备注：今日单独展示，其余按天分组折叠为历史（#71）。
+    final allNotes = ref
+            .watch(playerBehaviorNotesProvider(widget.playerId))
             .valueOrNull ??
         [];
+    final todayNotes =
+        allNotes.where((n) => n.dayNumber == widget.day).toList();
+    final historyNotes =
+        allNotes.where((n) => n.dayNumber != widget.day).toList();
+    // 历史按天倒序分组（最近的天在前），天内保持录入顺序（DAO 已按 createdAt 升序）。
+    final historyByDay = <int, List<BehaviorNote>>{};
+    for (final n in historyNotes) {
+      historyByDay.putIfAbsent(n.dayNumber, () => []).add(n);
+    }
+    final historyDays = historyByDay.keys.toList()
+      ..sort((a, b) => b.compareTo(a));
+
     final gameColors = context.gameColors;
 
     return Column(
@@ -1206,29 +1348,26 @@ class _BehaviorNoteSectionState extends ConsumerState<_BehaviorNoteSection> {
                 .copyWith(color: gameColors.inkViolet),
           )
         else
-          ...todayNotes.map(
-            (n) => Padding(
-              padding: const EdgeInsets.symmetric(vertical: 2),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('· ', style: AppTextStyles.body),
-                  Expanded(
-                    child: Text(n.note, style: AppTextStyles.body),
-                  ),
-                  if (!widget.readOnly)
-                    IconButton(
-                      tooltip: '删除备注',
-                      iconSize: 20,
-                      // #165 A2：去 compact 恢复 ≥44dp 命中区。
-                      icon: Icon(Icons.close, color: gameColors.inkViolet),
-                      onPressed: () =>
-                          _confirmDeleteNote(context, ref, n.id),
-                    ),
-                ],
-              ),
-            ),
+          for (final n in todayNotes) _noteRow(context, n),
+        if (historyNotes.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          _HistoryExpandToggle(
+            expanded: _showHistory,
+            count: historyNotes.length,
+            collapsedLabel: '查看历史（共 ${historyNotes.length} 条）',
+            onTap: () => setState(() => _showHistory = !_showHistory),
           ),
+          if (_showHistory)
+            for (final day in historyDays) ...[
+              const SizedBox(height: 4),
+              Text(
+                '第 $day 天',
+                style: AppTextStyles.caption
+                    .copyWith(color: gameColors.inkViolet),
+              ),
+              for (final n in historyByDay[day]!) _noteRow(context, n),
+            ],
+        ],
       ],
     );
   }
