@@ -1,5 +1,6 @@
 import 'package:botc_copilot/core/constants/character.dart';
 import 'package:botc_copilot/core/database/app_database.dart';
+import 'package:botc_copilot/core/router.dart';
 import 'package:botc_copilot/core/theme/app_text_styles.dart';
 import 'package:botc_copilot/core/theme/game_colors.dart';
 import 'package:botc_copilot/feature/game_board/presentation/providers/game_board_provider.dart';
@@ -9,6 +10,7 @@ import 'package:botc_copilot/feature/reasoning/domain/role_matrix.dart';
 import 'package:botc_copilot/shared/game_private.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 /// 角色声明交叉矩阵（issue #40）。
 ///
@@ -23,13 +25,9 @@ class RoleMatrixPage extends ConsumerStatefulWidget {
   /// 对局 id。
   final int gameId;
 
-  /// 打开矩阵页。
+  /// 打开矩阵页（#138：入路由表）。
   static void show(BuildContext context, {required int gameId}) {
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => RoleMatrixPage(gameId: gameId),
-      ),
-    );
+    context.push(AppRoutes.roleMatrix(gameId));
   }
 
   @override
