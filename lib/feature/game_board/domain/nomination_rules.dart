@@ -187,13 +187,24 @@ abstract final class NominationRules {
 
   /// 管家投票限制校验（issue #115，官方：管家只能在主人投票时投票）。
   ///
-  /// 「投票」= 投赞成（举手）。管家投赞成但主人非赞成（反对/弃权/未录）→
-  /// 管家此票按官方规则无效，返回 true。管家非赞成时不受限（管家不举手
-  /// 本就无约束）。死主人/死管家用死票赞成同样算「投票」，故只看 [Vote]。
+  /// 「投票」= 投赞成（举手）。**存活**管家投赞成但主人非赞成（反对/弃权/
+  /// 未录）→ 此票按官方规则无效，返回 true。管家非赞成时不受限（不举手本
+  /// 就无约束）。
+  ///
+  /// **死管家例外（issue #210，官方）**：管家死亡后能力失效、约束解除——
+  /// 死票（幽灵票）可自由使用，与任何死玩家一致（「死亡=无能力」，与同文件
+  /// [virginTriggerScenario] 的 `if(!isAlive) return null` 口径一致）。故
+  /// [butlerAlive]=false 时直接返回 false。
+  ///
+  /// 注：死主人对**活管家**的约束仍生效（主人用死票赞成=主人投票了，活管家
+  /// 可跟投）——本函数只看 [masterVote] 不看主人死活，天然覆盖此情形。
   static bool butlerVoteRestricted({
+    required bool butlerAlive,
     required Vote? butlerVote,
     required Vote? masterVote,
   }) {
+    // 死管家：约束解除，死票自由（issue #210）。
+    if (!butlerAlive) return false;
     if (butlerVote != Vote.forVote) return false;
     return masterVote != Vote.forVote;
   }
