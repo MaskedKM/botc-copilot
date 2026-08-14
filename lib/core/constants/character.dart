@@ -158,6 +158,7 @@ enum Character {
     team: Team.outsider,
     ability: '你可能被判定为邪恶阵营，或登记为爪牙 / 恶魔，即使你已经死亡。',
     infoInputType: InfoInputType.none,
+    mayRegisterAsEvil: true,
   ),
 
   /// 圣徒：被处决时善良阵营立即落败。
@@ -186,6 +187,7 @@ enum Character {
     team: Team.minion,
     ability: '每个夜晚，你可以查看魔典。你可能被判定为善良阵营，或登记为镇民 / 外来者，即使你已经死亡。',
     infoInputType: InfoInputType.freeText,
+    mayRegisterAsGood: true,
   ),
 
   /// 绯红女：恶魔死亡且存活玩家≥5时，你成为新恶魔。
@@ -259,6 +261,13 @@ enum Character {
     // 「说书人选」型为多元素（BMR Godfather [-1,1]、S&V Balloonist [0,1]，
     // 随 #217 录入）。外来者增减由镇民反向补偿。
     this.setupOutsiderDeltas = const [],
+    // #234：登记修饰（registration，跨剧本通用机制，官方 might register
+    // ——说书人可选，默认按真实身份登记，方向**单向**：mayRegisterAsGood
+    // 只能向善良登记（冒充镇民/外来者，TB=Spy）；mayRegisterAsEvil 只能向
+    // 邪恶登记（冒充爪牙/恶魔，TB=Recluse）。S&V Marionette/Vortox 等同型
+    // 随 #217 录入。语义基石见 #213。
+    this.mayRegisterAsGood = false,
+    this.mayRegisterAsEvil = false,
   });
 
   /// 中文名。
@@ -284,6 +293,12 @@ enum Character {
 
   /// setup 外来者增量候选（空 = 非修正角色；「或」型含多个可能值）。
   final List<int> setupOutsiderDeltas;
+
+  /// 可能向善良登记（冒充镇民/外来者；TB=Spy）。
+  final bool mayRegisterAsGood;
+
+  /// 可能向邪恶登记（冒充爪牙/恶魔；TB=Recluse）。
+  final bool mayRegisterAsEvil;
 
   /// 是否善良阵营。
   bool get isGood => team.isGood;
