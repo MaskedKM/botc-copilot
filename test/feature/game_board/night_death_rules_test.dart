@@ -86,6 +86,7 @@ void main() {
           isAlive: alive,
           abilityUsed: false,
           suspectedDrunk: false,
+          fakeDead: false,
           deathDay: alive ? null : 2,
           deathCause: alive ? null : DeathCause.nightKill,
         );

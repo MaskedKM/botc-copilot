@@ -123,6 +123,10 @@ class PlayerDetailRepository {
   Future<int> setSuspectedDrunk(int playerId, {required bool suspected}) =>
       _db.playersDao.markSuspectedDrunk(playerId, suspected: suspected);
 
+  /// 标记/清除僵怖假死（BMR，#217 增量4B；详情页即时落库）。
+  Future<int> setFakeDead(int playerId, {required bool fake}) =>
+      _db.playersDao.setFakeDeadFlag(playerId, fake: fake);
+
   /// 删除一条信息声明（误录纠错，issue #83）。
   ///
   /// 若删除的是 Poisoner 声明，且其毒目标当夜无残留毒源（无其他 Poisoner

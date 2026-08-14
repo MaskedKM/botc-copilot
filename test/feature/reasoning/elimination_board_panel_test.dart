@@ -20,6 +20,7 @@ Player _player(int id, int seat, String name, {bool alive = true}) => Player(
       isAlive: alive,
       abilityUsed: false,
       suspectedDrunk: false,
+      fakeDead: false,
       deathDay: alive ? null : 1,
       deathCause: alive ? null : DeathCause.nightKill,
     );

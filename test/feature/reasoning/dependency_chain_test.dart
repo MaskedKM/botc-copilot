@@ -12,6 +12,7 @@ Player _player(int id, int seat, {bool suspectedDrunk = false}) => Player(
       name: 'P$id',
       seatNumber: seat,
       isAlive: true,
+      fakeDead: false,
       abilityUsed: false,
       suspectedDrunk: suspectedDrunk,
       deathDay: null,

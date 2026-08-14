@@ -13,6 +13,7 @@ Player _player(int id, int seat, {bool alive = true}) => Player(
       isAlive: alive,
       abilityUsed: false,
       suspectedDrunk: false,
+      fakeDead: false,
       deathDay: null,
       deathCause: null,
     );

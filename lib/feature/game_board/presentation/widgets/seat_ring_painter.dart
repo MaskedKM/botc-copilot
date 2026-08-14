@@ -81,7 +81,7 @@ class SeatRingPainter extends CustomPainter {
 
   /// 存活相邻玩家之间的半透明连线（含座位收缩：跳过死亡者）。
   void _paintNeighborLinks(Canvas canvas) {
-    final alive = players.map((p) => p.isAlive).toList();
+    final alive = players.map((p) => p.isAlive && !p.fakeDead).toList();
     if (!alive.any((a) => a)) return;
     final paint = Paint()
       ..color = AppColors.lineGold
@@ -110,7 +110,11 @@ class SeatRingPainter extends CustomPainter {
     final t = progress;
 
     // 过渡插值：存活度（1=活, 0=死）与信任度颜色。
-    final aliveT = _lerpDouble(prev.isAlive ? 1 : 0, player.isAlive ? 1 : 0, t);
+    final aliveT = _lerpDouble(
+      prev.isAlive && !prev.fakeDead ? 1 : 0,
+      player.isAlive && !player.fakeDead ? 1 : 0,
+      t,
+    );
     final trustColor = Color.lerp(
       gameColors.ofTrustLevel(prev.trustLevel),
       gameColors.ofTrustLevel(player.trustLevel),
@@ -265,7 +269,7 @@ class SeatRingPainter extends CustomPainter {
     final selectedIndex =
         players.indexWhere((p) => p.id == selectedPlayerId);
     if (selectedIndex < 0) return false;
-    final alive = players.map((p) => p.isAlive).toList();
+    final alive = players.map((p) => p.isAlive && !p.fakeDead).toList();
     if (!alive[index] || index == selectedIndex) return false;
     return SeatRingLayout.nextAliveClockwise(alive, selectedIndex) == index ||
         SeatRingLayout.nextAliveCounterClockwise(alive, selectedIndex) ==

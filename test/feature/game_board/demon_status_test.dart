@@ -25,6 +25,7 @@ void main() {
             isAlive: !dead.contains(i),
             abilityUsed: false,
             suspectedDrunk: false,
+            fakeDead: false,
             deathDay: dead.contains(i) ? 2 : null,
             deathCause: causes[i],
           ),

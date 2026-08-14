@@ -10,6 +10,7 @@ Player _p(int id, int seat) => Player(
       isAlive: true,
       abilityUsed: false,
       suspectedDrunk: false,
+      fakeDead: false,
       deathDay: null,
       deathCause: null,
     );

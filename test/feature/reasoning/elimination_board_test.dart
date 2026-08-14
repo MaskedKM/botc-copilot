@@ -19,6 +19,7 @@ Player _player(
       isAlive: deathDay == null,
       abilityUsed: false,
       suspectedDrunk: false,
+      fakeDead: false,
       deathDay: deathDay,
       deathCause: deathCause ??
           (deathDay == null ? null : DeathCause.nightKill),

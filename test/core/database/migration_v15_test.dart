@@ -14,8 +14,18 @@ void main() {
     final dir = await Directory.systemTemp.createTemp('botc_v14');
     final file = File('${dir.path}/v14.sqlite');
 
-    // 手工构造 v14 形态的 day_records（列集与 v14 表定义一致）。
+    // 手工构造 v14 形态的 day_records（列集与 v14 表定义一致）+
+    // 最小 players 表（后续版本迁移可能 ALTER players，如 v16 假死列）。
     final raw = sqlite3.sqlite3.open(file.path);
+    raw.execute('''
+      CREATE TABLE players (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        game_id INTEGER NOT NULL,
+        name TEXT NOT NULL,
+        seat_number INTEGER NOT NULL,
+        is_alive INTEGER NOT NULL DEFAULT 1
+      )
+    ''');
     raw.execute('''
       CREATE TABLE day_records (
         id INTEGER PRIMARY KEY AUTOINCREMENT,

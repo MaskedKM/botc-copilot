@@ -81,7 +81,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 15;
+  int get schemaVersion => 16;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -171,6 +171,11 @@ class AppDatabase extends _$AppDatabase {
             await customStatement(
               'ALTER TABLE day_records DROP COLUMN night_death_player_id',
             );
+          }
+          // v15 → v16：players 加 fake_dead（僵怖假死，#217 增量4B——
+          // 登记为死但活着：isAlive 保持 true，deathDay/Cause 照常落库）。
+          if (from < 16) {
+            await m.addColumn(players, players.fakeDead);
           }
         },
         beforeOpen: (details) async {

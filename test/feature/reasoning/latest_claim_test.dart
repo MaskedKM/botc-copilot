@@ -22,6 +22,7 @@ Player _player(int id) => Player(
       seatNumber: id,
       isAlive: true,
       abilityUsed: false, suspectedDrunk: false,
+      fakeDead: false,
     );
 
 void main() {

@@ -16,6 +16,7 @@ Player _p(int id, int seat, String name) => Player(
       isAlive: true,
       abilityUsed: false,
       suspectedDrunk: false,
+      fakeDead: false,
       deathDay: null,
       deathCause: null,
     );
