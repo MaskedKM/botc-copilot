@@ -24,7 +24,7 @@ class ScriptStep extends ConsumerWidget {
           level: HelpLevel.normal,
           icon: Icons.menu_book_outlined,
           text: '剧本决定本局可用的角色与规则。当前支持《暗流涌动》(TB)'
-              ' 与《黯月初升》(BMR)。',
+              '《黯月初升》(BMR) 与《梦殒春宵》(S&V)。',
         ),
         const SizedBox(height: 16),
         for (final script in Script.values)

@@ -24,8 +24,22 @@ void main() {
     expect(tb.byTeam(Team.demon).single, Character.imp);
   });
 
-  test('S&V 空池（待 #217 录入）；注册表全键存在', () {
-    expect(ScriptDefinition.of(Script.sectsAndViolets).characters, isEmpty);
+  test('S&V 梦殒春宵数据（#217 增量5）；注册表全键存在', () {
+    final sv = ScriptDefinition.of(Script.sectsAndViolets);
+    expect(sv.characters, hasLength(25)); // 13 镇民 + 4 外来者 + 4 爪牙 + 4 恶魔
+    expect(sv.characters.where((c) => c.team == Team.townsfolk), hasLength(13));
+    expect(sv.characters.where((c) => c.team == Team.outsider), hasLength(4));
+    expect(sv.characters.where((c) => c.team == Team.minion), hasLength(4));
+    expect(sv.characters.where((c) => c.team == Team.demon), hasLength(4));
+    // 实验锚点不在官方池
+    expect(sv.characters, isNot(contains(Character.magician)));
+    expect(sv.characters, isNot(contains(Character.legion)));
+    // setup 修正：方古 +1 / 亡骨魔 -1（maxOutsiderDelta=1）
+    expect(Character.fanggu.setupOutsiderDeltas, [1]);
+    expect(Character.vigormortis.setupOutsiderDeltas, [-1]);
+    expect(sv.maxOutsiderDelta, 1);
+    // S&V 核心无内部 Jinx（组合均涉实验角色）
+    expect(sv.applicableJinxes, isEmpty);
     expect(scriptDefinitions.keys, containsAll(Script.values));
   });
 
@@ -122,8 +136,13 @@ void main() {
       );
     });
 
-    test('game.script 分派链路：S&V 空池=仅缺数据，不误兜底', () {
-      expect(nightStepsForDay(Script.sectsAndViolets, 2), isEmpty);
+    test('game.script 分派链路：S&V 首夜/后续夜（#217 增量5）', () {
+      final first = nightStepsForDay(Script.sectsAndViolets, 1);
+      expect(first, isNotEmpty);
+      expect(first.first.character, Character.philosopher);
+      final other = nightStepsForDay(Script.sectsAndViolets, 2);
+      expect(other, isNotEmpty);
+      expect(other.first.character, Character.philosopher);
     });
 
     test('开场步骤为共享全局规则（三步，非剧本专属）', () {
@@ -252,7 +271,7 @@ void main() {
 
     test('官方剧本中文名（勘正）', () {
       expect(Script.badMoonRising.nameCn, '黯月初升');
-      expect(Script.sectsAndViolets.nameCn, '灾祸滋生');
+      expect(Script.sectsAndViolets.nameCn, '梦殒春宵');
       expect(Script.troubleBrewing.nameCn, '暗流涌动');
     });
   });

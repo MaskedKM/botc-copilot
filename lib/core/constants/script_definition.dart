@@ -150,11 +150,171 @@ const scriptDefinitions = <Script, ScriptDefinition>{
       Character.zombuul,
     ],
   ),
+  // S&V 梦殒春宵（#217 增量5：官方 botc-release + 魔典 wiki；
+  // 核心 25 角色，旅行者/实验角色不在池——magician/legion 锚点为
+  // 实验角色，不进官方池）。
   Script.sectsAndViolets: ScriptDefinition(
     script: Script.sectsAndViolets,
-    characters: [],
+    firstNightSteps: _svFirstNightSteps,
+    otherNightSteps: _svOtherNightSteps,
+    characters: [
+      // 镇民 13
+      Character.artist,
+      Character.clockmaker,
+      Character.dreamer,
+      Character.flowergirl,
+      Character.juggler,
+      Character.mathematician,
+      Character.oracle,
+      Character.philosopher,
+      Character.sage,
+      Character.savant,
+      Character.seamstress,
+      Character.snakecharmer,
+      Character.towncrier,
+      // 外来者 4
+      Character.barber,
+      Character.klutz,
+      Character.mutant,
+      Character.sweetheart,
+      // 爪牙 4
+      Character.cerenovus,
+      Character.eviltwin,
+      Character.pithag,
+      Character.witch,
+      // 恶魔 4（每局仅一在场）
+      Character.fanggu,
+      Character.nodashii,
+      Character.vigormortis,
+      Character.vortox,
+    ],
   ),
 };
+
+/// S&V 首夜步骤（官方 nightsheet 顺序：哲学家长于爪牙块前、舞蛇人位于
+/// 爪牙块内；通用爪牙/恶魔信息步骤按 BMR 惯例内联在爪牙块两端）。
+const _svFirstNightSteps = <NightOrderStep>[
+  NightOrderStep(
+    character: Character.philosopher,
+    action: '每局限一次：选择一个善良角色，获得其能力',
+    note: '若该角色在场，其玩家醉酒',
+  ),
+  NightOrderStep(
+    label: '爪牙信息',
+    action: '爪牙互认识；恶魔向爪牙亮明',
+    note: '7+ 人局恶魔亦知爪牙；≤6 人局恶魔不知爪牙',
+  ),
+  NightOrderStep(
+    character: Character.snakecharmer,
+    action: '选择一名存活玩家：选中恶魔则互换角色与阵营，其中毒',
+  ),
+  NightOrderStep(
+    character: Character.eviltwin,
+    action: '镜像双子与对立玩家互相得知对方角色',
+    note: '若好人方被处决，邪恶获胜；两者都存活则善良无法获胜',
+  ),
+  NightOrderStep(
+    character: Character.witch,
+    action: '选择一名玩家：其明日提名则死亡',
+    note: '仅剩 3 名存活玩家时失去能力',
+  ),
+  NightOrderStep(
+    character: Character.cerenovus,
+    action: '选择一名玩家与一个善良角色：其须疯狂证明',
+    note: '不疯狂则可能被处决',
+  ),
+  NightOrderStep(
+    label: '恶魔信息',
+    action: '恶魔看爪牙 + 3 个不在场好人角色（Bluff）',
+    note: '仅 7+ 人局；≤6 人局恶魔无 Bluff',
+  ),
+  NightOrderStep(
+    character: Character.clockmaker,
+    action: '得知恶魔与最近爪牙的座位距离',
+  ),
+  NightOrderStep(
+    character: Character.dreamer,
+    action: '选择一名玩家（非自己）：得知一善一恶两角色，其一为真',
+  ),
+  NightOrderStep(
+    character: Character.seamstress,
+    action: '每局限一次：选择两名玩家，得知是否同阵营',
+  ),
+  NightOrderStep(
+    character: Character.mathematician,
+    action: '得知自上个黎明起能力异常生效的玩家数',
+  ),
+];
+
+/// S&V 后续夜步骤（官方 nightsheet 顺序）。
+const _svOtherNightSteps = <NightOrderStep>[
+  NightOrderStep(
+    character: Character.philosopher,
+    action: '每局限一次：选择一个善良角色，获得其能力',
+  ),
+  NightOrderStep(
+    character: Character.snakecharmer,
+    action: '选择一名存活玩家：选中恶魔则互换角色与阵营，其中毒',
+  ),
+  NightOrderStep(
+    character: Character.witch,
+    action: '选择一名玩家：其明日提名则死亡',
+  ),
+  NightOrderStep(
+    character: Character.cerenovus,
+    action: '选择一名玩家与一个善良角色：其须疯狂证明',
+  ),
+  NightOrderStep(
+    character: Character.pithag,
+    action: '选择一名玩家与一个角色：不在场则其变身',
+    note: '若因此产生新恶魔，当晚死亡由说书人决定',
+  ),
+  NightOrderStep(
+    label: '恶魔行动',
+    action: '恶魔选择一名玩家：其死亡',
+    note: '方古/亡骨魔/诺-达鲺/涡流四恶魔其一在场',
+  ),
+  NightOrderStep(
+    character: Character.barber,
+    action: '理发师当日/当晚死亡后：恶魔可选两名玩家交换角色',
+  ),
+  NightOrderStep(
+    character: Character.sweetheart,
+    action: '心上人死亡后：一名玩家从此醉酒',
+  ),
+  NightOrderStep(
+    character: Character.sage,
+    action: '被恶魔杀死：得知两名玩家，其一为凶手',
+  ),
+  NightOrderStep(
+    character: Character.dreamer,
+    action: '选择一名玩家：得知一善一恶两角色，其一为真',
+  ),
+  NightOrderStep(
+    character: Character.flowergirl,
+    action: '得知今天白天是否有恶魔投过票',
+  ),
+  NightOrderStep(
+    character: Character.towncrier,
+    action: '得知今天白天是否有爪牙发起过提名',
+  ),
+  NightOrderStep(
+    character: Character.oracle,
+    action: '得知有多少名死亡的玩家是邪恶的',
+  ),
+  NightOrderStep(
+    character: Character.seamstress,
+    action: '每局限一次：选择两名玩家，得知是否同阵营',
+  ),
+  NightOrderStep(
+    character: Character.juggler,
+    action: '首日公开猜测后：得知猜对数量',
+  ),
+  NightOrderStep(
+    character: Character.mathematician,
+    action: '得知自上个黎明起能力异常生效的玩家数',
+  ),
+];
 
 /// 当天对应的夜晚步骤（按剧本分派，#232）。
 ///
