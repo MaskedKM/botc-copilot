@@ -15,6 +15,7 @@ void main() {
         isAlive: true,
         abilityUsed: false,
         suspectedDrunk: false,
+        fakeDead: false,
       ),
       Player(
         id: 2,
@@ -24,6 +25,7 @@ void main() {
         isAlive: true,
         abilityUsed: false,
         suspectedDrunk: false,
+        fakeDead: false,
       ),
     ];
     final playersById = {for (final p in players) p.id: p};
@@ -106,6 +108,7 @@ void main() {
         isAlive: true,
         abilityUsed: false,
         suspectedDrunk: false,
+        fakeDead: false,
       ),
       Player(
         id: 24,
@@ -115,6 +118,7 @@ void main() {
         isAlive: true,
         abilityUsed: false,
         suspectedDrunk: false,
+        fakeDead: false,
       ),
     ];
     final playersById = {for (final p in players) p.id: p};

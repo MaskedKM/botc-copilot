@@ -85,6 +85,12 @@ class Players extends Table {
   BoolColumn get suspectedDrunk =>
       boolean().withDefault(const Constant(false))();
 
+  /// 僵怖假死（BMR，#217 增量4B）：该玩家首次「死亡」登记为死但活着——
+  /// `isAlive` 保持 true（存活计数/投票/终局按存活算），`deathDay/Cause`
+  /// 照常落库（邻座收缩/Empath 按死亡重建时自动排除）。再死一次为真死。
+  BoolColumn get fakeDead =>
+      boolean().withDefault(const Constant(false))();
+
   @override
   List<Set<Column<Object>>> get uniqueKeys => [
         // 同一局中座位号唯一。

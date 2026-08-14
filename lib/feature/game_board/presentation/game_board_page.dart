@@ -113,6 +113,7 @@ class _GameBoardBodyState extends ConsumerState<_GameBoardBody> {
           name: p.name,
           seatNumber: p.seatNumber,
           isAlive: p.isAlive,
+          fakeDead: p.fakeDead,
           trustLevel: trustLevels[p.id] ?? TrustLevel.unknown,
           isMe: p.id == game.myPlayerId,
           isPoisoned: poisonedToday.contains(p.id),

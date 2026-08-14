@@ -268,8 +268,15 @@ class GameBoardNotifier extends StateNotifier<GameBoardState> {
   /// 事务包裹：当日记录与玩家死亡标记必须同生共死。
   /// 撤销/改选时复活上一个被处决者，保证「一天至多一个处决」。
   /// 返回 [DemonExecutionCheck] 让 UI 确认被处决者是否是恶魔。
+  ///
+  /// 僵怖假死（#217 增量4B）：官方「第 1 次死亡时你活着但登记为死」——
+  /// 我 = 僵怖首次被处决只登记假死（存活、无终局提示）；第二次为真死。
   Future<GameEndSuggestion?> recordExecution(int? playerId) async {
     final dayId = await _ensureDayRecord(state.currentDay);
+    final game = await _db.gamesDao.getById(_gameId);
+    final iAmFreshZombuul = game?.myRole == Character.zombuul &&
+        game?.myPlayerId == playerId;
+    var fakeDied = false;
     await _db.transaction(() async {
       // 夜死已数组化（#217 增量4）：跨字段守卫改查「处决目标是否也在夜死
       // 名单」（等价旧 otherFieldId == oldId 单值语义）。
@@ -286,13 +293,29 @@ class GameBoardNotifier extends StateNotifier<GameBoardState> {
         ),
       );
       if (playerId != null) {
-        await _db.playersDao.markDead(
-          playerId,
-          state.currentDay,
-          DeathCause.execution,
-        );
+        if (iAmFreshZombuul) {
+          final players = await _db.playersDao.watchByGame(_gameId).first;
+          final me =
+              players.where((p) => p.id == playerId).firstOrNull;
+          fakeDied = me != null && me.isAlive && !me.fakeDead;
+        }
+        if (fakeDied) {
+          await _db.playersDao.markFakeDead(
+            playerId,
+            state.currentDay,
+            DeathCause.execution,
+          );
+        } else {
+          await _db.playersDao.markDead(
+            playerId,
+            state.currentDay,
+            DeathCause.execution,
+          );
+        }
       }
     });
+    // 假死：恶魔未死（无传承/终局检查），存活数不变。
+    if (fakeDied) return null;
     if (playerId == null) return null;
     final players = await _db.playersDao.watchByGame(_gameId).first;
     final executed = players.where((p) => p.id == playerId).firstOrNull;
@@ -350,8 +373,9 @@ class GameBoardNotifier extends StateNotifier<GameBoardState> {
     // 复活守卫：!isAlive + 同日 + cause 匹配。cause 匹配确认本字段是致命记录
     // （非对已死者的 no-op markDead）——长按/Slayer 等无字段致死者撤销本字段
     // 不应复活（#154 review Finding 1）；跨日由 deathDay 守卫覆盖（#80）。
+    // 僵怖假死者 isAlive=true 但撤销处决同样要清假死（#217 增量4B）。
     if (prev != null &&
-        !prev.isAlive &&
+        (!prev.isAlive || prev.fakeDead) &&
         prev.deathCause == expectedCause &&
         prev.deathDay == state.currentDay) {
       await _db.playersDao.revive(oldId);

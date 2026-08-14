@@ -280,6 +280,7 @@ void main() {
           seatNumber: id,
           isAlive: alive,
           abilityUsed: false, suspectedDrunk: false,
+          fakeDead: false,
         );
 
     test('空记录 → 全员反对，无死票', () {

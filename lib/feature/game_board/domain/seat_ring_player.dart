@@ -14,6 +14,7 @@ class SeatRingPlayer {
     this.isPoisoned = false,
     this.suspectedDrunk = false,
     this.hasContradiction = false,
+    this.fakeDead = false,
   });
 
   /// 数据库玩家 id。
@@ -27,6 +28,9 @@ class SeatRingPlayer {
 
   /// 是否存活。
   final bool isAlive;
+
+  /// 僵怖假死（BMR，#217 增量4B）：登记为死但活着——死亡视觉 + 存活计数。
+  final bool fakeDead;
 
   /// 信任度（决定节点外圈色环）。
   final TrustLevel trustLevel;
@@ -68,6 +72,7 @@ class SeatRingPlayer {
     if (isMe) parts.add('这是我');
     if (isPoisoned) parts.add('疑似被毒');
     if (suspectedDrunk) parts.add('疑似醉汉');
+    if (fakeDead) parts.add('僵怖假死');
     if (hasContradiction) parts.add('矛盾标记');
     return parts.join('，');
   }
@@ -80,6 +85,7 @@ class SeatRingPlayer {
     bool? isPoisoned,
     bool? suspectedDrunk,
     bool? hasContradiction,
+    bool? fakeDead,
   }) {
     return SeatRingPlayer(
       id: id,
@@ -90,6 +96,7 @@ class SeatRingPlayer {
       isMe: isMe ?? this.isMe,
       isPoisoned: isPoisoned ?? this.isPoisoned,
       suspectedDrunk: suspectedDrunk ?? this.suspectedDrunk,
+      fakeDead: fakeDead ?? this.fakeDead,
       hasContradiction: hasContradiction ?? this.hasContradiction,
     );
   }
@@ -105,7 +112,8 @@ class SeatRingPlayer {
       other.isMe == isMe &&
       other.isPoisoned == isPoisoned &&
       other.suspectedDrunk == suspectedDrunk &&
-      other.hasContradiction == hasContradiction;
+      other.hasContradiction == hasContradiction &&
+        other.fakeDead == fakeDead;
 
   @override
   int get hashCode => Object.hash(

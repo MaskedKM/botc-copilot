@@ -93,6 +93,8 @@ class _PlayerDetailSheetState extends ConsumerState<PlayerDetailSheet> {
   bool _draftPoison = false;
   bool _drunkTouched = false;
   bool _draftDrunk = false;
+  bool _fakeTouched = false;
+  bool _draftFake = false;
 
   /// 草稿声明是否已随信息提交自动落库（#134 解耦）。
   ///
@@ -559,6 +561,34 @@ class _PlayerDetailSheetState extends ConsumerState<PlayerDetailSheet> {
                   }
                 },
               ),
+              // 僵怖假死（#217 增量4B）：仅 BMR 对局显示；即时落库。
+              if ((game?.script ?? Script.troubleBrewing) ==
+                  Script.badMoonRising) ...[
+                const SizedBox(height: 16),
+                _FakeDeathSection(
+                  marked: _fakeTouched
+                      ? _draftFake
+                      : (widget.player.fakeDead),
+                  readOnly: readOnly,
+                  onChanged: (v) async {
+                    setState(() {
+                      _fakeTouched = true;
+                      _draftFake = v;
+                    });
+                    try {
+                      await ref
+                          .read(playerDetailRepositoryProvider)
+                          .setFakeDead(widget.player.id, fake: v);
+                    } on Object {
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('保存失败，请重试')),
+                        );
+                      }
+                    }
+                  },
+                ),
+              ],
               const SizedBox(height: 16),
               _BehaviorNoteSection(
                 gameId: widget.gameId,
@@ -1189,6 +1219,50 @@ class _PoisonSection extends StatelessWidget {
           subtitle: Text(
             '官方：毒当夜 + 次日白天生效、黄昏解除。被毒者「无能力」，'
             '其获得的信息可能为假，可靠性自动降为「可能被污染」。',
+            style: AppTextStyles.caption
+                .copyWith(color: gameColors.inkViolet),
+          ),
+          value: marked,
+          activeTrackColor: gameColors.inkViolet,
+          onChanged: readOnly ? null : onChanged,
+        ),
+      ],
+    );
+  }
+}
+
+/// 僵怖假死标记区（BMR，#217 增量4B；即时落库）。
+///
+/// 官方：僵怖「第 1 次死亡时你活着但登记为死」——存活计数/投票按存活算，
+/// 邻座收缩/死亡重建按死亡算。我是僵怖时处决自动登记；他人假死由用户
+/// 推测标记（仅拨旗标，不写 deathDay/Cause）。
+class _FakeDeathSection extends StatelessWidget {
+  const _FakeDeathSection({
+    required this.marked,
+    required this.onChanged,
+    this.readOnly = false,
+  });
+
+  final bool marked;
+  final void Function(bool) onChanged;
+
+  /// 只读（复盘）：开关不可拨。
+  final bool readOnly;
+
+  @override
+  Widget build(BuildContext context) {
+    final gameColors = context.gameColors;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('僵怖假死（BMR）', style: AppTextStyles.headline),
+        const SizedBox(height: 8),
+        SwitchListTile(
+          title: Text('登记为死但活着', style: AppTextStyles.body),
+          subtitle: Text(
+            '官方：僵怖首次死亡时活着但登记为死——圆环按死亡显示，'
+            '存活计数/投票仍按存活算；邻座收缩按死亡处理。'
+            '第二次死亡为真死。',
             style: AppTextStyles.caption
                 .copyWith(color: gameColors.inkViolet),
           ),

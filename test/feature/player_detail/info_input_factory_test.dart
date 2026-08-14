@@ -17,6 +17,7 @@ void main() {
         seatNumber: i,
         isAlive: true,
         abilityUsed: false, suspectedDrunk: false,
+        fakeDead: false,
       ),
   ];
 
@@ -190,6 +191,7 @@ void main() {
         seatNumber: 8,
         isAlive: false,
         abilityUsed: false, suspectedDrunk: false,
+        fakeDead: false,
         deathDay: 2,
       ),
     ];
@@ -281,6 +283,7 @@ void main() {
           seatNumber: 8,
           isAlive: false,
           abilityUsed: false, suspectedDrunk: false,
+          fakeDead: false,
           deathDay: 2,
         ),
       ];

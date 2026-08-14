@@ -57,6 +57,9 @@ class _FakePlayerDetailRepository implements PlayerDetailRepository {
 
   @override
   Future<int> setSuspectedDrunk(int playerId, {required bool suspected}) async => 1;
+
+  @override
+  Future<int> setFakeDead(int playerId, {required bool fake}) async => 1;
 }
 
 class _FakeGameBoardNotifier extends GameBoardNotifier {
@@ -85,6 +88,7 @@ void main() {
         seatNumber: i,
         isAlive: true,
         abilityUsed: false, suspectedDrunk: false,
+        fakeDead: false,
       ),
   ];
 
@@ -234,6 +238,7 @@ void main() {
                 seatNumber: 3,
                 isAlive: false,
                 abilityUsed: false, suspectedDrunk: false,
+                fakeDead: false,
                 deathDay: 1,
                 deathCause: DeathCause.nightKill,
               )

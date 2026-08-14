@@ -644,4 +644,59 @@ void main() {
       expect(suggestion, isA<EvilWinCandidate>());
     });
   });
+
+  group('#217 增量4B：僵怖假死', () {
+    setUp(() async {
+      await (db.update(db.games)..where((g) => g.id.equals(gameId))).write(
+        GamesCompanion(
+          myRole: const Value(Character.zombuul),
+          myPlayerId: Value(players[0].id),
+        ),
+      );
+    });
+
+    test('我=僵怖首次被处决 → 登记假死（存活 + deathDay 落库 + 无终局）',
+        () async {
+      final suggestion = await notifier().recordExecution(players[0].id);
+      expect(suggestion, isNull); // 恶魔未死：无传承/终局提示
+      final updated = await db.playersDao.watchByGame(gameId).first;
+      expect(updated[0].isAlive, isTrue); // 官方：活着但登记为死
+      expect(updated[0].fakeDead, isTrue);
+      expect(updated[0].deathDay, 1); // 邻座收缩按死亡重建 → 自动排除
+      expect(updated[0].deathCause, DeathCause.execution);
+      final day = await db.dayRecordsDao.getByGameAndDay(gameId, 1);
+      expect(day!.dayExecutionPlayerId, players[0].id); // 处决记录照写
+    });
+
+    test('次日再处决 → 真死（isAlive=false）+ 走恶魔处决确认流', () async {
+      await notifier().recordExecution(players[0].id);
+      await notifier().advanceDay(); // 僵怖第二次死亡须跨天（同日重录=重登假死）
+      final suggestion = await notifier().recordExecution(players[0].id);
+      expect(suggestion, isA<DemonExecutionCheck>());
+      final updated = await db.playersDao.watchByGame(gameId).first;
+      expect(updated[0].isAlive, isFalse);
+    });
+
+    test('撤销处决（改选无人）→ 清除假死标记', () async {
+      await notifier().recordExecution(players[0].id);
+      await notifier().recordExecution(null);
+      final updated = await db.playersDao.watchByGame(gameId).first;
+      expect(updated[0].isAlive, isTrue);
+      expect(updated[0].fakeDead, isFalse);
+      expect(updated[0].deathDay, isNull);
+    });
+
+    test('markFakeDead 守卫：已假死者与已死者 no-op', () async {
+      await notifier().recordExecution(players[0].id);
+      // 已假死 → no-op（不覆盖 deathDay）
+      await db.playersDao.markFakeDead(players[0].id, 9, DeathCause.other);
+      var updated = await db.playersDao.watchByGame(gameId).first;
+      expect(updated[0].deathDay, 1);
+      // 已死者 → no-op
+      await db.playersDao.markDead(players[1].id, 1, DeathCause.nightKill);
+      await db.playersDao.markFakeDead(players[1].id, 9, DeathCause.other);
+      updated = await db.playersDao.watchByGame(gameId).first;
+      expect(updated[1].fakeDead, isFalse);
+    });
+  });
 }

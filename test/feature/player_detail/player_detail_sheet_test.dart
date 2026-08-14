@@ -68,6 +68,11 @@ class _FakePlayerDetailRepository implements PlayerDetailRepository {
   Future<void> deleteDeclaration(int id) async {}
 
   @override
+  @override
+  Future<int> setFakeDead(int playerId, {required bool fake}) async {
+    return 1;
+  }
+
   Future<int> setSuspectedDrunk(int playerId, {required bool suspected}) async {
     drunkCalls++;
     lastSuspectedDrunk = suspected;
@@ -125,6 +130,7 @@ void main() {
     id: 1,
     gameId: 1,
     name: 'A',
+    fakeDead: false,
     seatNumber: 1,
     isAlive: true,
     abilityUsed: false, suspectedDrunk: false,

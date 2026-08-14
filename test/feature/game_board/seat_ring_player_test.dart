@@ -49,6 +49,7 @@ void main() {
         seatNumber: 5,
         isAlive: true,
         suspectedDrunk: true,
+        fakeDead: false,
       );
       final label = p.semanticLabel;
       expect(label, contains('疑似醉汉'));
@@ -63,6 +64,7 @@ void main() {
         isAlive: true,
         isPoisoned: true,
         suspectedDrunk: true,
+        fakeDead: false,
       );
       final label = p.semanticLabel;
       expect(label, contains('疑似被毒'));
@@ -87,6 +89,7 @@ void main() {
         SeatRingPlayer(
           id: 1, name: 'x', seatNumber: 1, isAlive: true,
           suspectedDrunk: true,
+          fakeDead: false,
         ).isTainted,
         isTrue,
       );
@@ -95,9 +98,11 @@ void main() {
     test('== / hashCode 含 suspectedDrunk', () {
       final base = SeatRingPlayer(
         id: 1, name: 'x', seatNumber: 1, isAlive: true, suspectedDrunk: false,
+        fakeDead: false,
       );
       final drunk = SeatRingPlayer(
         id: 1, name: 'x', seatNumber: 1, isAlive: true, suspectedDrunk: true,
+        fakeDead: false,
       );
       expect(base == drunk, isFalse);
       expect(base.hashCode == drunk.hashCode, isFalse);
