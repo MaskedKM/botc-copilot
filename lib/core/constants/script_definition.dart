@@ -1,4 +1,5 @@
 import 'package:botc_copilot/core/constants/character.dart';
+import 'package:botc_copilot/core/constants/jinx_rule.dart';
 import 'package:botc_copilot/core/constants/night_order.dart';
 import 'package:botc_copilot/core/constants/script.dart';
 import 'package:botc_copilot/core/constants/team.dart';
@@ -37,6 +38,12 @@ class ScriptDefinition {
   /// 业务分派入口）。
   List<NightOrderStep> nightStepsFor(int dayNumber) =>
       dayNumber <= 1 ? firstNightSteps : otherNightSteps;
+
+  /// 本剧本适用的 Jinx（#233）：角色对**双双在池**才生效，按全局注册表
+  /// [jinxRules] 推导。TB 无适用 Jinx（角色对另一端不在池/无官方 Jinx）。
+  List<JinxRule> get applicableJinxes => jinxRules
+      .where((j) => characters.contains(j.a) && characters.contains(j.b))
+      .toList();
 
   /// 取剧本定义；未注册剧本（BMR/S&V 角色未录期间）兜底 TB——
   /// 现阶段 setup 已禁用其余剧本，兜底仅为防御脏数据（如换库残留）。

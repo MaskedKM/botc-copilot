@@ -2,7 +2,8 @@ import 'package:botc_copilot/core/constants/info_input_type.dart';
 import 'package:botc_copilot/core/constants/script.dart';
 import 'package:botc_copilot/core/constants/team.dart';
 
-/// 角色（当前覆盖 Trouble Brewing 全 22 个）。
+/// 角色（TB 全 22 个 + 2 个 S&V 锚点角色 #233：Magician/Legion，为 Jinx
+/// 推导 API 提供官方真实数据对；完整 S&V 角色录入随 #217）。
 ///
 /// 每个角色携带完整元数据：阵营、能力描述、信息输入模板。
 /// 能力描述以官方 Wiki 为准的中文转述。
@@ -215,6 +216,32 @@ enum Character {
     ability: '每个夜晚（除首夜），选择一名玩家：他死亡。'
         '若你选择自己（自杀），一名爪牙成为新的小恶魔。',
     infoInputType: InfoInputType.none,
+  ),
+
+  // ── S&V 锚点角色（#233）──────────────────────────────────
+  // 提前录入 Magician/Legion 真实数据对，为 JinxRule 推导 API 提供官方
+  // 锚点（两者间存在官方 Jinx）。**不入任何剧本角色池**（TB 池 22 个不变，
+  // S&V 池待 #217 全量录入后开放）。能力文本已核官方 Wiki。
+
+  /// 魔术师（S&V 镇民）：爪牙以为你是恶魔（登记混淆，被动）。
+  magician(
+    nameCn: '魔术师',
+    nameEn: 'Magician',
+    team: Team.townsfolk,
+    ability: '爪牙们以为你是恶魔。',
+    infoInputType: InfoInputType.none,
+    script: Script.sectsAndViolets,
+  ),
+
+  /// 军团（S&V 恶魔）：多人恶魔，处决与登记全面特殊。
+  legion(
+    nameCn: '军团',
+    nameEn: 'Legion',
+    team: Team.demon,
+    ability: '每个夜晚*，可能有一名玩家死亡。若只有邪恶玩家投票，处决失败。'
+        '本局没有爪牙和醉汉——即便看似有。',
+    infoInputType: InfoInputType.none,
+    script: Script.sectsAndViolets,
   );
 
   const Character({
@@ -225,8 +252,6 @@ enum Character {
     required this.infoInputType,
     // #230：剧本归属参数化（原 script getter 硬编码 TB 的 TODO 落实）。
     // 现仅 TB 角色，默认 TB；BMR/S&V 角色录入（#217）时显式传入。
-    // 现仅 TB 角色全部走默认；#217 录入 BMR/S&V 角色时将显式传入。
-    // ignore: unused_element_parameter
     this.script = Script.troubleBrewing,
     // 官方规则：Monk/Butler 的夜间目标不能选自己（#230 数据化）。
     this.canTargetSelf = true,
