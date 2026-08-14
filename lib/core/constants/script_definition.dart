@@ -113,10 +113,42 @@ const scriptDefinitions = <Script, ScriptDefinition>{
       Character.imp,
     ],
   ),
-  // BMR / S&V：角色数据随 #217 录入（现空池，setup 已禁用入口）。
+  // BMR 黯月初升（#217 数据录入：25 角色 + 官方夜序；旅行者不在池）。
   Script.badMoonRising: ScriptDefinition(
     script: Script.badMoonRising,
-    characters: [],
+    firstNightSteps: _bmrFirstNightSteps,
+    otherNightSteps: _bmrOtherNightSteps,
+    characters: [
+      // 镇民 13
+      Character.chambermaid,
+      Character.courtier,
+      Character.exorcist,
+      Character.fool,
+      Character.gambler,
+      Character.gossip,
+      Character.grandmother,
+      Character.innkeeper,
+      Character.minstrel,
+      Character.pacifist,
+      Character.professor,
+      Character.sailor,
+      Character.teaLady,
+      // 外来者 4
+      Character.goon,
+      Character.lunatic,
+      Character.moonchild,
+      Character.tinker,
+      // 爪牙 4
+      Character.assassin,
+      Character.devilsAdvocate,
+      Character.godfather,
+      Character.mastermind,
+      // 恶魔 4（每局仅一在场）
+      Character.po,
+      Character.pukka,
+      Character.shabaloth,
+      Character.zombuul,
+    ],
   ),
   Script.sectsAndViolets: ScriptDefinition(
     script: Script.sectsAndViolets,
@@ -130,3 +162,137 @@ const scriptDefinitions = <Script, ScriptDefinition>{
 /// 未注册剧本经 [ScriptDefinition.of] 兜底 TB。
 List<NightOrderStep> nightStepsForDay(Script script, int dayNumber) =>
     ScriptDefinition.of(script).nightStepsFor(dayNumber);
+
+/// BMR 首夜步骤（官方 nightsheet：爪牙信息 → 疯子 → 恶魔信息 → 水手 →
+/// 侍臣 → 教父 → 魔鬼代言人 → 普卡 → 祖母 → 侍女）。醉汉分配为全局
+/// 开场步骤但 BMR 无 Drunk，不列。
+const _bmrFirstNightSteps = <NightOrderStep>[
+  NightOrderStep(
+    label: '爪牙信息',
+    action: '爪牙互认识；恶魔向爪牙亮明',
+    note: '7+ 人局恶魔亦知爪牙；≤6 人局恶魔不知爪牙',
+  ),
+  NightOrderStep(
+    character: Character.lunatic,
+    action: '以为自己是恶魔，按恶魔流程「行动」',
+    note: '说书人引导但不生效；真恶魔得知疯子身份与其选择',
+  ),
+  NightOrderStep(
+    label: '恶魔信息',
+    action: '恶魔看爪牙 + 3 个不在场好人角色（Bluff）',
+    note: '仅 7+ 人局；≤6 人局恶魔无 Bluff',
+  ),
+  NightOrderStep(
+    character: Character.sailor,
+    action: '选择一名存活玩家（其一醉至黄昏）',
+    note: '水手不会死亡',
+  ),
+  NightOrderStep(
+    character: Character.courtier,
+    action: '每局限一次：选择一个角色（醉 3 夜 3 天）',
+  ),
+  NightOrderStep(
+    character: Character.godfather,
+    action: '得知在场的外来者',
+    note: '外来者数 = 基础 -1 或 +1（说书人选）',
+  ),
+  NightOrderStep(
+    character: Character.devilsAdvocate,
+    action: '选择一名存活玩家（须与昨夜不同；明日处决不死）',
+  ),
+  NightOrderStep(
+    character: Character.pukka,
+    action: '选择一名玩家下毒',
+    note: '上一名中毒者死亡并恢复健康',
+  ),
+  NightOrderStep(
+    character: Character.grandmother,
+    action: '得知一名好人玩家及其角色',
+  ),
+  NightOrderStep(
+    character: Character.chambermaid,
+    action: '选择两名存活玩家（不能是自己）：得知几人夜间醒来',
+  ),
+];
+
+/// BMR 后续夜步骤（官方 nightsheet 顺序）。
+const _bmrOtherNightSteps = <NightOrderStep>[
+  NightOrderStep(
+    character: Character.sailor,
+    action: '选择一名存活玩家（其一醉至黄昏）',
+  ),
+  NightOrderStep(
+    character: Character.courtier,
+    action: '每局限一次：选择一个角色（醉 3 夜 3 天）',
+  ),
+  NightOrderStep(
+    character: Character.innkeeper,
+    action: '选择两名玩家（当晚不死，其一醉至黄昏）',
+  ),
+  NightOrderStep(
+    character: Character.gambler,
+    action: '选一人并猜其角色（猜错则死）',
+  ),
+  NightOrderStep(
+    character: Character.devilsAdvocate,
+    action: '选择一名存活玩家（须与昨夜不同；明日处决不死）',
+  ),
+  NightOrderStep(
+    character: Character.lunatic,
+    action: '以为自己是恶魔，按恶魔流程「行动」',
+  ),
+  NightOrderStep(
+    character: Character.exorcist,
+    action: '选择一名玩家（须与昨夜不同）',
+    note: '若选中恶魔：恶魔得知驱魔人是谁，当晚不行动',
+  ),
+  NightOrderStep(
+    character: Character.zombuul,
+    action: '若当日无人死亡：选一人死亡',
+    note: '僵怖第一次死亡时活着但被视为已死',
+  ),
+  NightOrderStep(
+    character: Character.pukka,
+    action: '选一人下毒；上一名中毒者死亡并恢复健康',
+  ),
+  NightOrderStep(
+    character: Character.shabaloth,
+    action: '选两名玩家死亡；昨夜目标可能被吐出（复活）',
+  ),
+  NightOrderStep(
+    character: Character.po,
+    action: '可杀一人；若上晚未杀，今晚可杀三人',
+  ),
+  NightOrderStep(
+    character: Character.assassin,
+    action: '每局限一次：选一人死亡（无法阻止）',
+  ),
+  NightOrderStep(
+    character: Character.godfather,
+    action: '若当日有外来者死亡：选一人死亡',
+  ),
+  NightOrderStep(
+    character: Character.gossip,
+    action: '若当日公开声明为真：选一人死亡',
+  ),
+  NightOrderStep(
+    character: Character.professor,
+    action: '每局限一次：选一名已死玩家（若为镇民则复活）',
+  ),
+  NightOrderStep(
+    character: Character.tinker,
+    action: '（说书人可令其死亡）',
+  ),
+  NightOrderStep(
+    character: Character.moonchild,
+    action: '（死时已公开选目标）若目标为好人：其死亡',
+  ),
+  NightOrderStep(
+    character: Character.grandmother,
+    action: '（若「孙儿」已死）得知其死讯',
+  ),
+  NightOrderStep(
+    character: Character.chambermaid,
+    action: '选择两名存活玩家：得知几人夜间醒来',
+  ),
+];

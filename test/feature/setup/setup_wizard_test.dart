@@ -88,11 +88,11 @@ void main() {
     await enterWizard(tester);
 
     // TB 可选，BMR/S&V 禁用（卡片标题是组合文本 “名字 · 缩写”）
-    expect(find.textContaining('血月升起'), findsOneWidget);
+    expect(find.textContaining('黯月初升'), findsOneWidget);
     expect(find.textContaining('即将支持'), findsNWidgets(2));
 
     // 点 BMR 不会切换选中态
-    await tester.tap(find.textContaining('血月升起'));
+    await tester.tap(find.textContaining('黯月初升'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('下一步'));
     await tester.pumpAndSettle();

@@ -23,13 +23,25 @@ class JinxRule {
 
 /// 全局 Jinx 注册表（官方数据；跨剧本混编全量生效）。
 ///
-/// 当前仅含 #233 验收所需锚点对；BMR/S&V 其余 Jinx 随 #217 录入。
+/// 含 TB/BMR/S&V 锚点角色间全部对（官方 botc-release jinxes.json 过滤，
+/// #217 数据录入）；其余 Jinx 涉及未录入角色，随 S&V 全量录入补齐。
 const jinxRules = <JinxRule>[
-  // 官方现行文本（wiki.bloodontheclocktower.com/Magician，Jinx 更新后）。
+  // 官方现行文本（botc-release 官方数据，#217 数据录入时对齐）。
   JinxRule(
     a: Character.magician,
     b: Character.legion,
-    text: '若魔术师在场，恶魔信息步骤中军团分批唤醒：每批得知哪些玩家是'
-        '好人，但不知道有多少名邪恶玩家。',
+    text: '若魔术师在场，恶魔信息步骤中军团分批唤醒：每批得知哪些玩家'
+        '是好人，但不知道魔术师是谁。',
+  ),
+  JinxRule(
+    a: Character.legion,
+    b: Character.minstrel,
+    text: '若军团今日死于处决，军团保留其能力，但吟游诗人可能得知他们'
+        '是军团。',
+  ),
+  JinxRule(
+    a: Character.magician,
+    b: Character.spy,
+    text: '间谍查看魔典时，恶魔与魔术师的角色指示物被移除。',
   ),
 ];

@@ -2,8 +2,9 @@ import 'package:botc_copilot/core/constants/info_input_type.dart';
 import 'package:botc_copilot/core/constants/script.dart';
 import 'package:botc_copilot/core/constants/team.dart';
 
-/// 角色（TB 全 22 个 + 2 个 S&V 锚点角色 #233：Magician/Legion，为 Jinx
-/// 推导 API 提供官方真实数据对；完整 S&V 角色录入随 #217）。
+/// 角色（TB 全 22 + BMR 全 25（#217 数据录入）+ 2 个 S&V 锚点 #233：
+/// Magician/Legion。名称与能力为官方中文魔典译名 / 官方英文转述；
+/// 夜序以官方 nightsheet 为准）。
 ///
 /// 每个角色携带完整元数据：阵营、能力描述、信息输入模板。
 /// 能力描述以官方 Wiki 为准的中文转述。
@@ -244,6 +245,278 @@ enum Character {
         '本局没有爪牙和醉汉——即便看似有。',
     infoInputType: InfoInputType.none,
     script: Script.sectsAndViolets,
+  ),
+
+  // ── BMR 黯月初升（#217 数据录入，官方 botc-release roles.json）────
+
+  /// 侍女（BMR 镇民）。
+  chambermaid(
+    nameCn: '侍女',
+    nameEn: 'Chambermaid',
+    team: Team.townsfolk,
+    ability: '每个夜晚，选择两名存活玩家（不能是自己）：你得知今晚'
+        '有多少人因他们的能力被唤醒。',
+    infoInputType: InfoInputType.none,
+    script: Script.badMoonRising,
+  ),
+
+  /// 侍臣（BMR 镇民）。
+  courtier(
+    nameCn: '侍臣',
+    nameEn: 'Courtier',
+    team: Team.townsfolk,
+    ability: '每局限一次，在夜晚选择一个角色：该角色醉 3 夜 3 天。',
+    infoInputType: InfoInputType.none,
+    script: Script.badMoonRising,
+  ),
+
+  /// 驱魔人（BMR 镇民）。
+  exorcist(
+    nameCn: '驱魔人',
+    nameEn: 'Exorcist',
+    team: Team.townsfolk,
+    ability: '每个夜晚*，选择一名玩家（须与昨夜不同）：若选中恶魔，'
+        '恶魔得知你是谁，且当晚不再行动。',
+    infoInputType: InfoInputType.none,
+    script: Script.badMoonRising,
+  ),
+
+  /// 弄臣（BMR 镇民）。
+  fool(
+    nameCn: '弄臣',
+    nameEn: 'Fool',
+    team: Team.townsfolk,
+    ability: '你第一次死亡时，你不会死。',
+    infoInputType: InfoInputType.none,
+    script: Script.badMoonRising,
+  ),
+
+  /// 赌徒（BMR 镇民）。
+  gambler(
+    nameCn: '赌徒',
+    nameEn: 'Gambler',
+    team: Team.townsfolk,
+    ability: '每个夜晚*，选择一名玩家并猜测其角色：猜错则你死亡。',
+    infoInputType: InfoInputType.none,
+    script: Script.badMoonRising,
+  ),
+
+  /// 造谣者（BMR 镇民）。
+  gossip(
+    nameCn: '造谣者',
+    nameEn: 'Gossip',
+    team: Team.townsfolk,
+    ability: '每个白天，你可以公开发表一项声明。当晚，若声明为真，'
+        '则有一名玩家死亡。',
+    infoInputType: InfoInputType.none,
+    script: Script.badMoonRising,
+  ),
+
+  /// 祖母（BMR 镇民）。
+  grandmother(
+    nameCn: '祖母',
+    nameEn: 'Grandmother',
+    team: Team.townsfolk,
+    ability: '开局得知一名好人玩家及其角色。若恶魔杀死该玩家，'
+        '你也死亡。',
+    infoInputType: InfoInputType.none,
+    script: Script.badMoonRising,
+  ),
+
+  /// 旅店老板（BMR 镇民）。
+  innkeeper(
+    nameCn: '旅店老板',
+    nameEn: 'Innkeeper',
+    team: Team.townsfolk,
+    ability: '每个夜晚*，选择两名玩家：他们当晚不会死亡，'
+        '但其中一人醉至黄昏。',
+    infoInputType: InfoInputType.none,
+    script: Script.badMoonRising,
+  ),
+
+  /// 吟游诗人（BMR 镇民）。
+  minstrel(
+    nameCn: '吟游诗人',
+    nameEn: 'Minstrel',
+    team: Team.townsfolk,
+    ability: '当一名爪牙被处决时，其他所有玩家（除旅行者外）'
+        '醉至次日黄昏。',
+    infoInputType: InfoInputType.none,
+    script: Script.badMoonRising,
+  ),
+
+  /// 和平主义者（BMR 镇民）。
+  pacifist(
+    nameCn: '和平主义者',
+    nameEn: 'Pacifist',
+    team: Team.townsfolk,
+    ability: '被处决的好人玩家可能不会死。',
+    infoInputType: InfoInputType.none,
+    script: Script.badMoonRising,
+  ),
+
+  /// 教授（BMR 镇民）。
+  professor(
+    nameCn: '教授',
+    nameEn: 'Professor',
+    team: Team.townsfolk,
+    ability: '每局限一次，在夜晚*选择一名已死玩家：若其为镇民，'
+        '将其复活。',
+    infoInputType: InfoInputType.none,
+    script: Script.badMoonRising,
+  ),
+
+  /// 水手（BMR 镇民）。
+  sailor(
+    nameCn: '水手',
+    nameEn: 'Sailor',
+    team: Team.townsfolk,
+    ability: '每个夜晚，选择一名存活玩家：你或其中一人醉至黄昏。'
+        '你不会死亡。',
+    infoInputType: InfoInputType.none,
+    script: Script.badMoonRising,
+  ),
+
+  /// 茶艺师（BMR 镇民）。
+  teaLady(
+    nameCn: '茶艺师',
+    nameEn: 'Tea Lady',
+    team: Team.townsfolk,
+    ability: '若你的两名存活邻座都是好人，他们不会死亡。',
+    infoInputType: InfoInputType.none,
+    script: Script.badMoonRising,
+  ),
+
+  /// 莽夫（BMR 外来者）。
+  goon(
+    nameCn: '莽夫',
+    nameEn: 'Goon',
+    team: Team.outsider,
+    ability: '每个夜晚，第一个以能力选择你的玩家醉至黄昏，'
+        '你变为与其同阵营。',
+    infoInputType: InfoInputType.none,
+    script: Script.badMoonRising,
+  ),
+
+  /// 疯子（BMR 外来者）。
+  lunatic(
+    nameCn: '疯子',
+    nameEn: 'Lunatic',
+    team: Team.outsider,
+    ability: '你以为自己是恶魔，但你不是。恶魔知道你是谁、'
+        '知道你每晚的选择。',
+    infoInputType: InfoInputType.none,
+    script: Script.badMoonRising,
+  ),
+
+  /// 月之子（BMR 外来者）。
+  moonchild(
+    nameCn: '月之子',
+    nameEn: 'Moonchild',
+    team: Team.outsider,
+    ability: '当你得知自己死亡时，公开选择一名存活玩家。当晚，'
+        '若其为好人，则其死亡。',
+    infoInputType: InfoInputType.none,
+    script: Script.badMoonRising,
+  ),
+
+  /// 修补匠（BMR 外来者）。
+  tinker(
+    nameCn: '修补匠',
+    nameEn: 'Tinker',
+    team: Team.outsider,
+    ability: '你随时可能死亡。',
+    infoInputType: InfoInputType.none,
+    script: Script.badMoonRising,
+  ),
+
+  /// 刺客（BMR 爪牙）。
+  assassin(
+    nameCn: '刺客',
+    nameEn: 'Assassin',
+    team: Team.minion,
+    ability: '每局限一次，在夜晚*选择一名玩家：其死亡——'
+        '即使因某些原因本不能死。',
+    infoInputType: InfoInputType.none,
+    script: Script.badMoonRising,
+  ),
+
+  /// 魔鬼代言人（BMR 爪牙）。
+  devilsAdvocate(
+    nameCn: '魔鬼代言人',
+    nameEn: "Devil's Advocate",
+    team: Team.minion,
+    ability: '每个夜晚，选择一名存活玩家（须与昨夜不同）：'
+        '其明日被处决也不会死。',
+    infoInputType: InfoInputType.none,
+    script: Script.badMoonRising,
+  ),
+
+  /// 教父（BMR 爪牙，setup 修正角色）。
+  godfather(
+    nameCn: '教父',
+    nameEn: 'Godfather',
+    team: Team.minion,
+    ability: '开局得知在场的外来者。若当日有一名外来者死亡，'
+        '当晚选择一名玩家：其死亡。',
+    infoInputType: InfoInputType.none,
+    setupOutsiderDeltas: const [-1, 1],
+    script: Script.badMoonRising,
+  ),
+
+  /// 主谋（BMR 爪牙）。
+  mastermind(
+    nameCn: '主谋',
+    nameEn: 'Mastermind',
+    team: Team.minion,
+    ability: '若恶魔被处决而死（本应结束游戏），游戏多进行一天。'
+        '若此后有玩家被处决，其阵营落败。',
+    infoInputType: InfoInputType.none,
+    script: Script.badMoonRising,
+  ),
+
+  /// 珀（BMR 恶魔）。
+  po(
+    nameCn: '珀',
+    nameEn: 'Po',
+    team: Team.demon,
+    ability: '每个夜晚*，你可以选择一名玩家：其死亡。若你上一次选择'
+        '不杀人，今晚可选择三名玩家。',
+    infoInputType: InfoInputType.none,
+    script: Script.badMoonRising,
+  ),
+
+  /// 普卡（BMR 恶魔）。
+  pukka(
+    nameCn: '普卡',
+    nameEn: 'Pukka',
+    team: Team.demon,
+    ability: '每个夜晚，选择一名玩家：其中毒。上一名中毒的玩家死亡'
+        '并恢复健康。',
+    infoInputType: InfoInputType.none,
+    script: Script.badMoonRising,
+  ),
+
+  /// 沙巴洛斯（BMR 恶魔）。
+  shabaloth(
+    nameCn: '沙巴洛斯',
+    nameEn: 'Shabaloth',
+    team: Team.demon,
+    ability: '每个夜晚*，选择两名玩家：他们死亡。昨夜选中的一名'
+        '已死玩家可能被吐出（复活）。',
+    infoInputType: InfoInputType.none,
+    script: Script.badMoonRising,
+  ),
+
+  /// 僵怖（BMR 恶魔）。
+  zombuul(
+    nameCn: '僵怖',
+    nameEn: 'Zombuul',
+    team: Team.demon,
+    ability: '每个夜晚*，若当日无人死亡，选择一名玩家：其死亡。'
+        '你第一次死亡时，你活着但被视为已死。',
+    infoInputType: InfoInputType.none,
+    script: Script.badMoonRising,
   );
 
   const Character({

@@ -24,10 +24,8 @@ void main() {
     expect(tb.byTeam(Team.demon).single, Character.imp);
   });
 
-  test('BMR/S&V 空池（角色待 #217 录入），of 兜底 TB 防脏数据', () {
-    expect(ScriptDefinition.of(Script.badMoonRising).characters, isEmpty);
+  test('S&V 空池（待 #217 录入）；注册表全键存在', () {
     expect(ScriptDefinition.of(Script.sectsAndViolets).characters, isEmpty);
-    // 注册表全键存在
     expect(scriptDefinitions.keys, containsAll(Script.values));
   });
 
@@ -59,8 +57,8 @@ void main() {
     test('TB maxOutsiderDelta = 2（Baron）；空池剧本 = 0', () {
       expect(ScriptDefinition.of(Script.troubleBrewing).maxOutsiderDelta, 2);
       expect(
-        ScriptDefinition.of(Script.badMoonRising).maxOutsiderDelta,
-        0, // Godfather [-1,1] 随 #217 录入后自动生效
+        ScriptDefinition.of(Script.troubleBrewing).maxOutsiderDelta,
+        2,
       );
     });
 
@@ -104,12 +102,17 @@ void main() {
         identical(nightStepsForDay(Script.troubleBrewing, 3), otherNightSteps),
         isTrue,
       );
+      // BMR 分派到自己的夜序（官方 nightsheet）
+      expect(
+        identical(
+          nightStepsForDay(Script.badMoonRising, 1),
+          ScriptDefinition.of(Script.badMoonRising).firstNightSteps,
+        ),
+        isTrue,
+      );
     });
 
-    test('game.script 分派链路：换剧本分派到各自数据（BMR 空池=仅缺数据）', () {
-      // BMR 已注册但夜序未录入（#217）→ 诚实返回空列表，分派链路本身打通；
-      // 不会误兜底 TB（of() 兜底仅针对未注册剧本防脏数据）。
-      expect(nightStepsForDay(Script.badMoonRising, 1), isEmpty);
+    test('game.script 分派链路：S&V 空池=仅缺数据，不误兜底', () {
       expect(nightStepsForDay(Script.sectsAndViolets, 2), isEmpty);
     });
 
@@ -187,9 +190,60 @@ void main() {
       ]);
     });
 
-    test('BMR/S&V 规则集空（随 #217 注册）', () {
-      expect(contradictionRulesFor(Script.badMoonRising), isEmpty);
+    test('S&V 规则集空（随 #217 注册）', () {
       expect(contradictionRulesFor(Script.sectsAndViolets), isEmpty);
+    });
+  });
+
+  group('BMR 黯月初升数据（#217）', () {
+    final bmr = ScriptDefinition.of(Script.badMoonRising);
+
+    test('角色池 25：13 镇民 / 4 外来者 / 4 爪牙 / 4 恶魔', () {
+      expect(bmr.characters, hasLength(25));
+      expect(bmr.byTeam(Team.townsfolk), hasLength(13));
+      expect(bmr.byTeam(Team.outsider), hasLength(4));
+      expect(bmr.byTeam(Team.minion), hasLength(4));
+      expect(bmr.byTeam(Team.demon), hasLength(4));
+      // 全部归属 BMR
+      for (final c in bmr.characters) {
+        expect(c.script, Script.badMoonRising, reason: c.name);
+      }
+    });
+
+    test('首夜顺序（官方 nightsheet）：疯子插在爪牙/恶魔信息之间', () {
+      final fn = bmr.firstNightSteps;
+      expect(fn, hasLength(10));
+      expect(fn[0].label, '爪牙信息');
+      expect(fn[1].character, Character.lunatic);
+      expect(fn[2].label, '恶魔信息');
+      expect(fn[3].character, Character.sailor);
+      expect(fn.last.character, Character.chambermaid);
+    });
+
+    test('后续夜顺序（官方 nightsheet）共 19 步', () {
+      final on = bmr.otherNightSteps;
+      expect(on, hasLength(19));
+      expect(on.first.character, Character.sailor);
+      expect(on[6].character, Character.exorcist);
+      expect(on[7].character, Character.zombuul);
+      expect(on.last.character, Character.chambermaid);
+    });
+
+    test('Godfather 增量 [-1,1]：maxOutsiderDelta = 1', () {
+      expect(Character.godfather.setupOutsiderDeltas, const [-1, 1]);
+      expect(bmr.maxOutsiderDelta, 1);
+    });
+
+    test('BMR 池内无适用 Jinx（军团×吟游诗人需军团在池=混编/S&V 场景）', () {
+      // 军团（S&V）不在 BMR 池 → legion×minstrel 不适用；
+      // magician×spy 需魔术师在池亦不适用。BMR 单剧本零 Jinx ✓ 官方一致。
+      expect(bmr.applicableJinxes, isEmpty);
+    });
+
+    test('官方剧本中文名（勘正）', () {
+      expect(Script.badMoonRising.nameCn, '黯月初升');
+      expect(Script.sectsAndViolets.nameCn, '灾祸滋生');
+      expect(Script.troubleBrewing.nameCn, '暗流涌动');
     });
   });
 }

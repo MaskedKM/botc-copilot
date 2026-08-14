@@ -5,13 +5,12 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('Character 元数据完整性', () {
-    test('TB 22 角色 + S&V 锚点 2（#233）：13/4/4/1 TB + 1 镇民 + 1 恶魔', () {
-      // 枚举含 #233 提前录入的 Magician/Legion（不入任何剧本池）。
-      expect(Character.values.length, 24);
-      expect(Character.byTeam(Team.townsfolk).length, 14); // +Magician
-      expect(Character.byTeam(Team.outsider).length, 4);
-      expect(Character.byTeam(Team.minion).length, 4);
-      expect(Character.byTeam(Team.demon).length, 2); // +Legion
+    test('TB 22 + BMR 25 + S&V 锚点 2 = 49（#217 数据录入）', () {
+      expect(Character.values.length, 49);
+      expect(Character.byTeam(Team.townsfolk).length, 27); // 13TB+13BMR+Magician
+      expect(Character.byTeam(Team.outsider).length, 8); // 4+4
+      expect(Character.byTeam(Team.minion).length, 8); // 4+4
+      expect(Character.byTeam(Team.demon).length, 6); // 1TB+4BMR+Legion
     });
 
     test('每个角色都有完整元数据', () {
