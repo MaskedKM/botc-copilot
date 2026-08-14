@@ -5,6 +5,7 @@ import 'package:botc_copilot/core/theme/game_colors.dart';
 import 'package:botc_copilot/feature/game_board/domain/nomination_rules.dart';
 import 'package:botc_copilot/feature/game_board/data/nomination_repository.dart';
 import 'package:botc_copilot/feature/game_board/presentation/providers/game_board_provider.dart';
+import 'package:botc_copilot/feature/player_detail/presentation/player_detail_sheet.dart';
 import 'package:botc_copilot/feature/reasoning/data/voting_analysis_provider.dart';
 import 'package:botc_copilot/feature/reasoning/domain/voting_analysis.dart';
 import 'package:flutter/material.dart';
@@ -49,6 +50,7 @@ class VotingAnalysisPage extends ConsumerWidget {
             : analysis == null
                 ? _Empty(gameColors: gameColors)
                 : _VotingAnalysisView(
+                    gameId: gameId,
                     analysis: analysis,
                     players: players,
                   ),
@@ -90,9 +92,13 @@ class _Empty extends StatelessWidget {
 
 class _VotingAnalysisView extends StatelessWidget {
   const _VotingAnalysisView({
+    required this.gameId,
     required this.analysis,
     required this.players,
   });
+
+  /// 对局 id（drill-down → 玩家详情，#138）。
+  final int gameId;
 
   final VotingAnalysis analysis;
   final List<Player> players;
@@ -119,7 +125,7 @@ class _VotingAnalysisView extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           for (final a in analysis.anomalies)
-            _AnomalyTile(anomaly: a, byId: byId),
+            _AnomalyTile(anomaly: a, byId: byId, gameId: gameId),
           const SizedBox(height: 16),
         ],
         if (analysis.clusters.isNotEmpty) ...[
@@ -139,7 +145,7 @@ class _VotingAnalysisView extends StatelessWidget {
             runSpacing: 8,
             children: [
               for (final c in analysis.clusters)
-                _ClusterCard(cluster: c, byId: byId),
+                _ClusterCard(cluster: c, byId: byId, gameId: gameId),
             ],
           ),
           const SizedBox(height: 16),
@@ -190,10 +196,13 @@ class _SectionTitle extends StatelessWidget {
 }
 
 class _AnomalyTile extends StatelessWidget {
-  const _AnomalyTile({required this.anomaly, required this.byId});
+  const _AnomalyTile({required this.anomaly, required this.byId, required this.gameId});
 
   final VoteAnomaly anomaly;
   final Map<int, Player> byId;
+
+  /// 对局 id（drill-down → 玩家详情，#138）。
+  final int gameId;
 
   @override
   Widget build(BuildContext context) {
@@ -202,8 +211,13 @@ class _AnomalyTile extends StatelessWidget {
     final nominee = byId[anomaly.nomineeId];
     return Card(
       margin: const EdgeInsets.only(bottom: 6),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      // drill-down：点异常票 tile 直达投票者详情（#138）。
+      child: InkWell(
+        onTap: voter == null
+            ? null
+            : () => PlayerDetailSheet.show(context, gameId: gameId, player: voter),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -234,15 +248,19 @@ class _AnomalyTile extends StatelessWidget {
           ],
         ),
       ),
+      ),
     );
   }
 }
 
 class _ClusterCard extends StatelessWidget {
-  const _ClusterCard({required this.cluster, required this.byId});
+  const _ClusterCard({required this.cluster, required this.byId, required this.gameId});
 
   final VoteCluster cluster;
   final Map<int, Player> byId;
+
+  /// 对局 id（drill-down → 玩家详情，#138）。
+  final int gameId;
 
   @override
   Widget build(BuildContext context) {
@@ -268,7 +286,7 @@ class _ClusterCard extends StatelessWidget {
             runSpacing: 4,
             children: [
               for (final id in cluster.playerIds)
-                Chip(
+                ActionChip(
                   label: Text(
                     '${byId[id]?.seatNumber ?? "?"}号'
                     '${(byId[id]?.isAlive ?? true) ? '' : '☠'}',
@@ -276,6 +294,13 @@ class _ClusterCard extends StatelessWidget {
                   ),
                   visualDensity: VisualDensity.compact,
                   padding: EdgeInsets.zero,
+                  // drill-down：点玩家直达详情（#138）。
+                  onPressed: () {
+                    final p = byId[id];
+                    if (p != null) {
+                      PlayerDetailSheet.show(context, gameId: gameId, player: p);
+                    }
+                  },
                 ),
             ],
           ),

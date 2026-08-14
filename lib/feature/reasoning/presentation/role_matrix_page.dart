@@ -3,6 +3,7 @@ import 'package:botc_copilot/core/database/app_database.dart';
 import 'package:botc_copilot/core/theme/app_text_styles.dart';
 import 'package:botc_copilot/core/theme/game_colors.dart';
 import 'package:botc_copilot/feature/game_board/presentation/providers/game_board_provider.dart';
+import 'package:botc_copilot/feature/player_detail/presentation/player_detail_sheet.dart';
 import 'package:botc_copilot/feature/reasoning/data/contradictions_provider.dart';
 import 'package:botc_copilot/feature/reasoning/domain/role_matrix.dart';
 import 'package:botc_copilot/shared/game_private.dart';
@@ -116,6 +117,7 @@ class _RoleMatrixPageState extends ConsumerState<RoleMatrixPage> {
                 scrollDirection: Axis.horizontal,
                 child: SingleChildScrollView(
                   child: _MatrixTable(
+                    gameId: widget.gameId,
                     players: players,
                     columns: columns,
                     rows: rows,
@@ -151,11 +153,15 @@ class _RoleMatrixPageState extends ConsumerState<RoleMatrixPage> {
 
 class _MatrixTable extends StatelessWidget {
   const _MatrixTable({
+    required this.gameId,
     required this.players,
     required this.columns,
     required this.rows,
     required this.myMinionIds,
   });
+
+  /// 对局 id（行头 drill-down → 玩家详情，#138）。
+  final int gameId;
 
   final List<Player> players;
   final List<MatrixColumn> columns;
@@ -192,31 +198,37 @@ class _MatrixTable extends StatelessWidget {
             children: [
               SizedBox(
                 height: _cellHeight,
-                child: Center(
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (myMinionIds.contains(p.id))
-                        Padding(
-                          padding: const EdgeInsets.only(right: 2),
-                          child: Icon(
-                            Icons.security,
-                            size: 10,
-                            color: gameColors.blood,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  // drill-down：点玩家行头直达玩家详情（#138）。
+                  onTap: () =>
+                      PlayerDetailSheet.show(context, gameId: gameId, player: p),
+                  child: Center(
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (myMinionIds.contains(p.id))
+                          Padding(
+                            padding: const EdgeInsets.only(right: 2),
+                            child: Icon(
+                              Icons.security,
+                              size: 10,
+                              color: gameColors.blood,
+                            ),
+                          ),
+                        Flexible(
+                          child: Text(
+                            '${p.seatNumber}${p.name}',
+                            style: AppTextStyles.caption.copyWith(
+                              color: myMinionIds.contains(p.id)
+                                  ? gameColors.bloodBright
+                                  : null,
+                            ),
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                      Flexible(
-                        child: Text(
-                          '${p.seatNumber}${p.name}',
-                          style: AppTextStyles.caption.copyWith(
-                            color: myMinionIds.contains(p.id)
-                                ? gameColors.bloodBright
-                                : null,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),
