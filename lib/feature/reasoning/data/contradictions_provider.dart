@@ -14,7 +14,8 @@ final gameClaimsProvider =
   return ref.watch(appDatabaseProvider).roleClaimsDao.watchByGame(gameId);
 });
 
-final _declarationsProvider =
+/// 某对局的全部信息声明流（公共：矛盾引擎与排除法棋盘共用一份订阅）。
+final gameAllDeclarationsProvider =
     StreamProvider.family<List<InfoDeclaration>, int>((ref, gameId) {
   return ref
       .watch(appDatabaseProvider)
@@ -22,7 +23,8 @@ final _declarationsProvider =
       .watchByGame(gameId);
 });
 
-final _daysProvider =
+/// 某对局的全部天记录流（公共：矛盾引擎与排除法棋盘共用一份订阅）。
+final gameAllDaysProvider =
     StreamProvider.family<List<DayRecord>, int>((ref, gameId) {
   return ref.watch(appDatabaseProvider).dayRecordsDao.watchByGame(gameId);
 });
@@ -50,8 +52,8 @@ final contradictionsProvider = Provider.family<ContradictionResult, int>(
     try {
       final claims = ref.watch(gameClaimsProvider(gameId)).valueOrNull ?? [];
       final declarations =
-          ref.watch(_declarationsProvider(gameId)).valueOrNull ?? [];
-      final days = ref.watch(_daysProvider(gameId)).valueOrNull ?? [];
+          ref.watch(gameAllDeclarationsProvider(gameId)).valueOrNull ?? [];
+      final days = ref.watch(gameAllDaysProvider(gameId)).valueOrNull ?? [];
       final players =
           ref.watch(gamePlayersProvider(gameId)).valueOrNull ?? [];
       final game = ref.watch(gameByIdProvider(gameId)).valueOrNull;
