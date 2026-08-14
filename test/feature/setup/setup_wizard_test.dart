@@ -82,24 +82,76 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets('非 TB 剧本禁用（角色数据未就绪）', (tester) async {
+  testWidgets('BMR 可选，S&V 仍禁用（角色池未录入）', (tester) async {
     await tester.pumpWidget(buildApp());
     await tester.pumpAndSettle();
     await enterWizard(tester);
 
-    // TB 可选，BMR/S&V 禁用（卡片标题是组合文本 “名字 · 缩写”）
-    expect(find.textContaining('黯月初升'), findsOneWidget);
-    expect(find.textContaining('即将支持'), findsNWidgets(2));
+    // #217 增量3：BMR 池已就绪 → 可选；S&V 空池仍禁用
+    expect(find.textContaining('即将支持'), findsOneWidget);
 
-    // 点 BMR 不会切换选中态
+    // 点 BMR 卡片可选中（出现对勾）
     await tester.tap(find.textContaining('黯月初升'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('下一步'));
+    expect(find.byIcon(Icons.check_circle), findsOneWidget);
+  });
+
+  testWidgets('BMR 全流程：角色池/Bluff 池按剧本、提交带 BMR 参数', (tester) async {
+    await tester.pumpWidget(buildApp());
+    await tester.pumpAndSettle();
+    await enterWizard(tester);
+
+    // 选 BMR 后走完前四步
+    await tester.tap(find.textContaining('黯月初升'));
+    await tester.pumpAndSettle();
+    await walkToConfirm(tester);
+
+    // Step 4 角色池来自 BMR：侍女在，TB 独有角色（占卜师）不在
+    expect(find.text('我的角色'), findsOneWidget);
+    expect(find.text('侍女'), findsOneWidget);
+    expect(find.text('占卜师'), findsNothing);
+
+    // 恶魔区在 25 角色池底部，须滚动到位再点选
+    await tester.scrollUntilVisible(
+      find.text('普卡'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.text('普卡'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('下一步'));
     await tester.pumpAndSettle();
-    // 座位页出现 = 流程仍按 TB 走，未被 BMR 干扰
-    expect(find.text('排座位'), findsOneWidget);
+
+    // Step 5 确认页：剧本行 + Bluff 池为 BMR 好人角色
+    expect(find.text('确认开局'), findsOneWidget);
+    expect(find.text('黯月初升'), findsOneWidget);
+    expect(find.text('恶魔 Bluff（选 3 个）'), findsOneWidget);
+    expect(find.text('侍女'), findsOneWidget); // BMR 镇民在池
+    expect(find.text('士兵'), findsNothing); // TB 镇民不在池
+
+    // 选 3 个 BMR Bluff 后开始对局（chip 可能在视口外，逐个滚动到位再点）
+    Future<void> tapBluff(String name) async {
+      await tester.scrollUntilVisible(
+        find.text(name),
+        100,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.tap(find.text(name));
+      await tester.pump();
+    }
+
+    await tapBluff('侍女');
+    await tapBluff('造谣者');
+    await tapBluff('茶艺师');
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('开始对局'));
+    await tester.pumpAndSettle();
+
+    // 仓库收到 BMR 参数
+    expect(repo.lastScript, Script.badMoonRising);
+    expect(repo.lastMyRole, Character.pukka);
+    expect(repo.lastDemonBluffs, hasLength(3));
+    expect(repo.lastDemonBluffs, containsAll([Character.chambermaid]));
   });
 
   testWidgets('完整设置流程：五步走到确认页', (tester) async {

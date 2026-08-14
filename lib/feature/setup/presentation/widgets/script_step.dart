@@ -1,4 +1,5 @@
 import 'package:botc_copilot/core/constants/script.dart';
+import 'package:botc_copilot/core/constants/script_definition.dart';
 import 'package:botc_copilot/core/theme/app_text_styles.dart';
 import 'package:botc_copilot/feature/setup/presentation/providers/setup_provider.dart';
 import 'package:botc_copilot/shared/models/enums.dart';
@@ -22,7 +23,8 @@ class ScriptStep extends ConsumerWidget {
         HelpTooltip(
           level: HelpLevel.normal,
           icon: Icons.menu_book_outlined,
-          text: '剧本决定本局可用的角色与规则。当前仅支持《暗流涌动》(TB)。',
+          text: '剧本决定本局可用的角色与规则。当前支持《暗流涌动》(TB)'
+              ' 与《黯月初升》(BMR)。',
         ),
         const SizedBox(height: 16),
         for (final script in Script.values)
@@ -31,9 +33,11 @@ class ScriptStep extends ConsumerWidget {
             child: _ScriptCard(
               script: script,
               selected: script == selected,
-              // MVP 只内置 TB 角色池；BMR/S&V 角色数据未就绪前禁用，
-              // 防止"选了 BMR 却只能选 TB 角色"的数据不一致。
-              enabled: script == Script.troubleBrewing,
+              // 数据驱动门控（#217）：角色池已录入的剧本即可选，
+              // 空池剧本（S&V）禁用，防止「选了却没角色可选」。
+              // 后续剧本录入数据后自动解锁，无需改此文件。
+              enabled:
+                  ScriptDefinition.of(script).characters.isNotEmpty,
               onTap: () =>
                   ref.read(setupProvider.notifier).selectScript(script),
             ),
