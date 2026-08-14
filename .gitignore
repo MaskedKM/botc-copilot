@@ -49,3 +49,6 @@ dist/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# ZCode 本地会话产物（勿入库）
+.zcode/
