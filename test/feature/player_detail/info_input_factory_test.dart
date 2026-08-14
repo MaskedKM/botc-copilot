@@ -1,5 +1,6 @@
 import 'package:botc_copilot/core/constants/character.dart';
 import 'package:botc_copilot/core/constants/script.dart';
+import 'package:botc_copilot/core/constants/info_input_type.dart';
 import 'package:botc_copilot/core/database/app_database.dart';
 import 'package:botc_copilot/core/theme/app_theme.dart';
 import 'package:botc_copilot/feature/player_detail/presentation/widgets/info_input_factory.dart';
@@ -220,5 +221,55 @@ void main() {
     // 当前 enum 里 none 的居多，直接构造 freeText 场景需等扩展角色。
     // 此处验证 none 行为即可。
     expect(result, isNull);
+  });
+
+  group('BMR 信息模板（#217 增量2）', () {
+    testWidgets('侍女 twoPlayersNumber：双人 + 0-2 数字 → payload', (tester) async {
+      Map<String, Object?>? submitted;
+      await tester.pumpWidget(
+        buildInput(Character.chambermaid, (p) => submitted = p),
+      );
+      await tester.pump();
+      // 选两人 + 数字
+      await tester.tap(find.textContaining('1号').first);
+      await tester.pump();
+      await tester.tap(find.textContaining('2号').first);
+      await tester.pump();
+      await tester.tap(find.text('1 人'));
+      await tester.pump();
+      await tester.tap(find.text('保存'));
+      await tester.pump();
+      expect(submitted, isNotNull);
+      expect((submitted!['playerIds'] as List).toSet(), {1, 2});
+      expect(submitted!['value'], 1);
+    });
+
+    testWidgets('旅店老板 twoPlayersTarget：双人保护 → payload', (tester) async {
+      Map<String, Object?>? submitted;
+      await tester.pumpWidget(
+        buildInput(Character.innkeeper, (p) => submitted = p),
+      );
+      await tester.pump();
+      await tester.tap(find.textContaining('3号').first);
+      await tester.pump();
+      await tester.tap(find.textContaining('4号').first);
+      await tester.pump();
+      await tester.tap(find.text('保存'));
+      await tester.pump();
+      expect(submitted, isNotNull);
+      expect((submitted!['playerIds'] as List).toSet(), {3, 4});
+      expect(submitted!.containsKey('value'), isFalse);
+    });
+
+    testWidgets('赌徒复用 playerPlusCharacter（BMR）', (tester) async {
+      // BMR 角色经同一工厂构建：模板类型驱动 UI，与剧本无关
+      expect(Character.gambler.infoInputType, InfoInputType.playerPlusCharacter);
+      expect(Character.grandmother.infoInputType,
+          InfoInputType.playerPlusCharacter);
+      expect(Character.courtier.infoInputType, InfoInputType.characterName);
+      expect(Character.pukka.infoInputType, InfoInputType.singlePlayerTarget);
+      expect(Character.godfather.infoInputType, InfoInputType.freeText);
+      expect(Character.zombuul.infoInputType, InfoInputType.none);
+    });
   });
 }

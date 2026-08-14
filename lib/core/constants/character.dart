@@ -256,7 +256,7 @@ enum Character {
     team: Team.townsfolk,
     ability: '每个夜晚，选择两名存活玩家（不能是自己）：你得知今晚'
         '有多少人因他们的能力被唤醒。',
-    infoInputType: InfoInputType.none,
+    infoInputType: InfoInputType.twoPlayersNumber,
     script: Script.badMoonRising,
   ),
 
@@ -266,7 +266,7 @@ enum Character {
     nameEn: 'Courtier',
     team: Team.townsfolk,
     ability: '每局限一次，在夜晚选择一个角色：该角色醉 3 夜 3 天。',
-    infoInputType: InfoInputType.none,
+    infoInputType: InfoInputType.characterName,
     script: Script.badMoonRising,
   ),
 
@@ -277,7 +277,7 @@ enum Character {
     team: Team.townsfolk,
     ability: '每个夜晚*，选择一名玩家（须与昨夜不同）：若选中恶魔，'
         '恶魔得知你是谁，且当晚不再行动。',
-    infoInputType: InfoInputType.none,
+    infoInputType: InfoInputType.singlePlayerTarget,
     script: Script.badMoonRising,
   ),
 
@@ -297,7 +297,7 @@ enum Character {
     nameEn: 'Gambler',
     team: Team.townsfolk,
     ability: '每个夜晚*，选择一名玩家并猜测其角色：猜错则你死亡。',
-    infoInputType: InfoInputType.none,
+    infoInputType: InfoInputType.playerPlusCharacter,
     script: Script.badMoonRising,
   ),
 
@@ -308,7 +308,7 @@ enum Character {
     team: Team.townsfolk,
     ability: '每个白天，你可以公开发表一项声明。当晚，若声明为真，'
         '则有一名玩家死亡。',
-    infoInputType: InfoInputType.none,
+    infoInputType: InfoInputType.freeText,
     script: Script.badMoonRising,
   ),
 
@@ -319,7 +319,7 @@ enum Character {
     team: Team.townsfolk,
     ability: '开局得知一名好人玩家及其角色。若恶魔杀死该玩家，'
         '你也死亡。',
-    infoInputType: InfoInputType.none,
+    infoInputType: InfoInputType.playerPlusCharacter,
     script: Script.badMoonRising,
   ),
 
@@ -330,7 +330,7 @@ enum Character {
     team: Team.townsfolk,
     ability: '每个夜晚*，选择两名玩家：他们当晚不会死亡，'
         '但其中一人醉至黄昏。',
-    infoInputType: InfoInputType.none,
+    infoInputType: InfoInputType.twoPlayersTarget,
     script: Script.badMoonRising,
   ),
 
@@ -362,7 +362,7 @@ enum Character {
     team: Team.townsfolk,
     ability: '每局限一次，在夜晚*选择一名已死玩家：若其为镇民，'
         '将其复活。',
-    infoInputType: InfoInputType.none,
+    infoInputType: InfoInputType.singlePlayerTarget,
     script: Script.badMoonRising,
   ),
 
@@ -373,7 +373,7 @@ enum Character {
     team: Team.townsfolk,
     ability: '每个夜晚，选择一名存活玩家：你或其中一人醉至黄昏。'
         '你不会死亡。',
-    infoInputType: InfoInputType.none,
+    infoInputType: InfoInputType.singlePlayerTarget,
     script: Script.badMoonRising,
   ),
 
@@ -405,7 +405,7 @@ enum Character {
     team: Team.outsider,
     ability: '你以为自己是恶魔，但你不是。恶魔知道你是谁、'
         '知道你每晚的选择。',
-    infoInputType: InfoInputType.none,
+    infoInputType: InfoInputType.singlePlayerTarget,
     script: Script.badMoonRising,
   ),
 
@@ -416,7 +416,7 @@ enum Character {
     team: Team.outsider,
     ability: '当你得知自己死亡时，公开选择一名存活玩家。当晚，'
         '若其为好人，则其死亡。',
-    infoInputType: InfoInputType.none,
+    infoInputType: InfoInputType.singlePlayerTarget,
     script: Script.badMoonRising,
   ),
 
@@ -437,7 +437,7 @@ enum Character {
     team: Team.minion,
     ability: '每局限一次，在夜晚*选择一名玩家：其死亡——'
         '即使因某些原因本不能死。',
-    infoInputType: InfoInputType.none,
+    infoInputType: InfoInputType.singlePlayerTarget,
     script: Script.badMoonRising,
   ),
 
@@ -448,7 +448,7 @@ enum Character {
     team: Team.minion,
     ability: '每个夜晚，选择一名存活玩家（须与昨夜不同）：'
         '其明日被处决也不会死。',
-    infoInputType: InfoInputType.none,
+    infoInputType: InfoInputType.singlePlayerTarget,
     script: Script.badMoonRising,
   ),
 
@@ -459,7 +459,7 @@ enum Character {
     team: Team.minion,
     ability: '开局得知在场的外来者。若当日有一名外来者死亡，'
         '当晚选择一名玩家：其死亡。',
-    infoInputType: InfoInputType.none,
+    infoInputType: InfoInputType.freeText,
     setupOutsiderDeltas: const [-1, 1],
     script: Script.badMoonRising,
   ),
@@ -493,7 +493,7 @@ enum Character {
     team: Team.demon,
     ability: '每个夜晚，选择一名玩家：其中毒。上一名中毒的玩家死亡'
         '并恢复健康。',
-    infoInputType: InfoInputType.none,
+    infoInputType: InfoInputType.singlePlayerTarget,
     script: Script.badMoonRising,
   ),
 

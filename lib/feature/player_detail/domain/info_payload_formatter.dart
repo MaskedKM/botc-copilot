@@ -35,17 +35,28 @@ abstract final class InfoPayloadFormatter {
       }
 
       return switch (character.infoInputType) {
-        // {"value": n}
-        _ when payload.containsKey('value') =>
-          '${character.nameCn}：${payload['value']}',
+        // {"playerIds": [a,b], "value": n}（BMR 侍女）
+        _ when payload.containsKey('playerIds') &&
+            payload.containsKey('value') =>
+          '${character.nameCn}：'
+              '${(payload['playerIds'] as List).map((id) => playerLabel(id as int)).join(' + ')}'
+              ' → ${payload['value']} 人醒来',
         // {"playerIds": [a,b], "answer": bool}
         _ when payload.containsKey('answer') =>
           '${character.nameCn}：${(payload['playerIds'] as List).map((id) => playerLabel(id as int)).join(' + ')}'
               ' → ${payload['answer'] == true ? '是' : '否'}',
         // {"character": ..., "playerIds": [...]}
-        _ when payload.containsKey('playerIds') =>
+        _ when payload.containsKey('character') &&
+                payload.containsKey('playerIds') =>
           '${character.nameCn}：${charLabel(payload['character'])}'
               '${(payload['playerIds'] as List).isEmpty ? '' : '（${(payload['playerIds'] as List).map((id) => playerLabel(id as int)).join('、')}）'}',
+        // {"playerIds": [...]}（无 character/value/answer：BMR 旅店老板保护）
+        _ when payload.containsKey('playerIds') =>
+          '${character.nameCn}：保护 '
+              '${(payload['playerIds'] as List).map((id) => playerLabel(id as int)).join('、')}',
+        // {"value": n}（Chef / Empath）
+        _ when payload.containsKey('value') =>
+          '${character.nameCn}：${payload['value']}',
         // {"playerId": n, "character": "..."}（Ravenkeeper：X号 是 Y）
         _ when payload.containsKey('playerId') &&
                 payload.containsKey('character') =>

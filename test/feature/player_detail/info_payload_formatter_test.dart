@@ -171,4 +171,43 @@ void main() {
       );
     });
   });
+
+  group('BMR payload 摘要（#217 增量2）', () {
+    test('侍女 {playerIds+value} → 「A + B → N 人醒来」（先于纯 value 分支）', () {
+      expect(
+        InfoPayloadFormatter.summarize(
+          decl(Character.chambermaid, '{"playerIds": [24, 30], "value": 1}'),
+          labelFor: labelFor,
+        ),
+        '侍女：24 号 + 30 号 → 1 人醒来',
+      );
+    });
+
+    test('旅店老板纯 {playerIds} → 「保护 A、B」', () {
+      expect(
+        InfoPayloadFormatter.summarize(
+          decl(Character.innkeeper, '{"playerIds": [24, 30]}'),
+          labelFor: labelFor,
+        ),
+        '旅店老板：保护 24 号、30 号',
+      );
+    });
+
+    test('既有纯 {value}（Chef/Empath）不受重排影响', () {
+      expect(
+        InfoPayloadFormatter.summarize(
+          decl(Character.chef, '{"value": 2}'),
+          labelFor: labelFor,
+        ),
+        '厨师：2',
+      );
+      expect(
+        InfoPayloadFormatter.summarize(
+          decl(Character.empath, '{"value": 0}'),
+          labelFor: labelFor,
+        ),
+        '共情者：0',
+      );
+    });
+  });
 }
