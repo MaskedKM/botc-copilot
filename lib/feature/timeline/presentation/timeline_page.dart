@@ -3,6 +3,7 @@ import 'package:botc_copilot/core/theme/game_colors.dart';
 import 'package:botc_copilot/feature/game_board/presentation/providers/game_board_provider.dart';
 import 'package:botc_copilot/feature/timeline/data/timeline_provider.dart';
 import 'package:botc_copilot/shared/models/enums.dart';
+import 'package:botc_copilot/shared/widgets/loading_error_view.dart';
 import 'package:botc_copilot/feature/timeline/domain/timeline_event.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -25,8 +26,10 @@ class TimelinePage extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('事件时间线')),
       body: timelineAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('加载失败：$e')),
+        loading: () => const LoadingView(),
+        error: (e, _) => ErrorRetryView(
+          onRetry: () => ref.invalidate(timelineProvider(gameId)),
+        ),
         data: (days) {
           final hasEvents = days.any((d) => d.events.isNotEmpty);
           if (!hasEvents) {

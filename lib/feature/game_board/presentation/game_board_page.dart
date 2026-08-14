@@ -21,6 +21,7 @@ import 'package:botc_copilot/feature/player_detail/presentation/player_detail_sh
 import 'package:botc_copilot/feature/reasoning/data/contradictions_provider.dart';
 import 'package:botc_copilot/feature/reasoning/presentation/reasoning_dashboard.dart';
 import 'package:botc_copilot/shared/models/enums.dart';
+import 'package:botc_copilot/shared/widgets/loading_error_view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -41,10 +42,12 @@ class GameBoardPage extends ConsumerWidget {
     final gameAsync = ref.watch(gameByIdProvider(gameId));
 
     return gameAsync.when(
-      loading: () => const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
+      loading: () => const Scaffold(body: LoadingView()),
+      error: (e, _) => Scaffold(
+        body: ErrorRetryView(
+          onRetry: () => ref.invalidate(gameByIdProvider(gameId)),
+        ),
       ),
-      error: (e, _) => Scaffold(body: Center(child: Text('加载失败：$e'))),
       data: (game) {
         if (game == null) {
           return const Scaffold(
@@ -75,9 +78,7 @@ class _GameBoardBody extends ConsumerWidget {
     // （0 人会违反布局的 5-15 断言；未恢复天数时禁用交互避免对错误天数操作）。
     final players = playersAsync.valueOrNull;
     if (players == null || players.isEmpty || !boardState.initialized) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const Scaffold(body: LoadingView());
     }
     final aliveCount = players.where((p) => p.isAlive).length;
     final gameColors = context.gameColors;
