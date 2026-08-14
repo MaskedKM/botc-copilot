@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:botc_copilot/core/constants/character.dart';
+import 'package:botc_copilot/core/constants/player_setup.dart';
 import 'package:botc_copilot/core/constants/team.dart';
 import 'package:botc_copilot/core/database/app_database.dart';
 import 'package:botc_copilot/feature/player_detail/domain/info_payload_formatter.dart';
@@ -28,7 +29,10 @@ enum ContradictionType {
   noDeathNight('无人死亡夜晚'),
 
   /// 声明恶魔 Bluff 角色（公理3，确定性不在场）。
-  bluffClaim('声明恶魔 Bluff 角色');
+  bluffClaim('声明恶魔 Bluff 角色'),
+
+  /// 镇民/爪牙/恶魔声明总数超过配置槽位（issue #212，硬约束）。
+  teamCountOverflow('阵营人数超限');
 
   const ContradictionType(this.nameCn);
 
@@ -86,6 +90,7 @@ abstract final class ContradictionDetector {
     required Map<int, Player> playersById,
     required Map<int, int> dayRecordToDayNumber,
     required int expectedOutsiders,
+    PlayerSetup? setup,
     Set<Character> demonBluffs = const {},
     int? myPlayerId,
     Character? myRole,
@@ -134,6 +139,8 @@ abstract final class ContradictionDetector {
         labelOf,
       ),
       ..._outsiderCountAnomaly(latestClaim, expectedOutsiders, labelOf),
+      if (setup != null)
+        ..._teamCountOverflow(latestClaim, setup, labelOf),
       ..._empathMismatch(
         declarations,
         latestClaim,
@@ -291,6 +298,77 @@ abstract final class ContradictionDetector {
         severity: ContradictionSeverity.warning,
       ),
     ];
+  }
+
+  /// 规则 3b：镇民/爪牙/恶魔声明总数超过配置槽位（issue #212，硬约束）。
+  ///
+  /// 与外来者（规则 3，有 Baron +2 容差）类似，这三阵营声明数也有容差：
+  /// - **镇民**：Baron 只减不增（最多 base）；但 Drunk（外来者）以镇民 bluff
+  ///   自居、会声明镇民角色，故镇民声明最多 base+1。保守 +1 Drunk 容差，
+  ///   仅 > base+1 时报（避免把 Drunk 在场的正常场景误报为矛盾）。
+  /// - **爪牙**：Baron 不影响，声明 > base 必有假。
+  /// - **恶魔**：TB 恒为 1；**排除死亡揭示**——传承公理下多个玩家可先后当过
+  ///   恶魔（原 Imp 死 + 继承人），死揭示的恶魔不计入「在世恶魔槽」，否则
+  ///   会误报「死揭示 Imp + 在世继承人声明 Imp」。
+  ///
+  /// 均为 warning 级（逻辑必然）。Recluse/Spy 的 registration 不影响「声明」
+  /// 计数——按声明角色所属阵营统计即可（声明 Imp 即算恶魔声明）。
+  static List<Contradiction> _teamCountOverflow(
+    Map<int, RoleClaim> latestClaim,
+    PlayerSetup setup,
+    String Function(int) labelOf,
+  ) {
+    final result = <Contradiction>[];
+
+    void check(
+      Team team,
+      int slot,
+      String teamName, {
+      bool excludeRevealed = false,
+      int tolerance = 0,
+      String? toleranceNote,
+    }) {
+      final effective = slot + tolerance;
+      final entries = latestClaim.entries.where((e) {
+        if (e.value.character.team != team) return false;
+        // 恶魔排除死亡揭示（传承可致多人先后为恶魔）。
+        if (excludeRevealed &&
+            e.value.claimType == ClaimType.revealedOnDeath) {
+          return false;
+        }
+        return true;
+      }).toList();
+      if (entries.length <= effective) return;
+      final note = toleranceNote == null ? '' : '（$toleranceNote）';
+      result.add(
+        Contradiction(
+          type: ContradictionType.teamCountOverflow,
+          playerIds: entries.map((e) => e.key).toList(),
+          description:
+              '$teamName 涉及 ${entries.map((e) => labelOf(e.key)).join('、')}'
+              '（共 ${entries.length} 人），'
+              '但 ${setup.playerCount} 人局配置最多 $effective 个$teamName'
+              '$note——必有假报。',
+          severity: ContradictionSeverity.warning,
+        ),
+      );
+    }
+
+    // 镇民：Drunk 是外来者但以镇民 bluff 自居、会声明镇民角色
+    // （latestClaimWithSelf 不识破 Drunk——见其 dartdoc），故镇民声明最多
+    // base+1。无法确知 Drunk 是否在场，保守 +1 容差——与 _outsiderCountAnomaly
+    // 的 Baron +2 容差同哲学，只在确定性矛盾（> base+1）时报，避免把 Drunk
+    // 在场的正常场景误报为矛盾。
+    check(
+      Team.townsfolk,
+      setup.townsfolk,
+      '镇民',
+      tolerance: 1,
+      toleranceNote: '含 1 个可能的 Drunk 误声明',
+    );
+    check(Team.minion, setup.minions, '爪牙');
+    check(Team.demon, setup.demons, '恶魔', excludeRevealed: true);
+    return result;
   }
 
   /// 规则 4：Empath 报 N>0 邪恶，但当时存活的邻座都声明好人。
