@@ -581,6 +581,110 @@ void main() {
     });
   });
 
+  group('replaceNomination（就地编辑，#160 #2）', () {
+    test('删旧 + 插新：改被提名者后只留一条新记录', () async {
+      await repo.addNomination(
+        gameId: gameId,
+        dayRecordId: dayRecordId,
+        nominatorId: players[0].id,
+        nomineeId: players[1].id,
+        votes: votesFor([1, 2, 3]),
+        players: players,
+        todayNominations: [],
+        allNominations: [],
+      );
+      final existing = await db.nominationsDao.watchByDay(dayRecordId).first;
+
+      final error = await repo.replaceNomination(
+        existingId: existing.single.id,
+        gameId: gameId,
+        dayRecordId: dayRecordId,
+        nominatorId: players[0].id,
+        nomineeId: players[2].id, // 改被提名者
+        votes: votesFor([1, 2, 3, 4]),
+        players: players,
+        todayNominations: existing,
+        allNominations: existing,
+      );
+
+      expect(error, isNull);
+      final after = await db.nominationsDao.watchByGame(gameId).first;
+      expect(after, hasLength(1)); // 旧的删除，新的插入
+      expect(after.single.nomineePlayerId, players[2].id);
+      expect(after.single.passed, isTrue); // 4 票 ≥ 阈值 3
+    });
+
+    test('编辑同一条不报「已提名过」（排除自身）', () async {
+      await repo.addNomination(
+        gameId: gameId,
+        dayRecordId: dayRecordId,
+        nominatorId: players[0].id,
+        nomineeId: players[1].id,
+        votes: votesFor([1]),
+        players: players,
+        todayNominations: [],
+        allNominations: [],
+      );
+      final existing = await db.nominationsDao.watchByDay(dayRecordId).first;
+
+      // 同一提名者/被提名者改票数 → 不应被自身触发「已提名过」。
+      final error = await repo.replaceNomination(
+        existingId: existing.single.id,
+        gameId: gameId,
+        dayRecordId: dayRecordId,
+        nominatorId: players[0].id,
+        nomineeId: players[1].id,
+        votes: votesFor([1, 2, 3]),
+        players: players,
+        todayNominations: existing,
+        allNominations: existing,
+      );
+      expect(error, isNull);
+    });
+
+    test('编辑成「他人已提名者」仍拒绝（只排除自身，不排除他人）', () async {
+      // players[2] 已提名 players[3]
+      await repo.addNomination(
+        gameId: gameId,
+        dayRecordId: dayRecordId,
+        nominatorId: players[2].id,
+        nomineeId: players[3].id,
+        votes: votesFor([1]),
+        players: players,
+        todayNominations: [],
+        allNominations: [],
+      );
+      // players[0] 提名 players[1]
+      await repo.addNomination(
+        gameId: gameId,
+        dayRecordId: dayRecordId,
+        nominatorId: players[0].id,
+        nomineeId: players[1].id,
+        votes: votesFor([1]),
+        players: players,
+        todayNominations: await db.nominationsDao.watchByDay(dayRecordId).first,
+        allNominations: await db.nominationsDao.watchByGame(gameId).first,
+      );
+      final all = await db.nominationsDao.watchByDay(dayRecordId).first;
+      final target =
+          all.firstWhere((n) => n.nominatorPlayerId == players[0].id);
+
+      // 把 players[0] 的提名改成提名者=players[2]（players[2] 今天已提名过）
+      final error = await repo.replaceNomination(
+        existingId: target.id,
+        gameId: gameId,
+        dayRecordId: dayRecordId,
+        nominatorId: players[2].id,
+        nomineeId: players[1].id,
+        votes: votesFor([1]),
+        players: players,
+        todayNominations: all,
+        allNominations: all,
+      );
+      expect(error, '该玩家今天已提名过');
+    });
+  });
+
   group('virginTriggerScenario（#54 收尾）', () {
     RoleClaim rc(int pid, Character c) => RoleClaim(
           id: pid,

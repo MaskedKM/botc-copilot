@@ -18,14 +18,21 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// 提名录入弹层：选提名者 → 选被提名者 → 逐人投票。
 class NominationEntrySheet extends ConsumerStatefulWidget {
-  /// 创建录入弹层。
-  const NominationEntrySheet({required this.gameId, super.key});
+  /// 创建录入弹层。[existing] 非空时为编辑模式（预填，#160 #2 纠错闭环）。
+  const NominationEntrySheet({required this.gameId, this.existing, super.key});
 
   /// 对局 id。
   final int gameId;
 
-  /// 弹出录入。
-  static Future<void> show(BuildContext context, {required int gameId}) {
+  /// 编辑目标（null = 新增）。
+  final Nomination? existing;
+
+  /// 弹出录入 / 编辑。
+  static Future<void> show(
+    BuildContext context, {
+    required int gameId,
+    Nomination? existing,
+  }) {
     return showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -33,7 +40,7 @@ class NominationEntrySheet extends ConsumerStatefulWidget {
         padding: EdgeInsets.only(
           bottom: MediaQuery.of(context).viewInsets.bottom,
         ),
-        child: NominationEntrySheet(gameId: gameId),
+        child: NominationEntrySheet(gameId: gameId, existing: existing),
       ),
     );
   }
@@ -51,11 +58,48 @@ class _NominationEntrySheetState extends ConsumerState<NominationEntrySheet> {
   _VoteMode _voteMode = _VoteMode.quick;
   final TextEditingController _defenseController = TextEditingController();
 
+  /// 脏检测基线（编辑模式相对预填值，新增模式相对空，#160 #2/#5）。
+  late final int? _initialNominatorId;
+  late final int? _initialNomineeId;
+  late final Map<int, Vote> _initialVotes;
+  late final String _initialDefense;
+
+  @override
+  void initState() {
+    super.initState();
+    final existing = widget.existing;
+    if (existing != null) {
+      // 编辑模式：预填，并固定为详细模式以精确保留下票集合（不自动补反对）。
+      _nominatorId = existing.nominatorPlayerId;
+      _nomineeId = existing.nomineePlayerId;
+      _defenseController.text = existing.defenseText ?? '';
+      _votes.addEntries(
+        NominationRules.decodeVotes(existing.voteResultJson)
+            .map((v) => MapEntry(v.playerId, v.vote)),
+      );
+      _voteMode = _VoteMode.full;
+    }
+    _initialNominatorId = _nominatorId;
+    _initialNomineeId = _nomineeId;
+    _initialVotes = Map.unmodifiable({..._votes});
+    _initialDefense = _defenseController.text;
+  }
+
   @override
   void dispose() {
     _defenseController.dispose();
     super.dispose();
   }
+
+  /// 是否相对初值有改动（编辑模式相对预填；新增模式相对空）。
+  bool get _isDirty =>
+      _nominatorId != _initialNominatorId ||
+      _nomineeId != _initialNomineeId ||
+      _defenseController.text != _initialDefense ||
+      _votes.length != _initialVotes.length ||
+      _votes.entries.any(
+        (e) => _initialVotes[e.key] != e.value,
+      );
 
   @override
   Widget build(BuildContext context) {
@@ -118,10 +162,10 @@ class _NominationEntrySheetState extends ConsumerState<NominationEntrySheet> {
         // 快录允许空投票（= 全反对）；详细至少录 1 票（issue #84）
         (_voteMode == _VoteMode.quick || _votes.isNotEmpty);
 
-    // #160 P0：有录入（提名者/被提名者/任一票）时阻止直接返回，改走确认——
+    // #160 P0：有改动（提名者/被提名者/任一票/辩护）时阻止直接返回，改走确认——
     // 避免误滑/返回键静默丢失全量投票（全应用最严重静默丢失缺口）。
-    final dirty =
-        _nominatorId != null || _nomineeId != null || _votes.isNotEmpty;
+    // 编辑模式相对预填值判脏（#160 #2）。
+    final dirty = _isDirty;
     return PopScope(
       canPop: !dirty,
       onPopInvokedWithResult: (didPop, _) {
@@ -137,7 +181,10 @@ class _NominationEntrySheetState extends ConsumerState<NominationEntrySheet> {
             controller: scrollController,
             padding: const EdgeInsets.all(16),
             children: [
-              const Text('记录提名', style: AppTextStyles.title),
+              Text(
+                widget.existing == null ? '记录提名' : '编辑提名',
+                style: AppTextStyles.title,
+              ),
               const SizedBox(height: 16),
 
               // 提名者
@@ -316,7 +363,11 @@ class _NominationEntrySheetState extends ConsumerState<NominationEntrySheet> {
                         day: day,
                       )
                     : null,
-                child: Text(_submitting ? '记录中…' : '提交提名'),
+                child: Text(
+                  _submitting
+                      ? (widget.existing == null ? '记录中…' : '保存中…')
+                      : (widget.existing == null ? '提交提名' : '保存修改'),
+                ),
               ),
             ],
           );
@@ -412,19 +463,33 @@ class _NominationEntrySheetState extends ConsumerState<NominationEntrySheet> {
               ),
           ];
 
-    final error = await ref
-        .read(nominationRepositoryProvider)
-        .addNomination(
-          gameId: widget.gameId,
-          dayRecordId: dayRecordId,
-          nominatorId: _nominatorId!,
-          nomineeId: _nomineeId!,
-          votes: votes,
-          players: players,
-          todayNominations: todayNominations,
-          allNominations: allNominations,
-          defenseText: _defenseController.text,
-        );
+    final repo = ref.read(nominationRepositoryProvider);
+    final existing = widget.existing;
+    // #160 #2：编辑走 replaceNomination（事务删旧+插新，校验排除自身）。
+    final error = existing == null
+        ? await repo.addNomination(
+            gameId: widget.gameId,
+            dayRecordId: dayRecordId,
+            nominatorId: _nominatorId!,
+            nomineeId: _nomineeId!,
+            votes: votes,
+            players: players,
+            todayNominations: todayNominations,
+            allNominations: allNominations,
+            defenseText: _defenseController.text,
+          )
+        : await repo.replaceNomination(
+            existingId: existing.id,
+            gameId: widget.gameId,
+            dayRecordId: dayRecordId,
+            nominatorId: _nominatorId!,
+            nomineeId: _nomineeId!,
+            votes: votes,
+            players: players,
+            todayNominations: todayNominations,
+            allNominations: allNominations,
+            defenseText: _defenseController.text,
+          );
 
     if (error != null) {
       messenger.showSnackBar(SnackBar(content: Text(error)));
