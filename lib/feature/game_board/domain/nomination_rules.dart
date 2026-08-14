@@ -126,26 +126,29 @@ abstract final class NominationRules {
   /// 计算当天「即将死亡」者（官方最高票累计机制，issue #53）。
   ///
   /// 处决不是每次提名独立判断，而是当天累计最高票：
-  /// - 仅考虑达到处决阈值（[threshold]）的提名。
+  /// - 仅考虑**已通过**的提名（[Nomination.passed]，录入时按当时存活数计算）。
   /// - 在通过的提名中取最高赞成票：
   ///   - 唯一最高 → 该被提名者即将死亡（[PendingExecution]），
   ///     后续出现更高票会**替换**为新的即将死亡者。
   ///   - 最高票并列 → [PendingTie]：无人即将死亡，后续须**超过**此票数。
   /// - 无通过提名 → [PendingNone]。
   ///
+  /// #149 B-2：用每条提名**录入时**判定的 [Nomination.passed]，而非用当前
+  /// 存活数统一重算——否则白天有人死亡（Slayer 击杀 / 误标）后存活数下降、
+  /// 阈值降低，会把当初未达阈值的旧提名**追溯判为通过**，甚至变成「即将死亡」
+  /// 者，与卡片显示的「未通过」矛盾。`passed` 在 `addNomination` /
+  /// `replaceNomination` 录入时按当时存活数计算，是「该提名时刻阈值」的最佳快照。
+  ///
   /// 注：[NominationRules.hasBeenNominatedToday] 保证同一被提名者每天
   /// 至多出现一次，故并列即不同人平票。
   static PendingExecutionResult pendingExecution(
     List<Nomination> todayNominations,
-    int aliveCount,
   ) {
-    final thresh = threshold(aliveCount);
     final passed = <(int nomineeId, int forCount)>[];
     for (final n in todayNominations) {
+      if (!n.passed) continue;
       final forCount = countFor(decodeVotes(n.voteResultJson));
-      if (forCount >= thresh) {
-        passed.add((n.nomineePlayerId, forCount));
-      }
+      passed.add((n.nomineePlayerId, forCount));
     }
     if (passed.isEmpty) return const PendingNone();
     final top = passed.map((p) => p.$2).reduce((a, b) => a > b ? a : b);

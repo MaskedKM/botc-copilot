@@ -35,8 +35,7 @@ class VotingPanel extends ConsumerWidget {
     final executed = dayRecord?.dayExecutionPlayerId != null;
 
     // 当天「即将死亡」判定（issue #53 最高票累计 + 平票规则）。
-    final aliveCount = players.where((p) => p.isAlive).length;
-    final pending = NominationRules.pendingExecution(nominations, aliveCount);
+    final pending = NominationRules.pendingExecution(nominations);
     final pendingNominee = pending is PendingExecution
         ? playersById[(pending).nomineeId]
         : null;

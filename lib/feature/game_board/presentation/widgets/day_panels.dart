@@ -122,9 +122,8 @@ class DayPanel extends ConsumerWidget {
     final ongoing = ref.watch(isGameOngoingProvider(gameId));
 
     // 处决合法性参考（issue #85）：当天「即将死亡」者
-    final aliveCount = players.where((p) => p.isAlive).length;
     final pending =
-        NominationRules.pendingExecution(todayNominations, aliveCount);
+        NominationRules.pendingExecution(todayNominations);
     final pendingId =
         pending is PendingExecution ? pending.nomineeId : null;
     // 警告文案用：「3号 玩家3（5 票）」

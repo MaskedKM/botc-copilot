@@ -314,7 +314,7 @@ void main() {
       final noms = [
         nominationWithVotes(nominatorIndex: 0, nomineeIndex: 1, forCount: 5),
       ];
-      final result = NominationRules.pendingExecution(noms, 6);
+      final result = NominationRules.pendingExecution(noms);
       expect(result, isA<PendingExecution>());
       expect((result as PendingExecution).nomineeId, players[1].id);
       expect(result.forCount, 5);
@@ -325,7 +325,7 @@ void main() {
         nominationWithVotes(nominatorIndex: 0, nomineeIndex: 1, forCount: 5),
         nominationWithVotes(nominatorIndex: 2, nomineeIndex: 3, forCount: 6),
       ];
-      final result = NominationRules.pendingExecution(noms, 6);
+      final result = NominationRules.pendingExecution(noms);
       expect(result, isA<PendingExecution>());
       expect((result as PendingExecution).nomineeId, players[3].id);
       expect(result.forCount, 6);
@@ -336,7 +336,7 @@ void main() {
         nominationWithVotes(nominatorIndex: 0, nomineeIndex: 1, forCount: 4),
         nominationWithVotes(nominatorIndex: 2, nomineeIndex: 3, forCount: 4),
       ];
-      final result = NominationRules.pendingExecution(noms, 6);
+      final result = NominationRules.pendingExecution(noms);
       expect(result, isA<PendingTie>());
       expect((result as PendingTie).forCount, 4);
     });
@@ -345,8 +345,19 @@ void main() {
       final noms = [
         nominationWithVotes(nominatorIndex: 0, nomineeIndex: 1, forCount: 2),
       ];
-      final result = NominationRules.pendingExecution(noms, 6);
+      final result = NominationRules.pendingExecution(noms);
       expect(result, isA<PendingNone>());
+    });
+
+    // #149 B-2：用每条提名录入时判定的 passed（快照），不因后来存活数下降
+    // 而把当初未达阈值的旧提名追溯判为通过。
+    test('录入时未过(passed=false)的提名不追溯判过（#149 B-2）', () {
+      // forCount=2，录入时阈值 3（6 存活）→ passed=false。
+      final noms = [
+        nominationWithVotes(nominatorIndex: 0, nomineeIndex: 1, forCount: 2),
+      ];
+      // 即便「现在」存活数下降到阈值 2，仍按录入时 passed=false → 不计入。
+      expect(NominationRules.pendingExecution(noms), isA<PendingNone>());
     });
   });
 
@@ -565,7 +576,7 @@ void main() {
       ];
       // 删除前：5 票者即将死亡
       expect(
-        (NominationRules.pendingExecution(noms, 6) as PendingExecution)
+        (NominationRules.pendingExecution(noms) as PendingExecution)
             .nomineeId,
         players[1].id,
       );
@@ -574,7 +585,7 @@ void main() {
           .where((n) => n.nomineePlayerId != players[1].id)
           .toList();
       expect(
-        (NominationRules.pendingExecution(afterDelete, 6) as PendingExecution)
+        (NominationRules.pendingExecution(afterDelete) as PendingExecution)
             .nomineeId,
         players[3].id,
       );

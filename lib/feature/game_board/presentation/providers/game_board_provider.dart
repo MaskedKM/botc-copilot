@@ -479,7 +479,7 @@ class GameBoardNotifier extends StateNotifier<GameBoardState> {
     // 市长条件「no execution occurs」不满足——避免终局假阳性善良胜。
     if (day != null) {
       final noms = await _db.nominationsDao.watchByDay(day.id).first;
-      if (NominationRules.pendingExecution(noms, alive) is PendingExecution) {
+      if (NominationRules.pendingExecution(noms) is PendingExecution) {
         return null;
       }
     }
