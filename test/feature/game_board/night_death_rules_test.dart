@@ -1,5 +1,7 @@
 import 'package:botc_copilot/core/constants/character.dart';
+import 'package:botc_copilot/core/database/app_database.dart';
 import 'package:botc_copilot/feature/game_board/domain/night_death_rules.dart';
+import 'package:botc_copilot/shared/models/enums.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -62,6 +64,65 @@ void main() {
         claimedCharacter: Character.chef,
       );
       expect(w, isEmpty);
+    });
+
+    test('声明 Mayor 夜死 → 警告转移机制（#220）', () {
+      final w = NightDeathRules.warnings(
+        day: 3,
+        claimedCharacter: Character.mayor,
+      );
+      expect(w, hasLength(1));
+      expect(w.first, contains('市长'));
+      expect(w.first, contains('改杀他人'));
+    });
+  });
+
+  group('hasAliveMayorClaim（#220 面板提示）', () {
+    Player _p(int id, {bool alive = true}) => Player(
+          id: id,
+          gameId: 1,
+          name: 'P$id',
+          seatNumber: id,
+          isAlive: alive,
+          abilityUsed: false,
+          suspectedDrunk: false,
+          deathDay: alive ? null : 2,
+          deathCause: alive ? null : DeathCause.nightKill,
+        );
+
+    RoleClaim _c(int id, Character ch) => RoleClaim(
+          id: id,
+          playerId: id,
+          dayRecordId: 1,
+          character: ch,
+          claimType: ClaimType.firstClaim,
+        );
+
+    test('存活市长声明者 → true', () {
+      expect(
+        NightDeathRules.hasAliveMayorClaim({1: _c(1, Character.mayor)}, {1: _p(1)}),
+        isTrue,
+      );
+    });
+
+    test('市长已死（揭示）→ false（转移机制不再触发）', () {
+      expect(
+        NightDeathRules.hasAliveMayorClaim(
+          {1: _c(1, Character.mayor)},
+          {1: _p(1, alive: false)},
+        ),
+        isFalse,
+      );
+    });
+
+    test('无市长声明 / 声明其他角色 → false', () {
+      expect(
+        NightDeathRules.hasAliveMayorClaim(
+          {1: _c(1, Character.chef), 2: _c(2, Character.monk)},
+          {1: _p(1), 2: _p(2)},
+        ),
+        isFalse,
+      );
     });
   });
 }

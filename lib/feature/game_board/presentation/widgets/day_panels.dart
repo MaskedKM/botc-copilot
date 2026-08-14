@@ -9,6 +9,8 @@ import 'package:botc_copilot/feature/game_board/data/nomination_repository.dart'
 import 'package:botc_copilot/feature/game_board/domain/game_end.dart';
 import 'package:botc_copilot/feature/game_board/domain/night_death_rules.dart';
 import 'package:botc_copilot/feature/game_board/domain/nomination_rules.dart';
+import 'package:botc_copilot/feature/reasoning/data/contradictions_provider.dart';
+import 'package:botc_copilot/feature/reasoning/domain/latest_claim.dart';
 import 'package:botc_copilot/shared/models/enums.dart';
 import 'package:botc_copilot/shared/widgets/help_tooltip.dart';
 import 'package:botc_copilot/feature/game_board/presentation/providers/game_board_provider.dart';
@@ -38,6 +40,20 @@ class NightPanel extends ConsumerWidget {
     final notifier = ref.read(gameBoardProvider(gameId).notifier);
     final helpLevel = ref.watch(gameHelpLevelProvider(gameId));
     final ongoing = ref.watch(isGameOngoingProvider(gameId));
+    // #220：场上有存活市长声明者 → 提示夜杀转移（ST 可能改杀他人）。
+    final claims = ref.watch(gameClaimsProvider(gameId)).valueOrNull ?? [];
+    final game = ref.watch(gameByIdProvider(gameId)).valueOrNull;
+    final latestClaim = latestClaimWithSelf(
+      claims,
+      myPlayerId: game?.myPlayerId,
+      myRole: game?.myRole,
+    );
+    final playersById = {for (final p in players) p.id: p};
+    final mayorAlive = NightDeathRules.hasAliveMayorClaim(
+      latestClaim,
+      playersById,
+    );
+    final gameColors = context.gameColors;
 
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -89,6 +105,25 @@ class NightPanel extends ConsumerWidget {
           text: '无人死亡可能意味着：Monk 保护成功 / Soldier 能力 / '
               '恶魔自杀传位 / 恶魔被毒。',
         ),
+        if (mayorAlive)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.swap_horiz, size: 16, color: gameColors.goldBright),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    '场上有存活的声明市长：市长夜间死亡时，说书人可能改杀他人——'
+                    '次日实际死者可能不是昨晚指定的目标。',
+                    style: AppTextStyles.caption
+                        .copyWith(color: gameColors.inkViolet),
+                  ),
+                ),
+              ],
+            ),
+          ),
         const SizedBox(height: 8),
         // 夜晚行动顺序参考（issue #61）
         NightOrderSection(currentDay: day, helpLevel: helpLevel),

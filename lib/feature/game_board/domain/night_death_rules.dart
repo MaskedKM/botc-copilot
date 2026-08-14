@@ -1,4 +1,5 @@
 import 'package:botc_copilot/core/constants/character.dart';
+import 'package:botc_copilot/core/database/app_database.dart';
 
 /// 夜晚死亡录入的规则警告（issue #114）。
 ///
@@ -15,6 +16,8 @@ import 'package:botc_copilot/core/constants/character.dart';
 ///   着能力被毒/醉关闭或录错。
 /// - **被 Monk 保护者夜死**（#110/#114 任务3）：Monk 保护在 Imp 之前结算，
 ///   被保护者不会被恶魔杀——除非僧侣被毒/醉。
+/// - **声明 Mayor 的玩家夜死**（#220）：官方 *"…the Mayor dies at night,
+///   they might not"*——说书人可能改杀他人。
 abstract final class NightDeathRules {
   /// 返回适用警告文案列表（空 = 无警告）。
   ///
@@ -33,10 +36,28 @@ abstract final class NightDeathRules {
     if (claimedCharacter == Character.soldier) {
       result.add('该玩家声明为士兵。士兵免疫恶魔能力——除非被毒/醉。');
     }
+    if (claimedCharacter == Character.mayor) {
+      result.add('该玩家声明为市长。官方：市长夜间死亡时说书人可能改杀他人——'
+          '次日实际死者可能不是此人。');
+    }
     if (monkProtected) {
       result.add('该玩家当晚被僧侣保护——被保护者不会被恶魔杀死，'
           '除非僧侣被毒/醉或保护未生效。');
     }
     return result;
   }
+
+  /// 是否存在**存活**的市长声明者（#220，夜杀面板提示用）。
+  ///
+  /// [latestClaim] 每玩家最新声明（含 myRole 注入，latestClaimWithSelf 产物）。
+  /// 市长已死则不再触发转移机制，不提示。
+  static bool hasAliveMayorClaim(
+    Map<int, RoleClaim> latestClaim,
+    Map<int, Player> playersById,
+  ) =>
+      latestClaim.entries.any(
+        (e) =>
+            e.value.character == Character.mayor &&
+            playersById[e.key]?.isAlive == true,
+      );
 }

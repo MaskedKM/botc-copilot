@@ -508,6 +508,17 @@ class _GameBoardBodyState extends ConsumerState<_GameBoardBody> {
     final suggestion = await ref
         .read(gameBoardProvider(gameId).notifier)
         .quickToggleDead(player, deathDay: selectedDay);
+    // #220：补录历史死亡（deathDay < currentDay）不自动检测恶魔传承——
+    // SW 阈值/存活/毒态须按死亡时点算而 App 无历史快照。给一句提示防漏判。
+    if (context.mounted && selectedDay < currentDay) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('已补录历史死亡：恶魔传承未自动检测，'
+              '如死者是恶魔请人工确认是否发生传承'),
+          duration: Duration(seconds: 6),
+        ),
+      );
+    }
     // 标死后提供 SnackBar 撤销（issue #65）。仅当无终局候选（suggestion == null）
     // 时提供——quickToggleDead 的非空返回必为终局候选，而撤销（revivePlayer）
     // 无法回退其副作用：DemonSuccessionCandidate 确认传承则 recordSuccession 已
