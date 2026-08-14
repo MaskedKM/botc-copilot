@@ -65,6 +65,65 @@ class PoisonRepository {
     });
   }
 
+  /// 和平主义者醉潮（BMR，#217 增量4C）当日批量开关。
+  ///
+  /// 官方：爪牙被处决时，其余所有玩家（除旅行者）醉至次日黄昏。
+  /// 开 = 为所有尚无醉/毒标记的玩家补一条 [PoisonSource.minstrel] 记录
+  /// （已有标记者不覆盖来源）；关 = 删除当日全部醉潮记录并按 #122 对称
+  /// 恢复（无其他毒源时）。整体事务（#150 R1 同理）。
+  Future<void> setMinstrelTide({
+    required int gameId,
+    required List<int> playerIds,
+    required int dayNumber,
+    required bool on,
+  }) async {
+    await _db.transaction(() async {
+      final all = await _db.poisonStatusesDao.watchByGame(gameId).first;
+      final dayRows =
+          all.where((p) => p.dayNumber == dayNumber).toList();
+      final dayRecord =
+          await _db.dayRecordsDao.getByGameAndDay(gameId, dayNumber);
+      if (on) {
+        final marked = dayRows.map((p) => p.playerId).toSet();
+        for (final pid in playerIds.where((id) => !marked.contains(id))) {
+          await _db.poisonStatusesDao.insertStatus(
+            PoisonStatusesCompanion(
+              gameId: Value(gameId),
+              playerId: Value(pid),
+              dayNumber: Value(dayNumber),
+              source: Value(PoisonSource.minstrel),
+            ),
+          );
+        }
+        if (dayRecord != null) {
+          // 回溯（#122）：当日已录信息全部降级（醉=毒，公理4）。
+          for (final pid in playerIds) {
+            await _db.infoDeclarationsDao
+                .taintPlayerDeclarations(dayRecord.id, pid);
+          }
+        }
+      } else {
+        final tideRows = dayRows
+            .where((p) => p.source == PoisonSource.minstrel)
+            .toList();
+        for (final row in tideRows) {
+          await _db.poisonStatusesDao.deleteStatus(row.id);
+        }
+        if (dayRecord != null) {
+          for (final row in tideRows) {
+            if (!await _db.infoDeclarationsDao
+                .isPlayerPoisonedFromSources(dayRecord.id, row.playerId)) {
+              await _db.infoDeclarationsDao.restorePlayerDeclarations(
+                dayRecord.id,
+                row.playerId,
+              );
+            }
+          }
+        }
+      }
+    });
+  }
+
   /// 某玩家当天是否有生效的醉/毒标记（供录入信息时自动降级可靠性）。
   Future<bool> isTainted({
     required int gameId,
