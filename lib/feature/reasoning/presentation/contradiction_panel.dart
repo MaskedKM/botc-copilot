@@ -1,5 +1,8 @@
+import 'package:botc_copilot/core/database/app_database.dart';
 import 'package:botc_copilot/core/theme/app_text_styles.dart';
 import 'package:botc_copilot/core/theme/game_colors.dart';
+import 'package:botc_copilot/feature/game_board/presentation/providers/game_board_provider.dart';
+import 'package:botc_copilot/feature/player_detail/presentation/player_detail_sheet.dart';
 import 'package:botc_copilot/feature/reasoning/data/contradictions_provider.dart';
 import 'package:botc_copilot/feature/reasoning/domain/contradiction.dart';
 import 'package:flutter/material.dart';
@@ -19,6 +22,10 @@ class ContradictionPanel extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final contradictions = ref.watch(contradictionsProvider(gameId));
     final gameColors = context.gameColors;
+    // 矛盾 tile drill-down（#138）：playerIds → 玩家详情。
+    final players = ref.watch(gamePlayersProvider(gameId)).valueOrNull ??
+        const <Player>[];
+    final playersById = {for (final p in players) p.id: p};
 
     // 注意：用 Column 而非 ListView——本面板被 ReasoningDashboard 的
     // ListView 内嵌，再开一层 ListView 会无界高度。
@@ -65,7 +72,11 @@ class ContradictionPanel extends ConsumerWidget {
           )
         else
           ...contradictions.map(
-            (c) => _ContradictionTile(contradiction: c),
+            (c) => _ContradictionTile(
+              contradiction: c,
+              gameId: gameId,
+              playersById: playersById,
+            ),
           ),
       ],
     );
@@ -73,9 +84,19 @@ class ContradictionPanel extends ConsumerWidget {
 }
 
 class _ContradictionTile extends StatelessWidget {
-  const _ContradictionTile({required this.contradiction});
+  const _ContradictionTile({
+    required this.contradiction,
+    required this.gameId,
+    required this.playersById,
+  });
 
   final Contradiction contradiction;
+
+  /// 对局 id（drill-down 打开玩家详情，#138）。
+  final int gameId;
+
+  /// 涉及玩家的 id → Player 映射（drill-down 解析）。
+  final Map<int, Player> playersById;
 
   @override
   Widget build(BuildContext context) {
@@ -106,9 +127,41 @@ class _ContradictionTile extends StatelessWidget {
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-            child: Text(
-              contradiction.description,
-              style: AppTextStyles.body,
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    contradiction.description,
+                    style: AppTextStyles.body,
+                  ),
+                  // drill-down（#138）：点玩家 chip 直达玩家详情。
+                  if (contradiction.playerIds.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 4,
+                      children: [
+                        for (final pid in contradiction.playerIds)
+                          if (playersById[pid] case final p?)
+                            ActionChip(
+                              avatar: const Icon(
+                                Icons.person_outline,
+                                size: 16,
+                              ),
+                              label: Text('${p.seatNumber}号 ${p.name}'),
+                              onPressed: () => PlayerDetailSheet.show(
+                                context,
+                                gameId: gameId,
+                                player: p,
+                              ),
+                            ),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
             ),
           ),
         ],
