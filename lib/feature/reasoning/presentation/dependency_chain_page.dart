@@ -2,6 +2,7 @@ import 'package:botc_copilot/core/database/app_database.dart';
 import 'package:botc_copilot/core/theme/app_text_styles.dart';
 import 'package:botc_copilot/core/theme/game_colors.dart';
 import 'package:botc_copilot/feature/game_board/presentation/providers/game_board_provider.dart';
+import 'package:botc_copilot/feature/player_detail/presentation/player_detail_sheet.dart';
 import 'package:botc_copilot/feature/reasoning/data/dependency_chain_provider.dart';
 import 'package:botc_copilot/feature/reasoning/domain/dependency_chain.dart';
 import 'package:botc_copilot/shared/models/enums.dart';
@@ -89,6 +90,7 @@ class DependencyChainPage extends ConsumerWidget {
     return [
       for (final authorId in authorIds)
         _AuthorSection(
+          gameId: gameId,
           authorId: authorId,
           authorNodes: nodes.where((n) => n.authorId == authorId).toList(),
           byId: byId,
@@ -202,12 +204,16 @@ class _Legend extends StatelessWidget {
 
 class _AuthorSection extends StatelessWidget {
   const _AuthorSection({
+    required this.gameId,
     required this.authorId,
     required this.authorNodes,
     required this.byId,
     required this.sandboxAssumed,
     required this.onToggleAssumeDrunk,
   });
+
+  /// 对局 id（drill-down → 玩家详情，#138）。
+  final int gameId;
 
   final int authorId;
   final List<InfoDependencyNode> authorNodes;
@@ -274,7 +280,8 @@ class _AuthorSection extends StatelessWidget {
             ),
           ],
           const SizedBox(height: 8),
-          for (final n in authorNodes) _NodeRow(node: n, byId: byId),
+          for (final n in authorNodes)
+            _NodeRow(node: n, byId: byId, gameId: gameId),
         ],
       ),
     );
@@ -282,16 +289,19 @@ class _AuthorSection extends StatelessWidget {
 }
 
 class _NodeRow extends StatelessWidget {
-  const _NodeRow({required this.node, required this.byId});
+  const _NodeRow({required this.node, required this.byId, required this.gameId});
 
   final InfoDependencyNode node;
   final Map<int, Player> byId;
+
+  /// 对局 id（drill-down → 玩家详情，#138）。
+  final int gameId;
 
   @override
   Widget build(BuildContext context) {
     final gameColors = context.gameColors;
     return InkWell(
-      onTap: () => _showNodeDetail(context, node, byId, gameColors),
+      onTap: () => _showNodeDetail(context, node, byId, gameColors, gameId),
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 6),
         child: Row(
@@ -355,7 +365,13 @@ void _showNodeDetail(
   InfoDependencyNode node,
   Map<int, Player> byId,
   GameColors gameColors,
+  int gameId,
 ) {
+  // drill-down（#138）：作者 + 引用玩家去重，渲染可点 chip 直达玩家详情。
+  final drillIds = <int>[
+    node.authorId,
+    ...node.references.playerIds,
+  ].where((id) => byId[id] != null).toSet().toList();
   showDialog<void>(
     context: context,
     builder: (_) => AlertDialog(
@@ -416,6 +432,25 @@ void _showNodeDetail(
                 '引用角色：${node.references.character!.nameCn}',
                 style: AppTextStyles.caption,
               ),
+          ],
+          if (drillIds.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 6,
+              runSpacing: 4,
+              children: [
+                for (final id in drillIds)
+                  ActionChip(
+                    avatar: const Icon(Icons.person_outline, size: 16),
+                    label: Text(_seat(byId, id)),
+                    onPressed: () => PlayerDetailSheet.show(
+                      context,
+                      gameId: gameId,
+                      player: byId[id]!,
+                    ),
+                  ),
+              ],
+            ),
           ],
         ],
       ),
