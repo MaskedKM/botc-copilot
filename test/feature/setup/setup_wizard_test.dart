@@ -82,16 +82,16 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets('BMR 可选，S&V 仍禁用（角色池未录入）', (tester) async {
+  testWidgets('三官方剧本全可选（#217 增量5 收官）', (tester) async {
     await tester.pumpWidget(buildApp());
     await tester.pumpAndSettle();
     await enterWizard(tester);
 
-    // #217 增量3：BMR 池已就绪 → 可选；S&V 空池仍禁用
-    expect(find.textContaining('即将支持'), findsOneWidget);
+    // 全部剧本数据就绪 → 无「即将支持」
+    expect(find.textContaining('即将支持'), findsNothing);
 
-    // 点 BMR 卡片可选中（出现对勾）
-    await tester.tap(find.textContaining('黯月初升'));
+    // 点 S&V 卡片可选中（出现对勾）
+    await tester.tap(find.textContaining('梦殒春宵'));
     await tester.pumpAndSettle();
     expect(find.byIcon(Icons.check_circle), findsOneWidget);
   });

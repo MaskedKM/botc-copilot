@@ -6,9 +6,9 @@ enum Script {
   /// Bad Moon Rising 黯月初升（官方中文名，#217 数据录入时勘正）。
   badMoonRising(nameCn: '黯月初升', nameEn: 'Bad Moon Rising', abbr: 'BMR'),
 
-  /// Sects & Violets 灾祸滋生（官方中文名，#217 数据录入时勘正）。
+  /// Sects & Violets 梦殒春宵（官方魔典 wiki 定名；此前误作「灾祸滋生」。
   sectsAndViolets(
-    nameCn: '灾祸滋生',
+    nameCn: '梦殒春宵',
     nameEn: 'Sects & Violets',
     abbr: 'S&V',
   );

@@ -521,6 +521,249 @@ enum Character {
         '你第一次死亡时，你活着但被视为已死。',
     infoInputType: InfoInputType.none,
     script: Script.badMoonRising,
+  ),
+
+  // ── S&V 梦殒春宵（#217 增量5：官方 botc-release + 魔典 wiki
+  //    图片文件名交叉验证 EN↔CN 映射；旅行者/实验角色不在池）────
+
+  /// 钟表匠（S&V 镇民）。
+  clockmaker(
+    nameCn: '钟表匠',
+    nameEn: 'Clockmaker',
+    team: Team.townsfolk,
+    ability: '在你的首个夜晚，你会得知恶魔与爪牙之间最近的距离（邻座距离为 1）。',
+    infoInputType: InfoInputType.freeText,
+    script: Script.sectsAndViolets,
+  ),
+  /// 筑梦师（S&V 镇民）。
+  dreamer(
+    nameCn: '筑梦师',
+    nameEn: 'Dreamer',
+    team: Team.townsfolk,
+    ability: '每个夜晚，'
+        '选择一名玩家（不能是自己或旅行者）：你得知一个善良角色和一个邪恶角色，'
+        '该玩家是其中一个角色。',
+    infoInputType: InfoInputType.freeText,
+    script: Script.sectsAndViolets,
+  ),
+  /// 舞蛇人（S&V 镇民）。
+  snakecharmer(
+    nameCn: '舞蛇人',
+    nameEn: 'Snake Charmer',
+    team: Team.townsfolk,
+    ability: '每个夜晚，选择一名存活玩家：若选中恶魔，你与其交换角色和阵营，且他中毒。',
+    infoInputType: InfoInputType.singlePlayerTarget,
+    script: Script.sectsAndViolets,
+  ),
+  /// 数学家（S&V 镇民）。
+  mathematician(
+    nameCn: '数学家',
+    nameEn: 'Mathematician',
+    team: Team.townsfolk,
+    ability: '每个夜晚，'
+        '你得知自上个黎明以来有多少玩家的能力因其他角色的能力而未能正常生效。',
+    infoInputType: InfoInputType.freeText,
+    script: Script.sectsAndViolets,
+  ),
+  /// 卖花女孩（S&V 镇民）。
+  flowergirl(
+    nameCn: '卖花女孩',
+    nameEn: 'Flowergirl',
+    team: Team.townsfolk,
+    ability: '每个夜晚*，你得知今天白天是否有恶魔投过票。',
+    infoInputType: InfoInputType.freeText,
+    script: Script.sectsAndViolets,
+  ),
+  /// 城镇公告员（S&V 镇民）。
+  towncrier(
+    nameCn: '城镇公告员',
+    nameEn: 'Town Crier',
+    team: Team.townsfolk,
+    ability: '每个夜晚*，你得知今天白天是否有爪牙发起过提名。',
+    infoInputType: InfoInputType.freeText,
+    script: Script.sectsAndViolets,
+  ),
+  /// 神谕者（S&V 镇民）。
+  oracle(
+    nameCn: '神谕者',
+    nameEn: 'Oracle',
+    team: Team.townsfolk,
+    ability: '每个夜晚*，你得知有多少名死亡的玩家是邪恶的。',
+    infoInputType: InfoInputType.freeText,
+    script: Script.sectsAndViolets,
+  ),
+  /// 博学者（S&V 镇民）。
+  savant(
+    nameCn: '博学者',
+    nameEn: 'Savant',
+    team: Team.townsfolk,
+    ability: '每个白天，你可以私下询问说书人得知两条信息：一条为真，一条为假。',
+    infoInputType: InfoInputType.freeText,
+    script: Script.sectsAndViolets,
+  ),
+  /// 女裁缝（S&V 镇民）。
+  seamstress(
+    nameCn: '女裁缝',
+    nameEn: 'Seamstress',
+    team: Team.townsfolk,
+    ability: '每局限一次，在夜晚选择除你以外的两名玩家：你得知他们是否为同一阵营。',
+    infoInputType: InfoInputType.freeText,
+    script: Script.sectsAndViolets,
+  ),
+  /// 哲学家（S&V 镇民）。
+  philosopher(
+    nameCn: '哲学家',
+    nameEn: 'Philosopher',
+    team: Team.townsfolk,
+    ability: '每局限一次，在夜晚选择一个善良角色：你获得该角色的能力。若该角色在场，'
+        '其玩家醉酒。',
+    infoInputType: InfoInputType.characterName,
+    script: Script.sectsAndViolets,
+  ),
+  /// 艺术家（S&V 镇民）。
+  artist(
+    nameCn: '艺术家',
+    nameEn: 'Artist',
+    team: Team.townsfolk,
+    ability: '每局限一次，在白天私下询问说书人一个是非问题，你得知答案。',
+    infoInputType: InfoInputType.freeText,
+    script: Script.sectsAndViolets,
+  ),
+  /// 杂耍艺人（S&V 镇民）。
+  juggler(
+    nameCn: '杂耍艺人',
+    nameEn: 'Juggler',
+    team: Team.townsfolk,
+    ability: '在你的首个白天，你可以公开猜测任意玩家的角色最多五次；当晚你得知猜对了几个。',
+    infoInputType: InfoInputType.freeText,
+    script: Script.sectsAndViolets,
+  ),
+  /// 贤者（S&V 镇民）。
+  sage(
+    nameCn: '贤者',
+    nameEn: 'Sage',
+    team: Team.townsfolk,
+    ability: '如果恶魔杀死了你，当晚你得知两名玩家，其中一名是杀死你的恶魔。',
+    infoInputType: InfoInputType.twoPlayersTarget,
+    script: Script.sectsAndViolets,
+  ),
+  /// 畸形秀演员（S&V 外来者）。
+  mutant(
+    nameCn: '畸形秀演员',
+    nameEn: 'Mutant',
+    team: Team.outsider,
+    ability: '如果你「疯狂」地证明自己是外来者，你可能被处决。',
+    infoInputType: InfoInputType.none,
+    script: Script.sectsAndViolets,
+  ),
+  /// 心上人（S&V 外来者）。
+  sweetheart(
+    nameCn: '心上人',
+    nameEn: 'Sweetheart',
+    team: Team.outsider,
+    ability: '当你死亡时，会有一名玩家从现在开始醉酒。',
+    infoInputType: InfoInputType.none,
+    script: Script.sectsAndViolets,
+  ),
+  /// 理发师（S&V 外来者）。
+  barber(
+    nameCn: '理发师',
+    nameEn: 'Barber',
+    team: Team.outsider,
+    ability: '如果你今日或今晚死亡，恶魔可以选择两名玩家（不能是其他恶魔）交换角色。',
+    infoInputType: InfoInputType.none,
+    script: Script.sectsAndViolets,
+  ),
+  /// 呆瓜（S&V 外来者）。
+  klutz(
+    nameCn: '呆瓜',
+    nameEn: 'Klutz',
+    team: Team.outsider,
+    ability: '当你得知自己死亡时，公开选择一名存活玩家：若其为邪恶，你的阵营落败。',
+    infoInputType: InfoInputType.none,
+    script: Script.sectsAndViolets,
+  ),
+  /// 镜像双子（S&V 爪牙）。
+  eviltwin(
+    nameCn: '镜像双子',
+    nameEn: 'Evil Twin',
+    team: Team.minion,
+    ability: '你与一名对立阵营的玩家互相知道对方。若该好人被处决，'
+        '邪恶获胜；你们都存活则善良无法获胜。',
+    infoInputType: InfoInputType.playerPlusCharacter,
+    script: Script.sectsAndViolets,
+  ),
+  /// 女巫（S&V 爪牙）。
+  witch(
+    nameCn: '女巫',
+    nameEn: 'Witch',
+    team: Team.minion,
+    ability: '每个夜晚，选择一名玩家：若其明天白天发起提名，其死亡。若只剩三名存活玩家，'
+        '你失去此能力。',
+    infoInputType: InfoInputType.singlePlayerTarget,
+    script: Script.sectsAndViolets,
+  ),
+  /// 洗脑师（S&V 爪牙）。
+  cerenovus(
+    nameCn: '洗脑师',
+    nameEn: 'Cerenovus',
+    team: Team.minion,
+    ability: '每个夜晚，'
+        '选择一名玩家和一个善良角色：其明天白天和夜晚须「疯狂」地证明自己是该角色，'
+        '否则可能被处决。',
+    infoInputType: InfoInputType.playerPlusCharacter,
+    script: Script.sectsAndViolets,
+  ),
+  /// 麻脸巫婆（S&V 爪牙）。
+  pithag(
+    nameCn: '麻脸巫婆',
+    nameEn: 'Pit-Hag',
+    team: Team.minion,
+    ability: '每个夜晚*，选择一名玩家和一个角色：若该角色不在场，'
+        '其变成该角色。若因此产生新恶魔，当晚的死亡由说书人决定。',
+    infoInputType: InfoInputType.playerPlusCharacter,
+    script: Script.sectsAndViolets,
+  ),
+  /// 方古（S&V 恶魔）。
+  fanggu(
+    nameCn: '方古',
+    nameEn: 'Fang Gu',
+    team: Team.demon,
+    ability: '每个夜晚*，'
+        '选择一名玩家：其死亡。第一个因此死亡的外来者变成邪恶的方古且你代替其死亡。',
+    infoInputType: InfoInputType.none,
+    setupOutsiderDeltas: const [1],
+    script: Script.sectsAndViolets,
+  ),
+  /// 亡骨魔（S&V 恶魔）。
+  vigormortis(
+    nameCn: '亡骨魔',
+    nameEn: 'Vigormortis',
+    team: Team.demon,
+    ability: '每个夜晚*，'
+        '选择一名玩家：其死亡。你杀死的爪牙保留能力并使其一名镇民邻座中毒。',
+    infoInputType: InfoInputType.none,
+    setupOutsiderDeltas: const [-1],
+    script: Script.sectsAndViolets,
+  ),
+  /// 诺-达鲺（S&V 恶魔）。
+  nodashii(
+    nameCn: '诺-达鲺',
+    nameEn: 'No Dashii',
+    team: Team.demon,
+    ability: '每个夜晚*，选择一名玩家：其死亡。你的两名镇民邻座中毒。',
+    infoInputType: InfoInputType.none,
+    script: Script.sectsAndViolets,
+  ),
+  /// 涡流（S&V 恶魔）。
+  vortox(
+    nameCn: '涡流',
+    nameEn: 'Vortox',
+    team: Team.demon,
+    ability: '每个夜晚*，'
+        '选择一名玩家：其死亡。镇民能力给出错误信息。每个白天若无人被处决，邪恶获胜。',
+    infoInputType: InfoInputType.none,
+    script: Script.sectsAndViolets,
   );
 
   const Character({
