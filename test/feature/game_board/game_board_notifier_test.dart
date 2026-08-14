@@ -51,8 +51,8 @@ void main() {
       container.read(gameBoardProvider(gameId).notifier);
   GameBoardState state() => container.read(gameBoardProvider(gameId));
 
-  test('recordNightDeath：标记玩家死亡 + 写入当日记录', () async {
-    await notifier().recordNightDeath(players[2].id);
+  test('setNightDeaths：标记玩家死亡 + 写入当日记录', () async {
+    await notifier().setNightDeaths([players[2].id]);
 
     final updated = await db.playersDao.watchByGame(gameId).first;
     expect(updated[2].isAlive, isFalse);
@@ -60,41 +60,41 @@ void main() {
     expect(updated[2].deathDay, 1);
 
     final day = await db.dayRecordsDao.getByGameAndDay(gameId, 1);
-    expect(day!.nightDeathPlayerId, players[2].id);
-    expect(day.nightConfirmed, isTrue); // 确认夜晚（#77）
+    expect(nightDeathIdsOf(day), [players[2].id]);
+    expect(day!.nightConfirmed, isTrue); // 确认夜晚（#77）
   });
 
-  test('recordNightDeath(null)：无人死亡确认夜晚，只更新记录不标记', () async {
-    await notifier().recordNightDeath(null);
+  test('setNightDeaths(const [])：无人死亡确认夜晚，只更新记录不标记', () async {
+    await notifier().setNightDeaths(const []);
     final day = await db.dayRecordsDao.getByGameAndDay(gameId, 1);
-    expect(day!.nightDeathPlayerId, isNull);
-    expect(day.nightConfirmed, isTrue); // 「无人死亡」也确认（#77）
+    expect(nightDeathIdsOf(day), isEmpty);
+    expect(day!.nightConfirmed, isTrue); // 「无人死亡」也确认（#77）
     final updated = await db.playersDao.watchByGame(gameId).first;
     expect(updated.every((p) => p.isAlive), isTrue);
   });
 
-  test('recordNightDeath：撤销（改选无人死亡）复活已标死的玩家', () async {
-    await notifier().recordNightDeath(players[2].id);
-    await notifier().recordNightDeath(null);
+  test('setNightDeaths：撤销（改选无人死亡）复活已标死的玩家', () async {
+    await notifier().setNightDeaths([players[2].id]);
+    await notifier().setNightDeaths(const []);
 
     final day = await db.dayRecordsDao.getByGameAndDay(gameId, 1);
-    expect(day!.nightDeathPlayerId, isNull);
+    expect(nightDeathIdsOf(day), isEmpty);
     final updated = await db.playersDao.watchByGame(gameId).first;
     expect(updated[2].isAlive, isTrue);
     expect(updated[2].deathDay, isNull);
     expect(updated[2].deathCause, isNull);
   });
 
-  test('recordNightDeath：改选他人时复活上一个夜晚死亡者', () async {
-    await notifier().recordNightDeath(players[1].id);
-    await notifier().recordNightDeath(players[3].id);
+  test('setNightDeaths：改选他人时复活上一个夜晚死亡者', () async {
+    await notifier().setNightDeaths([players[1].id]);
+    await notifier().setNightDeaths([players[3].id]);
 
     final updated = await db.playersDao.watchByGame(gameId).first;
     expect(updated[1].isAlive, isTrue);
     expect(updated[3].isAlive, isFalse);
     expect(updated[3].deathCause, DeathCause.nightKill);
     final day = await db.dayRecordsDao.getByGameAndDay(gameId, 1);
-    expect(day!.nightDeathPlayerId, players[3].id);
+    expect(nightDeathIdsOf(day), [players[3].id]);
   });
 
   test('recordExecution：撤销（置 null）复活被处决者', () async {
@@ -134,7 +134,7 @@ void main() {
 
   // #149 BUG-1：恶魔死亡应先传承（DemonSuccessionCandidate），不得被
   // _evilWinCheck 短路成 EvilWinCandidate（Imp 自杀无爪牙时应善良胜，非邪恶胜）。
-  test('recordNightDeath：恶魔死先传承，不短路邪恶胜（#149 BUG-1）', () async {
+  test('setNightDeaths：恶魔死先传承，不短路邪恶胜（#149 BUG-1）', () async {
     // 我是 Imp（座位1），杀到剩 3 存活（我 + 2 好人，无爪牙）
     await db.gamesDao.updateMyRole(gameId, Character.imp);
     await db.gamesDao.updateMyPlayerId(gameId, players[0].id);
@@ -142,17 +142,17 @@ void main() {
       await db.playersDao.markDead(players[i].id, 1, DeathCause.nightKill);
     }
     // Imp 夜死 → 返回传承候选（先传承/善良胜），非 EvilWinCandidate
-    final suggestion = await notifier().recordNightDeath(players[0].id);
+    final suggestion = await notifier().setNightDeaths([players[0].id]);
     expect(suggestion, isA<DemonSuccessionCandidate>());
   });
 
-  test('recordNightDeath：非恶魔死 + 存活 ≤2 → 邪恶胜候选（#149）', () async {
+  test('setNightDeaths：非恶魔死 + 存活 ≤2 → 邪恶胜候选（#149）', () async {
     // 杀到 3 存活（均好人：myPlayerId 未设）
     for (final i in [2, 3, 4, 5]) {
       await db.playersDao.markDead(players[i].id, 1, DeathCause.nightKill);
     }
     // players[1]（好人）夜死 → 非恶魔 → 人头邪恶胜
-    final suggestion = await notifier().recordNightDeath(players[1].id);
+    final suggestion = await notifier().setNightDeaths([players[1].id]);
     expect(suggestion, isA<EvilWinCandidate>());
   });
 
@@ -176,7 +176,7 @@ void main() {
   // issue #80：处决死人消耗处决额度但不覆盖原死亡信息；撤销不复活死者。
   test('处决已死玩家：消耗处决额度，原死亡信息不变', () async {
     // 先夜晚杀死 players[2]
-    await notifier().recordNightDeath(players[2].id);
+    await notifier().setNightDeaths([players[2].id]);
     var updated = await db.playersDao.watchByGame(gameId).first;
     expect(updated[2].deathCause, DeathCause.nightKill);
 
@@ -191,7 +191,7 @@ void main() {
   });
 
   test('撤销对死人的处决：不复活早就死了的人', () async {
-    await notifier().recordNightDeath(players[2].id); // players[2] 夜死
+    await notifier().setNightDeaths([players[2].id]); // players[2] 夜死
     await notifier().recordExecution(players[2].id); // 处决死人
     // 改处决为 players[3] → 撤销对死人的处决
     await notifier().recordExecution(players[3].id);
@@ -203,17 +203,17 @@ void main() {
 
   // #154 BUG-1：夜杀+处决同一人后依次清空两字段，玩家不得孤立致死。
   test('夜杀+处决同一人后清空两者：玩家正确复活（#154 BUG-1）', () async {
-    await notifier().recordNightDeath(players[2].id);
+    await notifier().setNightDeaths([players[2].id]);
     await notifier().recordExecution(players[2].id); // markDead no-op，cause 仍 nightKill
-    await notifier().recordNightDeath(null);
+    await notifier().setNightDeaths(const []);
     await notifier().recordExecution(null);
 
     final updated = await db.playersDao.watchByGame(gameId).first;
     expect(updated[2].isAlive, isTrue); // 不再孤立致死
     expect(updated[2].deathDay, isNull);
     final day = await db.dayRecordsDao.getByGameAndDay(gameId, 1);
-    expect(day!.nightDeathPlayerId, isNull);
-    expect(day.dayExecutionPlayerId, isNull);
+    expect(nightDeathIdsOf(day), isEmpty);
+    expect(day!.dayExecutionPlayerId, isNull);
   });
 
   // #154 review Finding 1：长按致死（无 day-record 字段）+ 处决同一人后清处决，
@@ -254,16 +254,16 @@ void main() {
 
   // review M1：夜杀 A + 处决 A + 改夜杀目标 → A 不应被复活（处决仍生效）
   test('夜杀+处决同一人后改夜杀目标：不复活（跨字段守卫）', () async {
-    await notifier().recordNightDeath(players[2].id); // 夜杀 players[2]
+    await notifier().setNightDeaths([players[2].id]); // 夜杀 players[2]
     await notifier().recordExecution(players[2].id); // 处决同一人（死人）
-    await notifier().recordNightDeath(players[3].id); // 改夜杀目标
+    await notifier().setNightDeaths([players[3].id]); // 改夜杀目标
 
     final updated = await db.playersDao.watchByGame(gameId).first;
     expect(updated[2].isAlive, isFalse); // 仍死（处决仍指向他）
     expect(updated[3].isAlive, isFalse); // 新夜杀目标死
     final day = await db.dayRecordsDao.getByGameAndDay(gameId, 1);
-    expect(day!.nightDeathPlayerId, players[3].id);
-    expect(day.dayExecutionPlayerId, players[2].id);
+    expect(nightDeathIdsOf(day), [players[3].id]);
+    expect(day!.dayExecutionPlayerId, players[2].id);
   });
 
   test('advanceDay：推进天数 + 预建次日记录 + 清空选中', () async {
@@ -288,7 +288,7 @@ void main() {
 
   test('revertAdvanceDay：当天有夜晚死亡不可回退（#87）', () async {
     await notifier().advanceDay(); // → day 2
-    await notifier().recordNightDeath(players[1].id); // day 2 有夜死
+    await notifier().setNightDeaths([players[1].id]); // day 2 有夜死
     final ok = await notifier().revertAdvanceDay();
     expect(ok, isFalse);
     expect(state().currentDay, 2); // 未回退
@@ -406,7 +406,7 @@ void main() {
 
     // 复活后确认夜晚（nightConfirmed=true）→ 长按标死 = 白天死
     await notifier().revivePlayer(players[1].id);
-    await notifier().recordNightDeath(null);
+    await notifier().setNightDeaths(const []);
     await notifier().quickToggleDead(players[2]);
     updated = await db.playersDao.watchByGame(gameId).first;
     expect(updated[2].deathCause, DeathCause.other);
@@ -563,19 +563,85 @@ void main() {
     test('僵尸态：恶魔已处决无传承 → 夜死压到 2 人 → GoodWinCandidate',
         () async {
       await seed(withDemonReveal: true);
-      final suggestion = await notifier().recordNightDeath(players[4].id);
+      final suggestion = await notifier().setNightDeaths([players[4].id]);
       expect(suggestion, isA<GoodWinCandidate>());
       expect((suggestion as GoodWinCandidate).aliveCount, 2);
     });
 
     test('无恶魔死亡记录（现状回归）→ EvilWinCandidate', () async {
       await seed(withDemonReveal: false);
-      final suggestion = await notifier().recordNightDeath(players[4].id);
+      final suggestion = await notifier().setNightDeaths([players[4].id]);
       expect(suggestion, isA<EvilWinCandidate>());
     });
 
     test('checkHeadsWin：存活 > 2 → null', () async {
       expect(await notifier().checkHeadsWin(), isNull);
+    });
+  });
+
+  group('#217 增量4：多杀夜（setNightDeaths 集合语义）', () {
+    test('一晚两人（BMR 沙巴洛斯双杀）→ 都标死 + 数组保序', () async {
+      final suggestion = await notifier().setNightDeaths(
+        [players[2].id, players[5].id],
+      );
+      // 5 人存活 → 无终局建议
+      expect(suggestion, isNull);
+      final day = await db.dayRecordsDao.getByGameAndDay(gameId, 1);
+      expect(nightDeathIdsOf(day), [players[2].id, players[5].id]);
+      expect(day!.nightConfirmed, isTrue);
+      final updated = await db.playersDao.watchByGame(gameId).first;
+      expect(updated[2].isAlive, isFalse);
+      expect(updated[5].isAlive, isFalse);
+      expect(updated[2].deathCause, DeathCause.nightKill);
+    });
+
+    test('移出一人 → 该人复活，另一人保留且 nightConfirmed 不回退', () async {
+      await notifier().setNightDeaths([players[2].id, players[5].id]);
+      await notifier().setNightDeaths([players[5].id]);
+      final day = await db.dayRecordsDao.getByGameAndDay(gameId, 1);
+      expect(nightDeathIdsOf(day), [players[5].id]);
+      expect(day!.nightConfirmed, isTrue);
+      final updated = await db.playersDao.watchByGame(gameId).first;
+      expect(updated[2].isAlive, isTrue); // 差集复活
+      expect(updated[5].isAlive, isFalse);
+    });
+
+    test('移出最后一个 → 字段清空 + nightConfirmed 回退（#154 语义保持）',
+        () async {
+      await notifier().setNightDeaths([players[2].id]);
+      await notifier().setNightDeaths(const []);
+      final day = await db.dayRecordsDao.getByGameAndDay(gameId, 1);
+      expect(nightDeathIdsOf(day), isEmpty);
+      // 显式「无人死亡」= 空数组 + confirmed（#77：null 才是未录入）
+      expect(day!.nightDeathPlayerIds, '[]');
+      expect(day.nightConfirmed, isTrue);
+    });
+
+    test('夜死+处决同人后移出夜死 → 不复活，cause 重对齐处决（#154 BUG-1）',
+        () async {
+      // 夜杀 players[2] 后又处决同一人（markDead no-op，cause 保持 nightKill）
+      await notifier().setNightDeaths([players[2].id]);
+      await notifier().recordExecution(players[2].id);
+      // 从夜死名单移除：处决记录仍锁定 → 不复活，cause 对齐 execution
+      await notifier().setNightDeaths(const []);
+      final updated = await db.playersDao.watchByGame(gameId).first;
+      expect(updated[2].isAlive, isFalse);
+      expect(updated[2].deathCause, DeathCause.execution);
+      // 再撤销处决 → 此时无夜死记录锁定 → 复活
+      await notifier().recordExecution(null);
+      final revived = await db.playersDao.watchByGame(gameId).first;
+      expect(revived[2].isAlive, isTrue);
+    });
+
+    test('双杀压到 2 人 → checkHeadsWin 生效（EvilWinCandidate）', () async {
+      // 预置 3 人已死 → 存活 4，双杀 2 人 → 存活 2
+      for (final i in [1, 3, 4]) {
+        await db.playersDao.markDead(players[i].id, 1, DeathCause.nightKill);
+      }
+      final suggestion = await notifier().setNightDeaths(
+        [players[2].id, players[5].id],
+      );
+      expect(suggestion, isA<EvilWinCandidate>());
     });
   });
 }

@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:botc_copilot/core/constants/character.dart';
 import 'package:botc_copilot/core/constants/script.dart';
 import 'package:botc_copilot/core/database/app_database.dart';
@@ -119,7 +121,7 @@ void main() {
         DayRecordsCompanion(
           gameId: Value(gameId),
           dayNumber: const Value(1),
-          nightDeathPlayerId: Value(playerIds[3]),
+          nightDeathPlayerIds: Value(jsonEncode([playerIds[3]])),
           notes: const Value('首夜死亡'),
         ),
       );
@@ -138,8 +140,8 @@ void main() {
       );
 
       final day = await db.dayRecordsDao.getByGameAndDay(gameId, 1);
-      expect(day!.nightDeathPlayerId, playerIds[3]);
-      expect(day.notes, '首夜死亡');
+      expect(nightDeathIdsOf(day), [playerIds[3]]);
+      expect(day!.notes, '首夜死亡');
 
       await db.dayRecordsDao.updateDay(
         dayId,

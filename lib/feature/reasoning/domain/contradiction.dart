@@ -977,7 +977,7 @@ abstract final class ContradictionDetector {
   ) {
     return [
       for (final d in days)
-        if (d.nightDeathPlayerId == null &&
+        if (nightDeathIdsOf(d).isEmpty &&
             d.dayNumber > 1 &&
             d.nightConfirmed)
           Contradiction(

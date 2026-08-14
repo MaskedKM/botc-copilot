@@ -8,6 +8,7 @@ import 'package:botc_copilot/feature/game_board/domain/nomination_rules.dart';
 import 'package:botc_copilot/feature/game_board/domain/succession.dart';
 import 'package:botc_copilot/shared/game_private.dart';
 import 'package:botc_copilot/shared/models/enums.dart';
+import 'dart:convert';
 import 'package:drift/drift.dart' hide Column;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:meta/meta.dart';
@@ -184,42 +185,82 @@ class GameBoardNotifier extends StateNotifier<GameBoardState> {
     );
   }
 
-  /// 记录夜晚死亡（null = 无人死亡）。
+  /// 记录今夜全部死亡（空列表 = 确认无人死亡；#217 增量4 数组化）。
   ///
-  /// 事务包裹：当日记录与玩家死亡标记必须同生共死。
-  /// 撤销/改选时复活上一个夜晚死亡者，保证「一天至多一个夜晚死亡」。
-  /// 返回结束建议：存活 ≤ 2 时为 [EvilWinCandidate]。
-  Future<GameEndSuggestion?> recordNightDeath(int? playerId) async {
-    final dayId = await _ensureDayRecord(state.currentDay);
+  /// 集合语义：传入列表即当日夜死真相——移出者按守卫复活（同日 + 夜杀
+  /// cause + 未被处决记录锁定，#154/#80 坑位照搬单值版），新增者标死。
+  /// 事务包裹：当日记录与玩家死亡标记同生共死。
+  /// 返回结束建议：新死者含恶魔 → 传承检查（#149：先于人头）；
+  /// 否则 [checkHeadsWin]（#208：恶魔存活性门控）。
+  Future<GameEndSuggestion?> setNightDeaths(List<int> playerIds) async {
+    final day = await _ensureDayRecord(state.currentDay);
+    final dayRec =
+        await _db.dayRecordsDao.getByGameAndDay(_gameId, state.currentDay);
+    final oldIds = nightDeathIdsOf(dayRec);
+    final addedIds = playerIds.where((id) => !oldIds.contains(id)).toList();
     await _db.transaction(() async {
-      await _revivePreviousDeath(dayId, (d) => d.nightDeathPlayerId, (d) => d.dayExecutionPlayerId, DeathCause.nightKill);
+      for (final id in oldIds.where((id) => !playerIds.contains(id))) {
+        await _reviveNightDeath(id);
+      }
       await _db.dayRecordsDao.updateDay(
-        dayId,
+        day,
         DayRecordsCompanion(
-          nightDeathPlayerId: Value(playerId),
+          nightDeathPlayerIds: Value(jsonEncode(playerIds)),
           // 确认夜晚结果（标记死亡或「无人死亡」），消除 null 二义性（#77）。
           nightConfirmed: const Value(true),
         ),
       );
-      if (playerId != null) {
+      for (final id in playerIds) {
         await _db.playersDao.markDead(
-          playerId,
+          id,
           state.currentDay,
           DeathCause.nightKill,
         );
       }
     });
-    if (playerId == null) return null;
+    if (addedIds.isEmpty) return null;
     // #149 BUG-1：恶魔死亡时**先**解析传承（公理5：有爪牙→传承/继续，
-    // 无爪牙→善良胜），**再**判人头邪恶胜。原先先 _evilWinCheck 短路会跳过
-    // 传承——Imp 自杀且无爪牙时误判邪恶胜（应善良胜），取消则卡死。
-    final claimed = await _effectiveCharacter(playerId);
-    if (SuccessionRules.isDemonDeath(claimed) ||
-        await _isDemonCandidate(playerId)) {
-      return checkDemonDeath(playerId, way: DeathWay.suicide);
+    // 无爪牙→善良胜），**再**判人头终局。原先先人头短路会跳过传承——
+    // Imp 自杀且无爪牙时误判邪恶胜（应善良胜），取消则卡死。
+    for (final id in addedIds) {
+      final claimed = await _effectiveCharacter(id);
+      if (SuccessionRules.isDemonDeath(claimed) ||
+          await _isDemonCandidate(id)) {
+        return checkDemonDeath(id, way: DeathWay.suicide);
+      }
     }
-    // 非恶魔死亡 → 判人头邪恶胜（存活 ≤ 2）。
     return checkHeadsWin();
+  }
+
+  /// 把一个玩家移出当日夜死名单（守卫与单值版 _revivePreviousDeath 一致）。
+  ///
+  /// 仅当该玩家确实死于「本日 + nightKill」时才复活；若同时是当日处决
+  /// 目标则不复活，但把 cause 重对齐到处决（#154 BUG-1：两字段先后清空
+  /// 时 cause 锁定先记录者，不重对齐会孤立致死）。
+  Future<void> _reviveNightDeath(int playerId) async {
+    final day = await _db.dayRecordsDao.getByGameAndDay(
+      _gameId,
+      state.currentDay,
+    );
+    if (day == null) return;
+    final players = await _db.playersDao.watchByGame(_gameId).first;
+    final prev = players.where((p) => p.id == playerId).firstOrNull;
+    if (prev == null || prev.isAlive) return;
+    if (day.dayExecutionPlayerId == playerId) {
+      // 处决记录仍锁定：不复活，cause 对齐到处决。
+      if (prev.deathCause != DeathCause.execution) {
+        await _db.playersDao.updatePlayer(
+          playerId,
+          PlayersCompanion(deathCause: Value(DeathCause.execution)),
+        );
+      }
+      return;
+    }
+    // 复活守卫：cause 匹配确认夜死记录是致命源 + 同日（跨日撤销不复活，#80）。
+    if (prev.deathCause == DeathCause.nightKill &&
+        prev.deathDay == state.currentDay) {
+      await _db.playersDao.revive(playerId);
+    }
   }
 
   /// 记录白天处决（null = 无处决）。
@@ -230,7 +271,12 @@ class GameBoardNotifier extends StateNotifier<GameBoardState> {
   Future<GameEndSuggestion?> recordExecution(int? playerId) async {
     final dayId = await _ensureDayRecord(state.currentDay);
     await _db.transaction(() async {
-      await _revivePreviousDeath(dayId, (d) => d.dayExecutionPlayerId, (d) => d.nightDeathPlayerId, DeathCause.execution);
+      // 夜死已数组化（#217 增量4）：跨字段守卫改查「处决目标是否也在夜死
+      // 名单」（等价旧 otherFieldId == oldId 单值语义）。
+      await _revivePreviousDeath(dayId, (d) => d.dayExecutionPlayerId, (d) {
+        final exec = d.dayExecutionPlayerId;
+        return exec != null && nightDeathIdsOf(d).contains(exec) ? exec : null;
+      }, DeathCause.execution);
       await _db.dayRecordsDao.updateDay(
         dayId,
         // #156 S2：确认白天结果（处决某人或「无处决」），消除 null 二义性。
@@ -329,21 +375,26 @@ class GameBoardNotifier extends StateNotifier<GameBoardState> {
           await _db.dayRecordsDao.getByGameAndDay(_gameId, deathDay);
       if (dayRec == null) return;
       // 仅清指向该玩家的字段（另一字段可能指向别人，不动）。
-      // 若清的是夜死字段，同步置 nightConfirmed=false（撤销夜死 = 夜晚不再
-      // 视为已结算，否则残留 true + 无夜死会被误判「无人死亡夜晚」，#154 review）。
+      // 若清的是夜死字段：从数组移除该 id；移空则整个清空 + nightConfirmed=
+      // false（撤销夜死 = 夜晚不再视为已结算，否则残留 true + 无夜死会被误判
+      // 「无人死亡夜晚」，#154 review）；仍有其他夜死者保留剩余列表与确认态。
       // 同理清白天处决字段时置 dayConfirmed=false（#156 S2）。
-      final clearedNight = dayRec.nightDeathPlayerId == playerId;
+      final nightIds = nightDeathIdsOf(dayRec);
+      final restNight = nightIds.where((id) => id != playerId).toList();
+      final clearedNight = nightIds.contains(playerId);
       final clearedDay = dayRec.dayExecutionPlayerId == playerId;
       await _db.dayRecordsDao.updateDay(
         dayRec.id,
         DayRecordsCompanion(
-          nightDeathPlayerId: clearedNight
-              ? const Value<int?>(null)
-              : const Value<int?>.absent(),
+          nightDeathPlayerIds: clearedNight
+              ? (restNight.isEmpty
+                  ? const Value<String?>(null)
+                  : Value(jsonEncode(restNight)))
+              : const Value<String?>.absent(),
           dayExecutionPlayerId: clearedDay
               ? const Value<int?>(null)
               : const Value<int?>.absent(),
-          nightConfirmed: clearedNight
+          nightConfirmed: clearedNight && restNight.isEmpty
               ? const Value(false)
               : const Value<bool>.absent(),
           dayConfirmed: clearedDay
@@ -714,7 +765,7 @@ class GameBoardNotifier extends StateNotifier<GameBoardState> {
     final day =
         await _db.dayRecordsDao.getByGameAndDay(_gameId, state.currentDay);
     if (day == null) return false;
-    final hasNight = day.nightDeathPlayerId != null;
+    final hasNight = nightDeathIdsOf(day).isNotEmpty;
     final hasExec = day.dayExecutionPlayerId != null;
     final hasNoms = (await _db.nominationsDao.watchByDay(day.id).first)
         .isNotEmpty;

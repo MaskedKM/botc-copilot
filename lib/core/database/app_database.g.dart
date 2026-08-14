@@ -1317,19 +1317,17 @@ class $DayRecordsTable extends DayRecords
     type: DriftSqlType.int,
     requiredDuringInsert: true,
   );
-  static const VerificationMeta _nightDeathPlayerIdMeta =
-      const VerificationMeta('nightDeathPlayerId');
+  static const VerificationMeta _nightDeathPlayerIdsMeta =
+      const VerificationMeta('nightDeathPlayerIds');
   @override
-  late final GeneratedColumn<int> nightDeathPlayerId = GeneratedColumn<int>(
-    'night_death_player_id',
-    aliasedName,
-    true,
-    type: DriftSqlType.int,
-    requiredDuringInsert: false,
-    defaultConstraints: GeneratedColumn.constraintIsAlways(
-      'REFERENCES players (id)',
-    ),
-  );
+  late final GeneratedColumn<String> nightDeathPlayerIds =
+      GeneratedColumn<String>(
+        'night_death_player_ids',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
   static const VerificationMeta _nightConfirmedMeta = const VerificationMeta(
     'nightConfirmed',
   );
@@ -1397,7 +1395,7 @@ class $DayRecordsTable extends DayRecords
     id,
     gameId,
     dayNumber,
-    nightDeathPlayerId,
+    nightDeathPlayerIds,
     nightConfirmed,
     dayExecutionPlayerId,
     dayConfirmed,
@@ -1435,12 +1433,12 @@ class $DayRecordsTable extends DayRecords
     } else if (isInserting) {
       context.missing(_dayNumberMeta);
     }
-    if (data.containsKey('night_death_player_id')) {
+    if (data.containsKey('night_death_player_ids')) {
       context.handle(
-        _nightDeathPlayerIdMeta,
-        nightDeathPlayerId.isAcceptableOrUnknown(
-          data['night_death_player_id']!,
-          _nightDeathPlayerIdMeta,
+        _nightDeathPlayerIdsMeta,
+        nightDeathPlayerIds.isAcceptableOrUnknown(
+          data['night_death_player_ids']!,
+          _nightDeathPlayerIdsMeta,
         ),
       );
     }
@@ -1502,9 +1500,9 @@ class $DayRecordsTable extends DayRecords
         DriftSqlType.int,
         data['${effectivePrefix}day_number'],
       )!,
-      nightDeathPlayerId: attachedDatabase.typeMapping.read(
-        DriftSqlType.int,
-        data['${effectivePrefix}night_death_player_id'],
+      nightDeathPlayerIds: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}night_death_player_ids'],
       ),
       nightConfirmed: attachedDatabase.typeMapping.read(
         DriftSqlType.bool,
@@ -1557,8 +1555,13 @@ class DayRecord extends DataClass implements Insertable<DayRecord> {
   /// 天数（从 1 开始）。
   final int dayNumber;
 
-  /// 夜晚死亡玩家（无人死亡为空；TB 单杀，多杀剧本后续扩展）。
-  final int? nightDeathPlayerId;
+  /// 夜晚死亡玩家 id 列表（JSON 数组，保持录入顺序；#217 增量4）。
+  ///
+  /// - `null` = 尚未录入；`[]` = 确认无人死亡——二义性由 [nightConfirmed]
+  ///   配合空列表消解（#77 语义不变）。
+  /// - TB 单杀与多杀剧本（BMR 沙巴洛斯双杀 / 珀卡毒杀等）同构走数组。
+  /// - 原单值列 `nightDeathPlayerId`（v14 及以前）迁移时折入本列。
+  final String? nightDeathPlayerIds;
 
   /// 夜晚结果是否已确认（issue #77）。
   ///
@@ -1591,7 +1594,7 @@ class DayRecord extends DataClass implements Insertable<DayRecord> {
     required this.id,
     required this.gameId,
     required this.dayNumber,
-    this.nightDeathPlayerId,
+    this.nightDeathPlayerIds,
     required this.nightConfirmed,
     this.dayExecutionPlayerId,
     required this.dayConfirmed,
@@ -1604,8 +1607,8 @@ class DayRecord extends DataClass implements Insertable<DayRecord> {
     map['id'] = Variable<int>(id);
     map['game_id'] = Variable<int>(gameId);
     map['day_number'] = Variable<int>(dayNumber);
-    if (!nullToAbsent || nightDeathPlayerId != null) {
-      map['night_death_player_id'] = Variable<int>(nightDeathPlayerId);
+    if (!nullToAbsent || nightDeathPlayerIds != null) {
+      map['night_death_player_ids'] = Variable<String>(nightDeathPlayerIds);
     }
     map['night_confirmed'] = Variable<bool>(nightConfirmed);
     if (!nullToAbsent || dayExecutionPlayerId != null) {
@@ -1628,9 +1631,9 @@ class DayRecord extends DataClass implements Insertable<DayRecord> {
       id: Value(id),
       gameId: Value(gameId),
       dayNumber: Value(dayNumber),
-      nightDeathPlayerId: nightDeathPlayerId == null && nullToAbsent
+      nightDeathPlayerIds: nightDeathPlayerIds == null && nullToAbsent
           ? const Value.absent()
-          : Value(nightDeathPlayerId),
+          : Value(nightDeathPlayerIds),
       nightConfirmed: Value(nightConfirmed),
       dayExecutionPlayerId: dayExecutionPlayerId == null && nullToAbsent
           ? const Value.absent()
@@ -1652,7 +1655,9 @@ class DayRecord extends DataClass implements Insertable<DayRecord> {
       id: serializer.fromJson<int>(json['id']),
       gameId: serializer.fromJson<int>(json['gameId']),
       dayNumber: serializer.fromJson<int>(json['dayNumber']),
-      nightDeathPlayerId: serializer.fromJson<int?>(json['nightDeathPlayerId']),
+      nightDeathPlayerIds: serializer.fromJson<String?>(
+        json['nightDeathPlayerIds'],
+      ),
       nightConfirmed: serializer.fromJson<bool>(json['nightConfirmed']),
       dayExecutionPlayerId: serializer.fromJson<int?>(
         json['dayExecutionPlayerId'],
@@ -1670,7 +1675,7 @@ class DayRecord extends DataClass implements Insertable<DayRecord> {
       'id': serializer.toJson<int>(id),
       'gameId': serializer.toJson<int>(gameId),
       'dayNumber': serializer.toJson<int>(dayNumber),
-      'nightDeathPlayerId': serializer.toJson<int?>(nightDeathPlayerId),
+      'nightDeathPlayerIds': serializer.toJson<String?>(nightDeathPlayerIds),
       'nightConfirmed': serializer.toJson<bool>(nightConfirmed),
       'dayExecutionPlayerId': serializer.toJson<int?>(dayExecutionPlayerId),
       'dayConfirmed': serializer.toJson<bool>(dayConfirmed),
@@ -1687,7 +1692,7 @@ class DayRecord extends DataClass implements Insertable<DayRecord> {
     int? id,
     int? gameId,
     int? dayNumber,
-    Value<int?> nightDeathPlayerId = const Value.absent(),
+    Value<String?> nightDeathPlayerIds = const Value.absent(),
     bool? nightConfirmed,
     Value<int?> dayExecutionPlayerId = const Value.absent(),
     bool? dayConfirmed,
@@ -1697,9 +1702,9 @@ class DayRecord extends DataClass implements Insertable<DayRecord> {
     id: id ?? this.id,
     gameId: gameId ?? this.gameId,
     dayNumber: dayNumber ?? this.dayNumber,
-    nightDeathPlayerId: nightDeathPlayerId.present
-        ? nightDeathPlayerId.value
-        : this.nightDeathPlayerId,
+    nightDeathPlayerIds: nightDeathPlayerIds.present
+        ? nightDeathPlayerIds.value
+        : this.nightDeathPlayerIds,
     nightConfirmed: nightConfirmed ?? this.nightConfirmed,
     dayExecutionPlayerId: dayExecutionPlayerId.present
         ? dayExecutionPlayerId.value
@@ -1715,9 +1720,9 @@ class DayRecord extends DataClass implements Insertable<DayRecord> {
       id: data.id.present ? data.id.value : this.id,
       gameId: data.gameId.present ? data.gameId.value : this.gameId,
       dayNumber: data.dayNumber.present ? data.dayNumber.value : this.dayNumber,
-      nightDeathPlayerId: data.nightDeathPlayerId.present
-          ? data.nightDeathPlayerId.value
-          : this.nightDeathPlayerId,
+      nightDeathPlayerIds: data.nightDeathPlayerIds.present
+          ? data.nightDeathPlayerIds.value
+          : this.nightDeathPlayerIds,
       nightConfirmed: data.nightConfirmed.present
           ? data.nightConfirmed.value
           : this.nightConfirmed,
@@ -1740,7 +1745,7 @@ class DayRecord extends DataClass implements Insertable<DayRecord> {
           ..write('id: $id, ')
           ..write('gameId: $gameId, ')
           ..write('dayNumber: $dayNumber, ')
-          ..write('nightDeathPlayerId: $nightDeathPlayerId, ')
+          ..write('nightDeathPlayerIds: $nightDeathPlayerIds, ')
           ..write('nightConfirmed: $nightConfirmed, ')
           ..write('dayExecutionPlayerId: $dayExecutionPlayerId, ')
           ..write('dayConfirmed: $dayConfirmed, ')
@@ -1755,7 +1760,7 @@ class DayRecord extends DataClass implements Insertable<DayRecord> {
     id,
     gameId,
     dayNumber,
-    nightDeathPlayerId,
+    nightDeathPlayerIds,
     nightConfirmed,
     dayExecutionPlayerId,
     dayConfirmed,
@@ -1769,7 +1774,7 @@ class DayRecord extends DataClass implements Insertable<DayRecord> {
           other.id == this.id &&
           other.gameId == this.gameId &&
           other.dayNumber == this.dayNumber &&
-          other.nightDeathPlayerId == this.nightDeathPlayerId &&
+          other.nightDeathPlayerIds == this.nightDeathPlayerIds &&
           other.nightConfirmed == this.nightConfirmed &&
           other.dayExecutionPlayerId == this.dayExecutionPlayerId &&
           other.dayConfirmed == this.dayConfirmed &&
@@ -1781,7 +1786,7 @@ class DayRecordsCompanion extends UpdateCompanion<DayRecord> {
   final Value<int> id;
   final Value<int> gameId;
   final Value<int> dayNumber;
-  final Value<int?> nightDeathPlayerId;
+  final Value<String?> nightDeathPlayerIds;
   final Value<bool> nightConfirmed;
   final Value<int?> dayExecutionPlayerId;
   final Value<bool> dayConfirmed;
@@ -1791,7 +1796,7 @@ class DayRecordsCompanion extends UpdateCompanion<DayRecord> {
     this.id = const Value.absent(),
     this.gameId = const Value.absent(),
     this.dayNumber = const Value.absent(),
-    this.nightDeathPlayerId = const Value.absent(),
+    this.nightDeathPlayerIds = const Value.absent(),
     this.nightConfirmed = const Value.absent(),
     this.dayExecutionPlayerId = const Value.absent(),
     this.dayConfirmed = const Value.absent(),
@@ -1802,7 +1807,7 @@ class DayRecordsCompanion extends UpdateCompanion<DayRecord> {
     this.id = const Value.absent(),
     required int gameId,
     required int dayNumber,
-    this.nightDeathPlayerId = const Value.absent(),
+    this.nightDeathPlayerIds = const Value.absent(),
     this.nightConfirmed = const Value.absent(),
     this.dayExecutionPlayerId = const Value.absent(),
     this.dayConfirmed = const Value.absent(),
@@ -1814,7 +1819,7 @@ class DayRecordsCompanion extends UpdateCompanion<DayRecord> {
     Expression<int>? id,
     Expression<int>? gameId,
     Expression<int>? dayNumber,
-    Expression<int>? nightDeathPlayerId,
+    Expression<String>? nightDeathPlayerIds,
     Expression<bool>? nightConfirmed,
     Expression<int>? dayExecutionPlayerId,
     Expression<bool>? dayConfirmed,
@@ -1825,8 +1830,8 @@ class DayRecordsCompanion extends UpdateCompanion<DayRecord> {
       if (id != null) 'id': id,
       if (gameId != null) 'game_id': gameId,
       if (dayNumber != null) 'day_number': dayNumber,
-      if (nightDeathPlayerId != null)
-        'night_death_player_id': nightDeathPlayerId,
+      if (nightDeathPlayerIds != null)
+        'night_death_player_ids': nightDeathPlayerIds,
       if (nightConfirmed != null) 'night_confirmed': nightConfirmed,
       if (dayExecutionPlayerId != null)
         'day_execution_player_id': dayExecutionPlayerId,
@@ -1841,7 +1846,7 @@ class DayRecordsCompanion extends UpdateCompanion<DayRecord> {
     Value<int>? id,
     Value<int>? gameId,
     Value<int>? dayNumber,
-    Value<int?>? nightDeathPlayerId,
+    Value<String?>? nightDeathPlayerIds,
     Value<bool>? nightConfirmed,
     Value<int?>? dayExecutionPlayerId,
     Value<bool>? dayConfirmed,
@@ -1852,7 +1857,7 @@ class DayRecordsCompanion extends UpdateCompanion<DayRecord> {
       id: id ?? this.id,
       gameId: gameId ?? this.gameId,
       dayNumber: dayNumber ?? this.dayNumber,
-      nightDeathPlayerId: nightDeathPlayerId ?? this.nightDeathPlayerId,
+      nightDeathPlayerIds: nightDeathPlayerIds ?? this.nightDeathPlayerIds,
       nightConfirmed: nightConfirmed ?? this.nightConfirmed,
       dayExecutionPlayerId: dayExecutionPlayerId ?? this.dayExecutionPlayerId,
       dayConfirmed: dayConfirmed ?? this.dayConfirmed,
@@ -1873,8 +1878,10 @@ class DayRecordsCompanion extends UpdateCompanion<DayRecord> {
     if (dayNumber.present) {
       map['day_number'] = Variable<int>(dayNumber.value);
     }
-    if (nightDeathPlayerId.present) {
-      map['night_death_player_id'] = Variable<int>(nightDeathPlayerId.value);
+    if (nightDeathPlayerIds.present) {
+      map['night_death_player_ids'] = Variable<String>(
+        nightDeathPlayerIds.value,
+      );
     }
     if (nightConfirmed.present) {
       map['night_confirmed'] = Variable<bool>(nightConfirmed.value);
@@ -1906,7 +1913,7 @@ class DayRecordsCompanion extends UpdateCompanion<DayRecord> {
           ..write('id: $id, ')
           ..write('gameId: $gameId, ')
           ..write('dayNumber: $dayNumber, ')
-          ..write('nightDeathPlayerId: $nightDeathPlayerId, ')
+          ..write('nightDeathPlayerIds: $nightDeathPlayerIds, ')
           ..write('nightConfirmed: $nightConfirmed, ')
           ..write('dayExecutionPlayerId: $dayExecutionPlayerId, ')
           ..write('dayConfirmed: $dayConfirmed, ')
@@ -6235,23 +6242,6 @@ final class $$PlayersTableReferences
   }
 
   static MultiTypedResultKey<$DayRecordsTable, List<DayRecord>>
-  _nightDeathDaysTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
-    db.dayRecords,
-    aliasName: 'players__id__day_records__night_death_player_id',
-  );
-
-  $$DayRecordsTableProcessedTableManager get nightDeathDays {
-    final manager = $$DayRecordsTableTableManager($_db, $_db.dayRecords).filter(
-      (f) => f.nightDeathPlayerId.id.sqlEquals($_itemColumn<int>('id')!),
-    );
-
-    final cache = $_typedResult.readTableOrNull(_nightDeathDaysTable($_db));
-    return ProcessedTableManager(
-      manager.$state.copyWith(prefetchedData: cache),
-    );
-  }
-
-  static MultiTypedResultKey<$DayRecordsTable, List<DayRecord>>
   _executionDaysTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
     db.dayRecords,
     aliasName: 'players__id__day_records__day_execution_player_id',
@@ -6473,31 +6463,6 @@ class $$PlayersTableFilterComposer
           ),
     );
     return composer;
-  }
-
-  Expression<bool> nightDeathDays(
-    Expression<bool> Function($$DayRecordsTableFilterComposer f) f,
-  ) {
-    final $$DayRecordsTableFilterComposer composer = $composerBuilder(
-      composer: this,
-      getCurrentColumn: (t) => t.id,
-      referencedTable: $db.dayRecords,
-      getReferencedColumn: (t) => t.nightDeathPlayerId,
-      builder:
-          (
-            joinBuilder, {
-            $addJoinBuilderToRootComposer,
-            $removeJoinBuilderFromRootComposer,
-          }) => $$DayRecordsTableFilterComposer(
-            $db: $db,
-            $table: $db.dayRecords,
-            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-            joinBuilder: joinBuilder,
-            $removeJoinBuilderFromRootComposer:
-                $removeJoinBuilderFromRootComposer,
-          ),
-    );
-    return f(composer);
   }
 
   Expression<bool> executionDays(
@@ -6839,31 +6804,6 @@ class $$PlayersTableAnnotationComposer
     return composer;
   }
 
-  Expression<T> nightDeathDays<T extends Object>(
-    Expression<T> Function($$DayRecordsTableAnnotationComposer a) f,
-  ) {
-    final $$DayRecordsTableAnnotationComposer composer = $composerBuilder(
-      composer: this,
-      getCurrentColumn: (t) => t.id,
-      referencedTable: $db.dayRecords,
-      getReferencedColumn: (t) => t.nightDeathPlayerId,
-      builder:
-          (
-            joinBuilder, {
-            $addJoinBuilderToRootComposer,
-            $removeJoinBuilderFromRootComposer,
-          }) => $$DayRecordsTableAnnotationComposer(
-            $db: $db,
-            $table: $db.dayRecords,
-            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-            joinBuilder: joinBuilder,
-            $removeJoinBuilderFromRootComposer:
-                $removeJoinBuilderFromRootComposer,
-          ),
-    );
-    return f(composer);
-  }
-
   Expression<T> executionDays<T extends Object>(
     Expression<T> Function($$DayRecordsTableAnnotationComposer a) f,
   ) {
@@ -7082,7 +7022,6 @@ class $$PlayersTableTableManager
           Player,
           PrefetchHooks Function({
             bool gameId,
-            bool nightDeathDays,
             bool executionDays,
             bool roleClaimsRefs,
             bool infoDeclarationsRefs,
@@ -7159,7 +7098,6 @@ class $$PlayersTableTableManager
           prefetchHooksCallback:
               ({
                 gameId = false,
-                nightDeathDays = false,
                 executionDays = false,
                 roleClaimsRefs = false,
                 infoDeclarationsRefs = false,
@@ -7172,7 +7110,6 @@ class $$PlayersTableTableManager
                 return PrefetchHooks(
                   db: db,
                   explicitlyWatchedTables: [
-                    if (nightDeathDays) db.dayRecords,
                     if (executionDays) db.dayRecords,
                     if (roleClaimsRefs) db.roleClaims,
                     if (infoDeclarationsRefs) db.infoDeclarations,
@@ -7216,27 +7153,6 @@ class $$PlayersTableTableManager
                       },
                   getPrefetchedDataCallback: (items) async {
                     return [
-                      if (nightDeathDays)
-                        await $_getPrefetchedData<
-                          Player,
-                          $PlayersTable,
-                          DayRecord
-                        >(
-                          currentTable: table,
-                          referencedTable: $$PlayersTableReferences
-                              ._nightDeathDaysTable(db),
-                          managerFromTypedResult: (p0) =>
-                              $$PlayersTableReferences(
-                                db,
-                                table,
-                                p0,
-                              ).nightDeathDays,
-                          referencedItemsForCurrentItem:
-                              (item, referencedItems) => referencedItems.where(
-                                (e) => e.nightDeathPlayerId == item.id,
-                              ),
-                          typedResults: items,
-                        ),
                       if (executionDays)
                         await $_getPrefetchedData<
                           Player,
@@ -7427,7 +7343,6 @@ typedef $$PlayersTableProcessedTableManager =
       Player,
       PrefetchHooks Function({
         bool gameId,
-        bool nightDeathDays,
         bool executionDays,
         bool roleClaimsRefs,
         bool infoDeclarationsRefs,
@@ -7443,7 +7358,7 @@ typedef $$DayRecordsTableCreateCompanionBuilder =
       Value<int> id,
       required int gameId,
       required int dayNumber,
-      Value<int?> nightDeathPlayerId,
+      Value<String?> nightDeathPlayerIds,
       Value<bool> nightConfirmed,
       Value<int?> dayExecutionPlayerId,
       Value<bool> dayConfirmed,
@@ -7455,7 +7370,7 @@ typedef $$DayRecordsTableUpdateCompanionBuilder =
       Value<int> id,
       Value<int> gameId,
       Value<int> dayNumber,
-      Value<int?> nightDeathPlayerId,
+      Value<String?> nightDeathPlayerIds,
       Value<bool> nightConfirmed,
       Value<int?> dayExecutionPlayerId,
       Value<bool> dayConfirmed,
@@ -7478,23 +7393,6 @@ final class $$DayRecordsTableReferences
       $_db.games,
     ).filter((f) => f.id.sqlEquals($_column));
     final item = $_typedResult.readTableOrNull(_gameIdTable($_db));
-    if (item == null) return manager;
-    return ProcessedTableManager(
-      manager.$state.copyWith(prefetchedData: [item]),
-    );
-  }
-
-  static $PlayersTable _nightDeathPlayerIdTable(_$AppDatabase db) =>
-      db.players.createAlias('day_records__night_death_player_id__players__id');
-
-  $$PlayersTableProcessedTableManager? get nightDeathPlayerId {
-    final $_column = $_itemColumn<int>('night_death_player_id');
-    if ($_column == null) return null;
-    final manager = $$PlayersTableTableManager(
-      $_db,
-      $_db.players,
-    ).filter((f) => f.id.sqlEquals($_column));
-    final item = $_typedResult.readTableOrNull(_nightDeathPlayerIdTable($_db));
     if (item == null) return manager;
     return ProcessedTableManager(
       manager.$state.copyWith(prefetchedData: [item]),
@@ -7597,6 +7495,11 @@ class $$DayRecordsTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<String> get nightDeathPlayerIds => $composableBuilder(
+    column: $table.nightDeathPlayerIds,
+    builder: (column) => ColumnFilters(column),
+  );
+
   ColumnFilters<bool> get nightConfirmed => $composableBuilder(
     column: $table.nightConfirmed,
     builder: (column) => ColumnFilters(column),
@@ -7632,29 +7535,6 @@ class $$DayRecordsTableFilterComposer
           }) => $$GamesTableFilterComposer(
             $db: $db,
             $table: $db.games,
-            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-            joinBuilder: joinBuilder,
-            $removeJoinBuilderFromRootComposer:
-                $removeJoinBuilderFromRootComposer,
-          ),
-    );
-    return composer;
-  }
-
-  $$PlayersTableFilterComposer get nightDeathPlayerId {
-    final $$PlayersTableFilterComposer composer = $composerBuilder(
-      composer: this,
-      getCurrentColumn: (t) => t.nightDeathPlayerId,
-      referencedTable: $db.players,
-      getReferencedColumn: (t) => t.id,
-      builder:
-          (
-            joinBuilder, {
-            $addJoinBuilderToRootComposer,
-            $removeJoinBuilderFromRootComposer,
-          }) => $$PlayersTableFilterComposer(
-            $db: $db,
-            $table: $db.players,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -7782,6 +7662,11 @@ class $$DayRecordsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get nightDeathPlayerIds => $composableBuilder(
+    column: $table.nightDeathPlayerIds,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<bool> get nightConfirmed => $composableBuilder(
     column: $table.nightConfirmed,
     builder: (column) => ColumnOrderings(column),
@@ -7816,29 +7701,6 @@ class $$DayRecordsTableOrderingComposer
           }) => $$GamesTableOrderingComposer(
             $db: $db,
             $table: $db.games,
-            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-            joinBuilder: joinBuilder,
-            $removeJoinBuilderFromRootComposer:
-                $removeJoinBuilderFromRootComposer,
-          ),
-    );
-    return composer;
-  }
-
-  $$PlayersTableOrderingComposer get nightDeathPlayerId {
-    final $$PlayersTableOrderingComposer composer = $composerBuilder(
-      composer: this,
-      getCurrentColumn: (t) => t.nightDeathPlayerId,
-      referencedTable: $db.players,
-      getReferencedColumn: (t) => t.id,
-      builder:
-          (
-            joinBuilder, {
-            $addJoinBuilderToRootComposer,
-            $removeJoinBuilderFromRootComposer,
-          }) => $$PlayersTableOrderingComposer(
-            $db: $db,
-            $table: $db.players,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -7887,6 +7749,11 @@ class $$DayRecordsTableAnnotationComposer
   GeneratedColumn<int> get dayNumber =>
       $composableBuilder(column: $table.dayNumber, builder: (column) => column);
 
+  GeneratedColumn<String> get nightDeathPlayerIds => $composableBuilder(
+    column: $table.nightDeathPlayerIds,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<bool> get nightConfirmed => $composableBuilder(
     column: $table.nightConfirmed,
     builder: (column) => column,
@@ -7920,29 +7787,6 @@ class $$DayRecordsTableAnnotationComposer
           }) => $$GamesTableAnnotationComposer(
             $db: $db,
             $table: $db.games,
-            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-            joinBuilder: joinBuilder,
-            $removeJoinBuilderFromRootComposer:
-                $removeJoinBuilderFromRootComposer,
-          ),
-    );
-    return composer;
-  }
-
-  $$PlayersTableAnnotationComposer get nightDeathPlayerId {
-    final $$PlayersTableAnnotationComposer composer = $composerBuilder(
-      composer: this,
-      getCurrentColumn: (t) => t.nightDeathPlayerId,
-      referencedTable: $db.players,
-      getReferencedColumn: (t) => t.id,
-      builder:
-          (
-            joinBuilder, {
-            $addJoinBuilderToRootComposer,
-            $removeJoinBuilderFromRootComposer,
-          }) => $$PlayersTableAnnotationComposer(
-            $db: $db,
-            $table: $db.players,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -8066,7 +7910,6 @@ class $$DayRecordsTableTableManager
           DayRecord,
           PrefetchHooks Function({
             bool gameId,
-            bool nightDeathPlayerId,
             bool dayExecutionPlayerId,
             bool roleClaimsRefs,
             bool infoDeclarationsRefs,
@@ -8089,7 +7932,7 @@ class $$DayRecordsTableTableManager
                 Value<int> id = const Value.absent(),
                 Value<int> gameId = const Value.absent(),
                 Value<int> dayNumber = const Value.absent(),
-                Value<int?> nightDeathPlayerId = const Value.absent(),
+                Value<String?> nightDeathPlayerIds = const Value.absent(),
                 Value<bool> nightConfirmed = const Value.absent(),
                 Value<int?> dayExecutionPlayerId = const Value.absent(),
                 Value<bool> dayConfirmed = const Value.absent(),
@@ -8099,7 +7942,7 @@ class $$DayRecordsTableTableManager
                 id: id,
                 gameId: gameId,
                 dayNumber: dayNumber,
-                nightDeathPlayerId: nightDeathPlayerId,
+                nightDeathPlayerIds: nightDeathPlayerIds,
                 nightConfirmed: nightConfirmed,
                 dayExecutionPlayerId: dayExecutionPlayerId,
                 dayConfirmed: dayConfirmed,
@@ -8111,7 +7954,7 @@ class $$DayRecordsTableTableManager
                 Value<int> id = const Value.absent(),
                 required int gameId,
                 required int dayNumber,
-                Value<int?> nightDeathPlayerId = const Value.absent(),
+                Value<String?> nightDeathPlayerIds = const Value.absent(),
                 Value<bool> nightConfirmed = const Value.absent(),
                 Value<int?> dayExecutionPlayerId = const Value.absent(),
                 Value<bool> dayConfirmed = const Value.absent(),
@@ -8121,7 +7964,7 @@ class $$DayRecordsTableTableManager
                 id: id,
                 gameId: gameId,
                 dayNumber: dayNumber,
-                nightDeathPlayerId: nightDeathPlayerId,
+                nightDeathPlayerIds: nightDeathPlayerIds,
                 nightConfirmed: nightConfirmed,
                 dayExecutionPlayerId: dayExecutionPlayerId,
                 dayConfirmed: dayConfirmed,
@@ -8139,7 +7982,6 @@ class $$DayRecordsTableTableManager
           prefetchHooksCallback:
               ({
                 gameId = false,
-                nightDeathPlayerId = false,
                 dayExecutionPlayerId = false,
                 roleClaimsRefs = false,
                 infoDeclarationsRefs = false,
@@ -8178,20 +8020,6 @@ class $$DayRecordsTableTableManager
                                     referencedColumn:
                                         $$DayRecordsTableReferences
                                             ._gameIdTable(db)
-                                            .id,
-                                  )
-                                  as T;
-                        }
-                        if (nightDeathPlayerId) {
-                          state =
-                              state.withJoin(
-                                    currentTable: table,
-                                    currentColumn: table.nightDeathPlayerId,
-                                    referencedTable: $$DayRecordsTableReferences
-                                        ._nightDeathPlayerIdTable(db),
-                                    referencedColumn:
-                                        $$DayRecordsTableReferences
-                                            ._nightDeathPlayerIdTable(db)
                                             .id,
                                   )
                                   as T;
@@ -8300,7 +8128,6 @@ typedef $$DayRecordsTableProcessedTableManager =
       DayRecord,
       PrefetchHooks Function({
         bool gameId,
-        bool nightDeathPlayerId,
         bool dayExecutionPlayerId,
         bool roleClaimsRefs,
         bool infoDeclarationsRefs,

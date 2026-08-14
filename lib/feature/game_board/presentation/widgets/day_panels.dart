@@ -55,6 +55,8 @@ class NightPanel extends ConsumerWidget {
       playersById,
     );
     final gameColors = context.gameColors;
+    // 夜死已数组化（#217 增量4）：多选语义——TB 单杀也走列表。
+    final nightIds = nightDeathIdsOf(dayRecord);
 
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -69,23 +71,29 @@ class NightPanel extends ConsumerWidget {
               label: const Text('无人死亡'),
               // 选中态由显式 nightConfirmed 驱动（#77）；onSelected gate ongoing（#81）
               selected: dayRecord?.nightConfirmed == true &&
-                  dayRecord?.nightDeathPlayerId == null,
-              onSelected: ongoing ? (_) => notifier.recordNightDeath(null) : null,
+                  nightIds.isEmpty,
+              onSelected: ongoing
+                  ? (_) => notifier.setNightDeaths(const [])
+                  : null,
             ),
             // 含当前夜杀目标（夜杀后已死但保留 chip 可见、可点按撤销，#156 S1）；
             // 往日死者仍排除（不能夜杀已死之人）。
-            for (final p in players.where(
-                (p) => p.isAlive || p.id == dayRecord?.nightDeathPlayerId))
+            for (final p in players
+                .where((p) => p.isAlive || nightIds.contains(p.id)))
               ChoiceChip(
                 label: Text(
                     '${p.seatNumber}号 ${p.name}${p.isAlive ? '' : ' ☠'}'),
-                selected: dayRecord?.nightDeathPlayerId == p.id,
+                selected: nightIds.contains(p.id),
                 onSelected: ongoing
                     ? (selected) {
-                        // 已选中目标再次点按 → 撤销夜杀（recordNightDeath(null)
-                        // 经 _revivePreviousDeath 复活，与「无人死亡」同路径）。
+                        // 已选中目标再次点按 → 移出夜死名单（差集复活，与
+                        // 「无人死亡」同路径清空守卫）。
                         if (!selected) {
-                          notifier.recordNightDeath(null);
+                          notifier.setNightDeaths(
+                            nightIds
+                                .where((id) => id != p.id)
+                                .toList(),
+                          );
                         } else {
                           _confirmNightDeath(
                             context,
@@ -94,6 +102,7 @@ class NightPanel extends ConsumerWidget {
                             gameId: gameId,
                             day: day,
                             notifier: notifier,
+                            currentIds: nightIds,
                           );
                         }
                       }
@@ -104,7 +113,7 @@ class NightPanel extends ConsumerWidget {
         HelpTooltip(
           level: helpLevel,
           text: '无人死亡可能意味着：Monk 保护成功 / Soldier 能力 / '
-              '恶魔自杀传位 / 恶魔被毒。',
+              '恶魔自杀传位 / 恶魔被毒。多杀剧本（如 BMR）一晚可标记多人。',
         ),
         if (mayorAlive)
           Padding(
@@ -516,6 +525,7 @@ Future<void> _confirmNightDeath(
   required int gameId,
   required int day,
   required GameBoardNotifier notifier,
+  required List<int> currentIds,
 }) async {
   final claimed = await _claimedCharacter(ref, gameId, player.id);
   final monkProtected = await _monkProtectedThisNight(ref, gameId, day, player.id);
@@ -548,7 +558,7 @@ Future<void> _confirmNightDeath(
     context,
     ref,
     player: player,
-    action: () => notifier.recordNightDeath(player.id),
+    action: () => notifier.setNightDeaths([...currentIds, player.id]),
     verb: '夜晚死亡',
     gameId: gameId,
   );
