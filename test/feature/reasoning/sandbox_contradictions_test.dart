@@ -116,8 +116,10 @@ void main() {
       isTrue,
     );
 
-    // 假设 2 号（Empath 作者）醉——不写存档，仅沙箱。共享流已由上面的
-    // 基线轮询落地；空沙箱时 sandbox provider 短路返回空，无需预热。
+    // 假设 2 号（Empath 作者）醉——不写存档，仅沙箱。autoDispose 沙箱
+    // 须有监听保活（模拟页面 watch），否则 toggle 后即被回收。
+    final sub = container.listen(dependencySandboxProvider(1), (_, _) {});
+    addTearDown(sub.close);
     container
         .read(dependencySandboxProvider(1).notifier)
         .toggleAssumeDrunk(2);
@@ -139,6 +141,8 @@ void main() {
   });
 
   test('假设无关玩家醉 → 矛盾保留（不误消）', () async {
+    final sub = container.listen(dependencySandboxProvider(1), (_, _) {});
+    addTearDown(sub.close);
     container
         .read(dependencySandboxProvider(1).notifier)
         .toggleAssumeDrunk(1);
@@ -156,6 +160,8 @@ void main() {
   });
 
   test('沙箱不动存档：玩家 suspectedDrunk 保持 false', () async {
+    final sub = container.listen(dependencySandboxProvider(1), (_, _) {});
+    addTearDown(sub.close);
     container
         .read(dependencySandboxProvider(1).notifier)
         .toggleAssumeDrunk(2);

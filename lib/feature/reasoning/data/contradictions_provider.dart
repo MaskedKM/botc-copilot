@@ -69,7 +69,7 @@ final contradictionsProvider = Provider.family<ContradictionResult, int>(
 /// 整局常驻 watch，合并会让 autoDispose 沙箱永不释放、假设污染主界面
 /// 角标整局。空假设短路返回空（页面据此隐藏卡片）。
 final sandboxContradictionsProvider =
-    Provider.family<ContradictionResult, int>((ref, gameId) {
+    Provider.autoDispose.family<ContradictionResult, int>((ref, gameId) {
   final sandbox = ref.watch(dependencySandboxProvider(gameId));
   if (sandbox.isEmpty) return const ContradictionResult([]);
   return detectWithOverlay(
