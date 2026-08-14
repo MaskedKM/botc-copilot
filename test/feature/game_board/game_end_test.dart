@@ -74,17 +74,17 @@ void main() {
     });
 
     test('夜晚死亡后存活 > 2 → 无建议', () async {
-      final suggestion = await notifier().recordNightDeath(1);
+      final suggestion = await notifier().setNightDeaths([1]);
       expect(suggestion, isNull);
     });
 
     test('连续死亡至存活 = 2 → EvilWinCandidate', () async {
       // 7 人局，每天夜晚死 1 个（同一天重复记录视为改选），5 天后剩 2
       for (var i = 1; i <= 4; i++) {
-        await notifier().recordNightDeath(i);
+        await notifier().setNightDeaths([i]);
         await notifier().advanceDay();
       }
-      final suggestion = await notifier().recordNightDeath(5);
+      final suggestion = await notifier().setNightDeaths([5]);
       expect(suggestion, isA<EvilWinCandidate>());
       expect((suggestion! as EvilWinCandidate).aliveCount, 2);
     });

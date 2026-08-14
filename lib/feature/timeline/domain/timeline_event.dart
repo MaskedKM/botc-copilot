@@ -123,12 +123,14 @@ abstract final class TimelineBuilder {
           dayNumber: day.dayNumber,
           events: [
             // 夜晚死亡：仅对已确认的天输出，预建未录的天不显示（#77）。
-            if (day.nightDeathPlayerId != null)
-              TimelineEvent(
-                type: TimelineEventType.nightDeath,
-                summary: '${nameOf(day.nightDeathPlayerId)} 夜晚死亡',
-                playerId: day.nightDeathPlayerId,
-              )
+            // 多杀剧本一晚多人（#217 增量4，BMR 沙巴洛斯双杀等）逐人输出。
+            if (nightDeathIdsOf(day).isNotEmpty)
+              for (final pid in nightDeathIdsOf(day))
+                TimelineEvent(
+                  type: TimelineEventType.nightDeath,
+                  summary: '${nameOf(pid)} 夜晚死亡',
+                  playerId: pid,
+                )
             else if (day.nightConfirmed)
               const TimelineEvent(
                 type: TimelineEventType.nightDeath,

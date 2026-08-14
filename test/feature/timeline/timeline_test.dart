@@ -45,7 +45,7 @@ void main() {
       DayRecordsCompanion(
         gameId: Value(gameId),
         dayNumber: const Value(1),
-        nightDeathPlayerId: Value(players[2].id),
+        nightDeathPlayerIds: Value(jsonEncode([players[2].id])),
         dayExecutionPlayerId: Value(players[4].id),
       ),
     );

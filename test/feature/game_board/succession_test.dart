@@ -69,7 +69,7 @@ void main() {
     test('夜死自杀（无 SW）→ DemonSuccessionCandidate(suicide, 无 SW)', () async {
       final players = await db.playersDao.watchByGame(gameId).first;
       await claimRole(players[0].id, Character.imp);
-      final suggestion = await notifier().recordNightDeath(players[0].id);
+      final suggestion = await notifier().setNightDeaths([players[0].id]);
       expect(suggestion, isA<DemonSuccessionCandidate>());
       final cand = suggestion! as DemonSuccessionCandidate;
       expect(cand.way, DeathWay.suicide);
@@ -88,7 +88,7 @@ void main() {
           trustLevel: const Value(TrustLevel.demonCandidate),
         ),
       );
-      final suggestion = await notifier().recordNightDeath(players[0].id);
+      final suggestion = await notifier().setNightDeaths([players[0].id]);
       expect(suggestion, isA<DemonSuccessionCandidate>());
     });
 
@@ -96,7 +96,7 @@ void main() {
       final players = await db.playersDao.watchByGame(gameId).first;
       await claimRole(players[0].id, Character.imp);
       await claimRole(players[1].id, Character.scarletWoman);
-      final suggestion = await notifier().recordNightDeath(players[0].id);
+      final suggestion = await notifier().setNightDeaths([players[0].id]);
       final cand = suggestion! as DemonSuccessionCandidate;
       expect(cand.way, DeathWay.suicide);
       expect(cand.scarletWomanEligible, isTrue);

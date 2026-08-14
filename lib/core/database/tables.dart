@@ -104,10 +104,13 @@ class DayRecords extends Table {
   /// 天数（从 1 开始）。
   IntColumn get dayNumber => integer()();
 
-  /// 夜晚死亡玩家（无人死亡为空；TB 单杀，多杀剧本后续扩展）。
-  @ReferenceName('nightDeathDays')
-  IntColumn get nightDeathPlayerId =>
-      integer().nullable().references(Players, #id)();
+  /// 夜晚死亡玩家 id 列表（JSON 数组，保持录入顺序；#217 增量4）。
+  ///
+  /// - `null` = 尚未录入；`[]` = 确认无人死亡——二义性由 [nightConfirmed]
+  ///   配合空列表消解（#77 语义不变）。
+  /// - TB 单杀与多杀剧本（BMR 沙巴洛斯双杀 / 珀卡毒杀等）同构走数组。
+  /// - 原单值列 `nightDeathPlayerId`（v14 及以前）迁移时折入本列。
+  TextColumn get nightDeathPlayerIds => text().nullable()();
 
   /// 夜晚结果是否已确认（issue #77）。
   ///

@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:botc_copilot/core/constants/character.dart';
@@ -22,6 +23,25 @@ import 'package:path_provider/path_provider.dart';
 export 'package:botc_copilot/core/database/tables.dart';
 
 part 'app_database.g.dart';
+
+/// 解析 [DayRecord] 夜死 JSON 列为玩家 id 列表（保持录入顺序；
+/// #217 增量4：单值 → 数组）。
+///
+/// 未录入 / null / 损坏 JSON → 空列表（不崩调用方，#164 B1）；
+/// 「确认无人死亡」= `nightConfirmed` 且本列表为空（#77 语义）。
+/// 顶层函数而非 extension：调用端（provider/panel/timeline）跨库解析
+/// 行为一致，避免扩展作用域的不确定性。
+List<int> nightDeathIdsOf(DayRecord? record) {
+  final raw = record?.nightDeathPlayerIds;
+  if (raw == null) return const [];
+  try {
+    final decoded = jsonDecode(raw);
+    if (decoded is! List) return const [];
+    return [for (final e in decoded) if (e is int) e];
+  } on Object {
+    return const [];
+  }
+}
 
 /// App 主数据库（Drift）。
 ///
@@ -61,7 +81,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 14;
+  int get schemaVersion => 15;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -136,6 +156,21 @@ class AppDatabase extends _$AppDatabase {
           // 对齐：区分「未录」vs「确认无处决」）。
           if (from < 14) {
             await m.addColumn(dayRecords, dayRecords.dayConfirmed);
+          }
+          // v14 → v15：day_records 夜死单值 → JSON 数组（多杀剧本，#217 增量4）。
+          // 存量：旧值折入数组（null 保持 null = 未录入）；FK 随单值列一并
+          // 丢弃（players 永不单独删除，级联由 gameId 兜底）。
+          // dropColumn 用原生 SQL：生成代码里旧列 getter 已不存在。
+          if (from < 15) {
+            await m.addColumn(dayRecords, dayRecords.nightDeathPlayerIds);
+            await customStatement(
+              'UPDATE day_records SET night_death_player_ids = '
+              'CASE WHEN night_death_player_id IS NULL THEN NULL '
+              "ELSE '[' || night_death_player_id || ']' END",
+            );
+            await customStatement(
+              'ALTER TABLE day_records DROP COLUMN night_death_player_id',
+            );
           }
         },
         beforeOpen: (details) async {
