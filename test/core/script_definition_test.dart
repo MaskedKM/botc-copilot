@@ -29,13 +29,23 @@ void main() {
     expect(scriptDefinitions.keys, containsAll(Script.values));
   });
 
-  test('canTargetSelf 数据化：Monk/Butler 不可自指，其余可', () {
+  test('canTargetSelf 数据化：Monk/Butler/Chambermaid 不可自指，其余可', () {
     expect(Character.monk.canTargetSelf, isFalse);
     expect(Character.butler.canTargetSelf, isFalse);
+    // 官方：choose 2 alive players (not yourself)
+    expect(Character.chambermaid.canTargetSelf, isFalse);
     // 抽样其余角色默认 true（含 Poisoner 可选任何人）
+    const noSelf = {Character.monk, Character.butler, Character.chambermaid};
     for (final c in Character.values) {
-      final expected = c == Character.monk || c == Character.butler;
-      expect(c.canTargetSelf, !expected, reason: c.name);
+      expect(c.canTargetSelf, !noSelf.contains(c), reason: c.name);
+    }
+  });
+
+  test('requiresDeadTarget 数据化：Professor 复活目标须死亡，其余存活', () {
+    expect(Character.professor.requiresDeadTarget, isTrue);
+    for (final c in Character.values) {
+      if (c == Character.professor) continue;
+      expect(c.requiresDeadTarget, isFalse, reason: c.name);
     }
   });
 

@@ -71,11 +71,22 @@ abstract final class InfoInputFactory {
           // 官方规则：Monk/Butler「不能选自己」（canTargetSelf 数据化，#230）。
           excludePlayerId:
               character.canTargetSelf ? null : actingPlayerId,
+          // 官方规则：Professor 复活目标须为已死玩家，其余为存活目标。
+          deadOnly: character.requiresDeadTarget,
         ),
       InfoInputType.twoPlayersNumber => _TwoPlayersNumberInput(
-          players: players, onSubmit: onSubmit),
+          players: players,
+          onSubmit: onSubmit,
+          // 官方规则：Chambermaid「不能选自己」。
+          excludePlayerId:
+              character.canTargetSelf ? null : actingPlayerId,
+        ),
       InfoInputType.twoPlayersTarget => _TwoPlayersTargetInput(
-          players: players, onSubmit: onSubmit),
+          players: players,
+          onSubmit: onSubmit,
+          excludePlayerId:
+              character.canTargetSelf ? null : actingPlayerId,
+        ),
       InfoInputType.freeText => _FreeTextInput(onSubmit: onSubmit),
     };
   }
@@ -406,12 +417,16 @@ class _SinglePlayerInput extends StatefulWidget {
     required this.players,
     required this.onSubmit,
     this.excludePlayerId,
+    this.deadOnly = false,
   });
 
   final List<Player> players;
 
   /// 排除的玩家 id（Monk/Butler 不能选自己；null = 不排除）。
   final int? excludePlayerId;
+
+  /// 只列死亡玩家（Professor 复活目标；否则只列存活玩家）。
+  final bool deadOnly;
 
   final void Function(Map<String, Object?>) onSubmit;
 
@@ -424,9 +439,11 @@ class _SinglePlayerInputState extends State<_SinglePlayerInput> {
 
   @override
   Widget build(BuildContext context) {
-    // 夜间行动目标须为存活玩家（Monk 保护 / Butler 主人 / Poisoner 下毒均针对存活者）
+    // 夜间行动目标默认为存活玩家（Monk/Butler/Poisoner 均针对存活者）；
+    // Professor 复活目标相反，须为已死玩家（官方 choose a dead player）。
     final candidates = widget.players
-        .where((p) => p.isAlive && p.id != widget.excludePlayerId)
+        .where((p) => p.isAlive != widget.deadOnly)
+        .where((p) => p.id != widget.excludePlayerId)
         .toList();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -510,9 +527,14 @@ class _TwoPlayersNumberInput extends StatefulWidget {
   const _TwoPlayersNumberInput({
     required this.players,
     required this.onSubmit,
+    this.excludePlayerId,
   });
 
   final List<Player> players;
+
+  /// 排除的玩家 id（侍女不能选自己；null = 不排除）。
+  final int? excludePlayerId;
+
   final void Function(Map<String, Object?>) onSubmit;
 
   @override
@@ -532,6 +554,7 @@ class _TwoPlayersNumberInputState extends State<_TwoPlayersNumberInput> {
         PlayerPairPicker(
           players: widget.players,
           selected: _selected,
+          excludePlayerId: widget.excludePlayerId,
           onChanged: (s) => setState(() {
             _selected
               ..clear()
@@ -558,7 +581,7 @@ class _TwoPlayersNumberInputState extends State<_TwoPlayersNumberInput> {
                       'value': _value,
                     })
                 : null,
-            child: const Text('保存'),
+            child: const Text('记录'),
           ),
         ),
       ],
@@ -572,9 +595,14 @@ class _TwoPlayersTargetInput extends StatefulWidget {
   const _TwoPlayersTargetInput({
     required this.players,
     required this.onSubmit,
+    this.excludePlayerId,
   });
 
   final List<Player> players;
+
+  /// 排除的玩家 id（null = 不排除）。
+  final int? excludePlayerId;
+
   final void Function(Map<String, Object?>) onSubmit;
 
   @override
@@ -593,6 +621,7 @@ class _TwoPlayersTargetInputState extends State<_TwoPlayersTargetInput> {
         PlayerPairPicker(
           players: widget.players,
           selected: _selected,
+          excludePlayerId: widget.excludePlayerId,
           onChanged: (s) => setState(() {
             _selected
               ..clear()
@@ -606,7 +635,7 @@ class _TwoPlayersTargetInputState extends State<_TwoPlayersTargetInput> {
             onPressed: ready
                 ? () => widget.onSubmit({'playerIds': _selected.toList()})
                 : null,
-            child: const Text('保存'),
+            child: const Text('记录'),
           ),
         ),
       ],

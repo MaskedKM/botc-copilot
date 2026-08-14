@@ -79,11 +79,12 @@ abstract final class InfoPayloadFormatter {
     }
   }
 
-  /// 夜间行动目标的动词（Monk 保护 / Butler 主人 / Poisoner 下毒）。
+  /// 夜间行动目标的动词（Monk 保护 / Butler 主人 / Poisoner·Pukka 下毒）。
   static String _nightActionVerb(Character c) => switch (c) {
         Character.monk => '保护 ',
         Character.butler => '主人 ',
         Character.poisoner => '下毒 ',
+        Character.pukka => '下毒 ',
         _ => '',
       };
 

@@ -193,6 +193,16 @@ void main() {
       );
     });
 
+    test('普卡纯 {playerId} → 「下毒 N号」（复用夜间行动动词）', () {
+      expect(
+        InfoPayloadFormatter.summarize(
+          decl(Character.pukka, '{"playerId": 24}'),
+          labelFor: labelFor,
+        ),
+        '普卡：下毒 24 号',
+      );
+    });
+
     test('既有纯 {value}（Chef/Empath）不受重排影响', () {
       expect(
         InfoPayloadFormatter.summarize(
