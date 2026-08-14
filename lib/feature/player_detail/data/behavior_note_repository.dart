@@ -18,17 +18,6 @@ final playerBehaviorNotesProvider =
       .watchByPlayer(playerId);
 });
 
-/// 某玩家当天的行为备注流。
-final playerDayNotesProvider =
-    StreamProvider.family<List<BehaviorNote>, (int playerId, int day)>(
-        (ref, key) {
-  final (playerId, day) = key;
-  return ref
-      .watch(appDatabaseProvider)
-      .behaviorNotesDao
-      .watchByPlayerAndDay(playerId, day);
-});
-
 /// 行为备注仓库（issue #36）。
 class BehaviorNoteRepository {
   /// 创建仓库。
