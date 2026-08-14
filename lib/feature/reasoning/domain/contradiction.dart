@@ -482,6 +482,33 @@ abstract final class ContradictionDetector {
         continue;
       }
 
+      // 正向补强（#213 review）：报 >0 但当时存活邻座**全部已确认**善良
+      // （镇民/外来者且非隐士）——无任何可登记为邪恶的邻座（隐士可向邪恶
+      // 登记；Spy 属邪恶队、确认后仍默认按邪恶登记，二者均排除在「确认
+      // 善良」外），读数不可能 → warning。强于下方基于声明的 info 检查，
+      // 触发即短路避免同一 decl 双报。
+      final allConfirmedGoodNonRecluse = neighbors.every((n) {
+        final c =
+            confirmedRoles[n.id] ?? (n.id == myPlayerId ? myRole : null);
+        return c != null && c.team.isGood && c != Character.recluse;
+      });
+      if (allConfirmedGoodNonRecluse) {
+        results.add(
+          Contradiction(
+            type: ContradictionType.empathMismatch,
+            playerIds: [decl.playerId, ...neighbors.map((n) => n.id)],
+            description:
+                '${labelOf(decl.playerId)} 的 Empath 信息为 $value，'
+                '但当时邻座 ${neighbors.map((n) => labelOf(n.id)).join('、')} '
+                '均已确认善良（非隐士）——无人可登记为邪恶，读数必假'
+                '（醉/毒已滤）。',
+            severity: ContradictionSeverity.warning,
+            dayNumber: day,
+          ),
+        );
+        continue;
+      }
+
       // 邻居都声明好人角色（镇民/外来者）
       final allGoodClaims = neighbors.every((n) {
         final claim = latestClaim[n.id];
@@ -489,7 +516,15 @@ abstract final class ContradictionDetector {
             (claim.character.team == Team.townsfolk ||
                 claim.character.team == Team.outsider);
       });
-      if (allGoodClaims) {
+      // #213 review：邻座已确认是隐士/间谍 → 读邪恶合法（登记弹性：隐士
+      // 可向邪恶登记、间谍默认按邪恶登记）。原 #151 S4「隐藏信息不可知」
+      // 局限在**有确认证据**时可精确豁免，不再误报。
+      final registrationExplains = neighbors.any((n) {
+        final c =
+            confirmedRoles[n.id] ?? (n.id == myPlayerId ? myRole : null);
+        return c == Character.recluse || c == Character.spy;
+      });
+      if (allGoodClaims && !registrationExplains) {
         results.add(
           Contradiction(
             type: ContradictionType.empathMismatch,
@@ -671,6 +706,12 @@ abstract final class ContradictionDetector {
         continue;
       }
       if (y == null || pair.length != 2) continue;
+
+      // pair 成员已确认是 Y → ping 自洽（review 修复）：Y 被冲突揭示在多人
+      // 身上时（数据录入冲突，由规则 2 处理），只要 pair 内有确认 Y，本条
+      // ping 就不应误报。
+      final yInPair = pair.any((pid) => confirmedOf(pid) == y);
+      if (yInPair) continue;
 
       final elsewhere = <int>[
         for (final e in confirmedRoles.entries)

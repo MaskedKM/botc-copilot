@@ -1066,6 +1066,29 @@ void main() {
       );
     });
 
+    test('pair 成员已确认是 Y（Y 被双重揭示）→ ping 自洽，不报（review 修复）',
+        () {
+      // chef 被揭示在 1 号（pair 内）与 4 号（冲突数据）——ping{1,2} 经由
+      // 1 号自洽；数据冲突由规则 2 处理，ping 本身不应误报。
+      final result = ContradictionDetector.detect(
+        claims: [
+          _claim(1, Character.chef, type: ClaimType.revealedOnDeath),
+          _claim(4, Character.chef, type: ClaimType.revealedOnDeath),
+        ],
+        declarations: [
+          _pingDecl(7, Character.washerwoman, 'chef', [1, 2]),
+        ],
+        days: [],
+        playersById: players,
+        dayRecordToDayNumber: {},
+        expectedOutsiders: 0,
+      );
+      expect(
+        result.where((c) => c.type == ContradictionType.startInfoPingConflict),
+        isEmpty,
+      );
+    });
+
     test('调查员 ping 爪牙：逃生舱是隐士（Recluse），不是间谍', () {
       final result = ContradictionDetector.detect(
         claims: [
@@ -1412,6 +1435,62 @@ void main() {
       expect(
         result.where((c) => c.type == ContradictionType.empathMismatch),
         hasLength(1),
+      );
+    });
+
+    test('empath 1 + 两邻座均确认善良（非隐士）→ warning（review 补强）', () {
+      final result = ContradictionDetector.detect(
+        claims: [
+          _claim(1, Character.monk, type: ClaimType.revealedOnDeath),
+          _claim(3, Character.chef, type: ClaimType.revealedOnDeath),
+        ],
+        declarations: [_empathDecl(2, 10, 1)],
+        days: [],
+        playersById: players,
+        dayRecordToDayNumber: {10: 2},
+        expectedOutsiders: 0,
+      );
+      final empath = result.where(
+        (c) => c.type == ContradictionType.empathMismatch,
+      );
+      expect(empath, hasLength(1));
+      expect(empath.first.severity, ContradictionSeverity.warning);
+      expect(empath.first.playerIds, containsAll([2, 1, 3]));
+    });
+
+    test('empath 1 + 邻座确认隐士 → 可登记邪恶，不报', () {
+      final result = ContradictionDetector.detect(
+        claims: [
+          _claim(1, Character.recluse, type: ClaimType.revealedOnDeath),
+          _claim(3, Character.chef, type: ClaimType.revealedOnDeath),
+        ],
+        declarations: [_empathDecl(2, 10, 1)],
+        days: [],
+        playersById: players,
+        dayRecordToDayNumber: {10: 2},
+        expectedOutsiders: 1,
+      );
+      expect(
+        result.where((c) => c.type == ContradictionType.empathMismatch),
+        isEmpty,
+      );
+    });
+
+    test('empath 1 + 邻座确认 Spy → 默认邪恶登记可解释，不报', () {
+      final result = ContradictionDetector.detect(
+        claims: [
+          _claim(1, Character.spy, type: ClaimType.revealedOnDeath),
+          _claim(3, Character.chef, type: ClaimType.revealedOnDeath),
+        ],
+        declarations: [_empathDecl(2, 10, 1)],
+        days: [],
+        playersById: players,
+        dayRecordToDayNumber: {10: 2},
+        expectedOutsiders: 0,
+      );
+      expect(
+        result.where((c) => c.type == ContradictionType.empathMismatch),
+        isEmpty,
       );
     });
   });
