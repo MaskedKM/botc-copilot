@@ -135,10 +135,10 @@ class _GameBoardBody extends ConsumerWidget {
             icon: const Icon(Icons.timeline),
             onPressed: () => context.push(AppRoutes.timeline(gameId)),
           ),
-          IconButton(
-            tooltip: '推进到下一天',
-            icon: const Icon(Icons.skip_next),
-            // #81：对局结束后禁用；#87：推进后提供撤销
+          // #138 AppBar 语义：推进下一天是最高频的核心循环动作，
+          // 用带标签的主操作按钮（非易错过的裸图标）；结束对局属低频破坏操作，
+          // 仍藏在溢出菜单——语义不再倒置。
+          TextButton.icon(
             onPressed: game.status != GameStatus.ongoing
                 ? null
                 : () async {
@@ -164,6 +164,7 @@ class _GameBoardBody extends ConsumerWidget {
                     final advancedDay = ref.read(
                       gameBoardProvider(gameId).select((s) => s.currentDay),
                     );
+                    if (!context.mounted) return;
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
                         content: Text('已推进到第 $advancedDay 天'),
@@ -183,6 +184,9 @@ class _GameBoardBody extends ConsumerWidget {
                       ),
                     );
                   },
+            icon: const Icon(Icons.skip_next),
+            label: const Text('下一天'),
+            style: TextButton.styleFrom(foregroundColor: gameColors.goldBright),
           ),
           PopupMenuButton<String>(
             onSelected: (v) => _onMenu(context, ref, v),
