@@ -4,6 +4,7 @@ import 'package:botc_copilot/feature/game_board/data/nomination_repository.dart'
 import 'package:botc_copilot/feature/game_board/domain/nomination_rules.dart';
 import 'package:botc_copilot/feature/game_board/presentation/providers/game_board_provider.dart';
 import 'package:botc_copilot/feature/game_board/presentation/widgets/day_panels.dart';
+import 'package:botc_copilot/feature/game_board/presentation/widgets/ghost_vote_tracker.dart';
 import 'package:botc_copilot/feature/game_board/presentation/widgets/nomination_entry_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -42,6 +43,12 @@ class VotingPanel extends ConsumerWidget {
 
     return Column(
       children: [
+        // 幽灵票追踪（#216 功能2）：谁还没用死票——白天博弈关键信息。
+        GhostVoteTracker(
+          deadPlayers: players.where((p) => !p.isAlive).toList(),
+          allNominations:
+              ref.watch(gameNominationsProvider(gameId)).valueOrNull ?? [],
+        ),
         // 今日处决已执行（#79）：处决后当天提名阶段结束
         if (executed)
           Container(

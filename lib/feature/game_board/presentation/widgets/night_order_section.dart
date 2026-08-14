@@ -4,13 +4,17 @@ import 'package:botc_copilot/core/theme/game_colors.dart';
 import 'package:botc_copilot/shared/models/enums.dart';
 import 'package:flutter/material.dart';
 
-/// 夜晚行动顺序参考（issue #61 功能1）。
+/// 夜晚行动顺序参考（issue #61 功能1）+ 夜序引导勾选流（issue #216 功能1）。
 ///
 /// 纯展示 widget：由父组件（[NightPanel]）传入 [currentDay] / [helpLevel]，
 /// 便于直接测试、无需 provider override。按当前天数默认展示首夜（day 1）
 /// 或后续夜顺序，可手动切换。HelpLevel 分层：新手展开 / 普通折叠 / 老手隐藏
 /// （与 HelpTooltip 一致）。时序洞察写入相关步骤的 note（如 Imp 杀人
 /// 先于占卜师 / 共情者）。
+///
+/// **勾选流**：点行勾选/取消，把录入从「想到谁记谁」变成「按序过一遍不漏」。
+/// 勾选为本夜临时 UI 状态（不落库）：天数推进即重置，手动切换首夜/后续夜
+/// 保留各自进度。
 class NightOrderSection extends StatefulWidget {
   /// 创建参考区。
   const NightOrderSection({
@@ -33,12 +37,16 @@ class _NightOrderSectionState extends State<NightOrderSection> {
   /// 用户手动切换覆盖；null → 跟随当前天数。
   NightPhase? _override;
 
+  /// 已勾选步骤（#216 引导清单）：key = '<phase>:<index>'。
+  final Set<String> _checked = {};
+
   @override
   void didUpdateWidget(covariant NightOrderSection oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // 天数变化（推进到下一天）→ 清除手动覆盖，重新跟随当前天
+    // 天数变化（推进到下一天）→ 清除手动覆盖与勾选（新的一夜重新过）
     if (oldWidget.currentDay != widget.currentDay) {
       _override = null;
+      _checked.clear();
     }
   }
 
@@ -83,20 +91,53 @@ class _NightOrderSectionState extends State<NightOrderSection> {
   Widget _content(NightPhase phase) {
     final steps =
         phase == NightPhase.firstNight ? firstNightSteps : otherNightSteps;
+    final checkedCount = [
+      for (var i = 0; i < steps.length; i++)
+        if (_checked.contains('${phase.name}:$i')) i,
+    ].length;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SegmentedButton<NightPhase>(
-          segments: const [
-            ButtonSegment(value: NightPhase.firstNight, label: Text('首夜')),
-            ButtonSegment(value: NightPhase.otherNight, label: Text('后续夜')),
+        Row(
+          children: [
+            Expanded(
+              child: SegmentedButton<NightPhase>(
+                segments: const [
+                  ButtonSegment(
+                      value: NightPhase.firstNight, label: Text('首夜')),
+                  ButtonSegment(
+                      value: NightPhase.otherNight, label: Text('后续夜')),
+                ],
+                selected: {phase},
+                onSelectionChanged: (s) => setState(() => _override = s.first),
+              ),
+            ),
+            if (_checked.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(left: 8),
+                child: TextButton(
+                  onPressed: () => setState(() => _checked.clear()),
+                  child: Text('重置勾选'),
+                ),
+              ),
           ],
-          selected: {phase},
-          onSelectionChanged: (s) => setState(() => _override = s.first),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 4),
+        Text(
+          '已过 $checkedCount/${steps.length} 步（点击行勾选，切天重置）',
+          style: AppTextStyles.caption,
+        ),
+        const SizedBox(height: 4),
         for (var i = 0; i < steps.length; i++)
-          _StepRow(index: i + 1, step: steps[i]),
+          _StepRow(
+            index: i + 1,
+            step: steps[i],
+            checked: _checked.contains('${phase.name}:$i'),
+            onToggle: () => setState(() {
+              final key = '${phase.name}:$i';
+              if (!_checked.remove(key)) _checked.add(key);
+            }),
+          ),
       ],
     );
   }
@@ -106,46 +147,65 @@ class _NightOrderSectionState extends State<NightOrderSection> {
 enum NightPhase { firstNight, otherNight }
 
 class _StepRow extends StatelessWidget {
-  const _StepRow({required this.index, required this.step});
+  const _StepRow({
+    required this.index,
+    required this.step,
+    required this.checked,
+    required this.onToggle,
+  });
 
   final int index;
   final NightOrderStep step;
 
+  /// 是否已勾选（#216 引导清单）。
+  final bool checked;
+
+  /// 点击行切换勾选。
+  final VoidCallback onToggle;
+
   @override
   Widget build(BuildContext context) {
     final gameColors = context.gameColors;
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 3),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 22,
-            child: Text(
-              '$index.',
-              style: AppTextStyles.caption
-                  .copyWith(color: gameColors.goldBright),
+    return InkWell(
+      onTap: onToggle,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 3),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(
+              width: 22,
+              child: Icon(
+                checked ? Icons.check_circle : Icons.circle_outlined,
+                size: 16,
+                color: checked
+                    ? gameColors.trustConfirmedGood
+                    : gameColors.goldBright,
+              ),
             ),
-          ),
-          const SizedBox(width: 4),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '${step.displayLabel} · ${step.action}',
-                  style: AppTextStyles.body,
+            const SizedBox(width: 4),
+            Expanded(
+              child: Opacity(
+                opacity: checked ? 0.5 : 1,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '$index. ${step.displayLabel} · ${step.action}',
+                      style: AppTextStyles.body,
+                    ),
+                    if (step.note != null)
+                      Text(
+                        step.note!,
+                        style: AppTextStyles.caption
+                            .copyWith(color: gameColors.inkViolet),
+                      ),
+                  ],
                 ),
-                if (step.note != null)
-                  Text(
-                    step.note!,
-                    style: AppTextStyles.caption
-                        .copyWith(color: gameColors.inkViolet),
-                  ),
-              ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

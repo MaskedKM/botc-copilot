@@ -93,4 +93,63 @@ void main() {
       expect(find.textContaining('厨师'), findsNothing);
     });
   });
+
+  group('夜序引导勾选流（#216 功能1）', () {
+    testWidgets('点行勾选 → 计数/变暗，再点取消', (tester) async {
+      await tester.pumpWidget(_wrap(NightOrderSection(
+        currentDay: 1,
+        helpLevel: HelpLevel.beginner,
+      )));
+      await tester.pump();
+      expect(find.textContaining('已过 0/'), findsOneWidget);
+
+      // 点第一行（投毒者）勾选
+      await tester.tap(find.textContaining('投毒').first);
+      await tester.pump();
+      expect(find.textContaining('已过 1/'), findsOneWidget);
+
+      // 再点取消
+      await tester.tap(find.textContaining('投毒').first);
+      await tester.pump();
+      expect(find.textContaining('已过 0/'), findsOneWidget);
+    });
+
+    testWidgets('有勾选 → 显示重置按钮；重置清空', (tester) async {
+      await tester.pumpWidget(_wrap(NightOrderSection(
+        currentDay: 3,
+        helpLevel: HelpLevel.beginner,
+      )));
+      await tester.pump();
+      expect(find.text('重置勾选'), findsNothing);
+
+      await tester.tap(find.textContaining('杀人').first);
+      await tester.pump();
+      expect(find.text('重置勾选'), findsOneWidget);
+
+      await tester.tap(find.text('重置勾选'));
+      await tester.pump();
+      expect(find.textContaining('已过 0/'), findsOneWidget);
+      expect(find.text('重置勾选'), findsNothing);
+    });
+
+    testWidgets('切天 → 勾选重置（didUpdateWidget）', (tester) async {
+      await tester.pumpWidget(_wrap(NightOrderSection(
+        currentDay: 1,
+        helpLevel: HelpLevel.beginner,
+      )));
+      await tester.pump();
+      await tester.tap(find.textContaining('投毒').first);
+      await tester.pump();
+      expect(find.textContaining('已过 1/'), findsOneWidget);
+
+      // 推进天数 → 重置
+      await tester.pumpWidget(_wrap(NightOrderSection(
+        currentDay: 2,
+        helpLevel: HelpLevel.beginner,
+      )));
+      await tester.pump();
+      // day2 → 后续夜步骤集（不含首夜专属），勾选清零
+      expect(find.textContaining('已过 0/'), findsOneWidget);
+    });
+  });
 }
