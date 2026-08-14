@@ -861,6 +861,17 @@ void main() {
       expect(find.text('掘墓人 的信息'), findsOneWidget);
     });
 
+  testWidgets('S&V 日间私密询问型（博学者）不被夜序过滤', (tester) async {
+      useTallSurface(tester);
+      await tester.pumpWidget(buildSheet(
+        myPlayerId: me.id,
+        myRole: Character.savant,
+      ));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('不被唤醒'), findsNothing);
+      expect(find.text('博学者 的信息'), findsOneWidget);
+    });
+
   testWidgets('他人表单不过滤（第 2 夜仍可录首夜角色的公开声明）',
         (tester) async {
       useTallSurface(tester);

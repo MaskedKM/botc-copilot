@@ -832,6 +832,11 @@ class _InfoInputSection extends ConsumerWidget {
   /// 我的角色今晚是否被唤醒（#243：官方夜序 + 掘墓条件）。
   bool _wakesTonight(Script script, WidgetRef ref) {
     final steps = nightStepsForDay(script, day);
+    // S&V 日间私密询问型：不在夜序（白天行动），但所得同属「我的私有
+    // 信息」（私下询问说书人），不过滤。区别于 Gossip（公开声明，无私有
+    // 信息可录）——公开内容走他人声明入口。
+    const dayPrivateInfo = {Character.savant, Character.artist};
+    if (dayPrivateInfo.contains(character)) return true;
     final inOrder = steps.any((s) => s.character == character);
     if (!inOrder) return false;
     if (character == Character.undertaker) {
