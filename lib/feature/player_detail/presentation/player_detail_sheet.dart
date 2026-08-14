@@ -985,7 +985,6 @@ class _HistoryExpandToggle extends StatelessWidget {
         style: TextButton.styleFrom(
           padding: const EdgeInsets.symmetric(horizontal: 4),
           minimumSize: const Size(0, 32),
-          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
           foregroundColor: context.gameColors.inkViolet,
           textStyle: AppTextStyles.caption,
         ),
