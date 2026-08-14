@@ -174,3 +174,12 @@ final playerDeclarationsProvider =
         ..orderBy([(i) => OrderingTerm.asc(i.id)]))
       .watch();
 });
+
+/// 某对局全部天数记录流。
+///
+/// 信息声明只存 [InfoDeclaration.dayRecordId]（外键），无直接天数；
+/// 信息历史视图需据此把 dayRecordId 解析为「第 N 天」展示（issue #71）。
+final gameDayRecordsProvider =
+    StreamProvider.family<List<DayRecord>, int>((ref, gameId) {
+  return ref.watch(appDatabaseProvider).dayRecordsDao.watchByGame(gameId);
+});

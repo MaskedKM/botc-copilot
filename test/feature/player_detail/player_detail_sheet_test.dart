@@ -174,6 +174,7 @@ void main() {
     List<InfoDeclaration> declarations = const [],
     List<RoleClaim> claims = const [],
     List<BehaviorNote> notes = const [],
+    List<DayRecord> dayRecords = const [],
     bool enableChain = false,
   }) {
     final g = game.copyWith(
@@ -199,8 +200,11 @@ void main() {
             .overrideWith((ref) => Stream.value(const <int, TrustLevel>{})),
         gamePoisonStatusesProvider(1)
             .overrideWith((ref) => Stream.value(const <PoisonStatus>[])),
-        playerDayNotesProvider((1, 1))
+        // #71：备注区改取该玩家全部备注（今日+历史）；信息行解析 dayRecordId→天。
+        playerBehaviorNotesProvider(1)
             .overrideWith((ref) => Stream.value(notes)),
+        gameDayRecordsProvider(1)
+            .overrideWith((ref) => Stream.value(dayRecords)),
         playerDetailRepositoryProvider.overrideWithValue(detailRepo),
         poisonRepositoryProvider.overrideWithValue(poisonRepo),
       ],
@@ -290,8 +294,11 @@ void main() {
           ),
           gamePoisonStatusesProvider(1)
               .overrideWith((ref) => Stream.value(const <PoisonStatus>[])),
-          playerDayNotesProvider((1, 1))
+          // #71：备注区改取全部备注；信息行解析天数。
+          playerBehaviorNotesProvider(1)
               .overrideWith((ref) => Stream.value(const <BehaviorNote>[])),
+          gameDayRecordsProvider(1)
+              .overrideWith((ref) => Stream.value(const <DayRecord>[])),
           playerDetailRepositoryProvider.overrideWithValue(detailRepo),
           poisonRepositoryProvider.overrideWithValue(poisonRepo),
         ],
@@ -575,8 +582,11 @@ void main() {
               .overrideWith((ref) => Stream.value(const <int, TrustLevel>{})),
           gamePoisonStatusesProvider(1)
               .overrideWith((ref) => Stream.value(const <PoisonStatus>[])),
-          playerDayNotesProvider((1, 1))
+          // #71：备注区改取全部备注；信息行解析天数。
+          playerBehaviorNotesProvider(1)
               .overrideWith((ref) => Stream.value(const <BehaviorNote>[])),
+          gameDayRecordsProvider(1)
+              .overrideWith((ref) => Stream.value(const <DayRecord>[])),
           playerDetailRepositoryProvider.overrideWithValue(detailRepo),
           poisonRepositoryProvider.overrideWithValue(poisonRepo),
         ],
@@ -656,5 +666,95 @@ void main() {
     for (final header in const ['镇民', '外来者', '爪牙', '恶魔']) {
       expect(find.text(header), findsOneWidget);
     }
+  });
+
+  // #71：已录入信息默认仅最近 5 条，超出折叠；点「查看全部」展开并显示天数。
+  testWidgets('已录入信息 >5 条：查看全部展开 + 天数标签（#71）', (tester) async {
+    useTallSurface(tester);
+    // 6 条厨师信息（id/day 1..6）；无声明 → 全部归入「当前」。
+    final decls = [
+      for (var i = 1; i <= 6; i++)
+        InfoDeclaration(
+          id: i,
+          playerId: me.id,
+          dayRecordId: i,
+          characterType: Character.chef,
+          payloadJson: '{"value": $i}',
+          reliability: Reliability.unverified,
+          isMine: false,
+        ),
+    ];
+    final days = [
+      for (var i = 1; i <= 6; i++)
+        DayRecord(
+          id: i,
+          gameId: 1,
+          dayNumber: i,
+          notes: '',
+          nightConfirmed: true,
+        ),
+    ];
+    await tester.pumpWidget(buildSheet(declarations: decls, dayRecords: days));
+    await tester.pump();
+    await tester.pump();
+
+    // 折叠态：仅最近 5 条（id 6..2），最旧的「第1天」隐藏。
+    expect(find.text('查看全部（共 6 条）'), findsOneWidget);
+    expect(find.text('第1天'), findsNothing);
+    expect(find.text('第6天'), findsOneWidget);
+
+    // 展开后：最旧的「第1天」出现，按钮变「收起」。
+    await tester.tap(find.text('查看全部（共 6 条）'));
+    await tester.pump();
+    expect(find.text('收起'), findsOneWidget);
+    expect(find.text('第1天'), findsOneWidget);
+  });
+
+  // #71：行为备注默认仅当天；其他天折叠为「查看历史」，展开按天倒序分组。
+  testWidgets('行为备注：查看历史展开按天分组（#71）', (tester) async {
+    useTallSurface(tester);
+    final notes = [
+      BehaviorNote(
+        id: 1,
+        gameId: 1,
+        playerId: me.id,
+        dayNumber: 1,
+        note: '今日备注',
+        createdAt: DateTime(2026, 8, 13),
+      ),
+      BehaviorNote(
+        id: 2,
+        gameId: 1,
+        playerId: me.id,
+        dayNumber: 2,
+        note: '第二天备注',
+        createdAt: DateTime(2026, 8, 14),
+      ),
+      BehaviorNote(
+        id: 3,
+        gameId: 1,
+        playerId: me.id,
+        dayNumber: 3,
+        note: '第三天备注',
+        createdAt: DateTime(2026, 8, 15),
+      ),
+    ];
+    await tester.pumpWidget(buildSheet(notes: notes));
+    await tester.pump();
+    await tester.pump();
+
+    // 当天（第 1 天）备注展示；历史折叠，历史文案不可见。
+    expect(find.text('今日备注'), findsOneWidget);
+    expect(find.text('查看历史（共 2 条）'), findsOneWidget);
+    expect(find.text('第二天备注'), findsNothing);
+    expect(find.text('第三天备注'), findsNothing);
+
+    // 展开：历史按天倒序（第 3 天在前），两条均可见。
+    await tester.tap(find.text('查看历史（共 2 条）'));
+    await tester.pump();
+    expect(find.text('第三天备注'), findsOneWidget);
+    expect(find.text('第二天备注'), findsOneWidget);
+    expect(find.text('第 3 天'), findsOneWidget);
+    expect(find.text('第 2 天'), findsOneWidget);
   });
 }
