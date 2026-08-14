@@ -56,7 +56,7 @@ void main() {
     );
   }
 
-  testWidgets('渲染：圆环 + 天数 + 存活人数 + 四个 Tab', (tester) async {
+  testWidgets('渲染：圆环 + 天数 + 存活人数 + 当日三 Tab + 底部推理 tab', (tester) async {
     await tester.pumpWidget(buildBoard());
     await tester.pumpAndSettle();
 

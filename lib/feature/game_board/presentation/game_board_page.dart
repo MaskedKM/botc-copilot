@@ -1,7 +1,5 @@
-import 'package:botc_copilot/core/router.dart';
 import 'package:botc_copilot/core/database/app_database.dart';
 import 'package:botc_copilot/core/database/database_provider.dart';
-import 'package:go_router/go_router.dart';
 import 'package:botc_copilot/core/theme/app_colors.dart';
 import 'package:botc_copilot/core/theme/app_text_styles.dart';
 import 'package:botc_copilot/core/theme/app_theme.dart';
@@ -20,6 +18,7 @@ import 'package:botc_copilot/feature/player_detail/data/player_detail_repository
 import 'package:botc_copilot/feature/player_detail/presentation/player_detail_sheet.dart';
 import 'package:botc_copilot/feature/reasoning/data/contradictions_provider.dart';
 import 'package:botc_copilot/feature/reasoning/presentation/reasoning_dashboard.dart';
+import 'package:botc_copilot/feature/timeline/presentation/timeline_page.dart';
 import 'package:botc_copilot/shared/models/enums.dart';
 import 'package:botc_copilot/shared/widgets/loading_error_view.dart';
 import 'package:flutter/material.dart';
@@ -60,15 +59,26 @@ class GameBoardPage extends ConsumerWidget {
   }
 }
 
-class _GameBoardBody extends ConsumerWidget {
+class _GameBoardBody extends ConsumerStatefulWidget {
   const _GameBoardBody({required this.game});
 
   final Game game;
 
+  @override
+  ConsumerState<_GameBoardBody> createState() => _GameBoardBodyState();
+}
+
+class _GameBoardBodyState extends ConsumerState<_GameBoardBody> {
+  /// 底部导航：0=对局 1=时间线 2=推理（#138 游戏内底部导航）。
+  int _navIndex = 0;
+
+  // 保留 widget 字段的便捷访问，使既有 helper 方法无需改动。
+  Game get game => widget.game;
   int get gameId => game.id;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
+    final ref = this.ref;
     final boardState = ref.watch(gameBoardProvider(gameId));
     final playersAsync = ref.watch(gamePlayersProvider(gameId));
     final trustLevels =
@@ -129,11 +139,6 @@ class _GameBoardBody extends ConsumerWidget {
             tooltip: '我的信息',
             icon: const Icon(Icons.person_outline),
             onPressed: () => _openMyInfo(context, ref, game),
-          ),
-          IconButton(
-            tooltip: '事件时间线',
-            icon: const Icon(Icons.timeline),
-            onPressed: () => context.push(AppRoutes.timeline(gameId)),
           ),
           // #138 AppBar 语义：推进下一天是最高频的核心循环动作，
           // 用带标签的主操作按钮（非易错过的裸图标）；结束对局属低频破坏操作，
@@ -215,7 +220,8 @@ class _GameBoardBody extends ConsumerWidget {
           ),
         ],
       ),
-      body: SafeArea(
+      body: _navIndex == 0
+          ? SafeArea(
         child: Column(
           children: [
             // 对局已结束：横幅 + 圆环定格（禁交互）
@@ -271,26 +277,18 @@ class _GameBoardBody extends ConsumerWidget {
                 ),
               ),
             ),
-            // 当日面板
+            // 当日面板（#138：推理独立为底部导航 tab，当日只留夜晚/白天/投票）
             Expanded(
               flex: 4,
               child: DefaultTabController(
-                length: 4,
+                length: 3,
                 child: Column(
                   children: [
-                    // #160 #8：推理 Tab 加矛盾计数 badge，提升核心卖点可发现性。
-                    TabBar(
+                    const TabBar(
                       tabs: [
-                        const Tab(text: '夜晚'),
-                        const Tab(text: '白天'),
-                        const Tab(text: '投票'),
-                        Tab(
-                          child: Badge(
-                            isLabelVisible: contradictions.isNotEmpty,
-                            label: Text('${contradictions.length}'),
-                            child: const Text('推理'),
-                          ),
-                        ),
+                        Tab(text: '夜晚'),
+                        Tab(text: '白天'),
+                        Tab(text: '投票'),
                       ],
                     ),
                     Expanded(
@@ -299,7 +297,6 @@ class _GameBoardBody extends ConsumerWidget {
                           NightPanel(gameId: gameId),
                           DayPanel(gameId: gameId),
                           VotingPanel(gameId: gameId),
-                          ReasoningDashboard(gameId: gameId),
                         ],
                       ),
                     ),
@@ -309,6 +306,39 @@ class _GameBoardBody extends ConsumerWidget {
             ),
           ],
         ),
+      )
+          : _navIndex == 1
+              ? TimelineContent(gameId: gameId)
+              : ReasoningDashboard(gameId: gameId),
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _navIndex,
+        onDestinationSelected: (i) => setState(() => _navIndex = i),
+        destinations: [
+          const NavigationDestination(
+            selectedIcon: Icon(Icons.casino),
+            icon: Icon(Icons.casino_outlined),
+            label: '对局',
+          ),
+          const NavigationDestination(
+            icon: Icon(Icons.timeline),
+            selectedIcon: Icon(Icons.timeline),
+            label: '时间线',
+          ),
+          // #160 #8：推理 tab 矛盾计数 badge（迁移自原当日 TabBar）。
+          NavigationDestination(
+            icon: Badge(
+              isLabelVisible: contradictions.isNotEmpty,
+              label: Text('${contradictions.length}'),
+              child: const Icon(Icons.psychology_outlined),
+            ),
+            selectedIcon: Badge(
+              isLabelVisible: contradictions.isNotEmpty,
+              label: Text('${contradictions.length}'),
+              child: const Icon(Icons.psychology),
+            ),
+            label: '推理',
+          ),
+        ],
       ),
     );
   }

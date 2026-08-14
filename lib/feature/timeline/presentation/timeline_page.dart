@@ -20,65 +20,79 @@ class TimelinePage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('事件时间线')),
+      body: TimelineContent(gameId: gameId),
+    );
+  }
+}
+
+/// 时间线内容（无 Scaffold/AppBar，#138：供游戏内底部导航「时间线」tab 复用）。
+class TimelineContent extends ConsumerWidget {
+  /// 创建时间线内容。
+  const TimelineContent({required this.gameId, super.key});
+
+  /// 对局 id。
+  final int gameId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
     final timelineAsync = ref.watch(timelineProvider(gameId));
     final game = ref.watch(gameByIdProvider(gameId)).valueOrNull;
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('事件时间线')),
-      body: timelineAsync.when(
-        loading: () => const LoadingView(),
-        error: (e, _) => ErrorRetryView(
-          onRetry: () => ref.invalidate(timelineProvider(gameId)),
-        ),
-        data: (days) {
-          final hasEvents = days.any((d) => d.events.isNotEmpty);
-          if (!hasEvents) {
-            return Center(
-              child: Text(
-                '还没有记录。回到对局页记录第一天的事件。',
-                style: AppTextStyles.caption
-                    .copyWith(color: context.gameColors.inkViolet),
-              ),
-            );
-          }
-          final ended = game != null && game.status != GameStatus.ongoing;
-          return ListView.builder(
-            padding: const EdgeInsets.all(16),
-            itemCount: days.length + (ended ? 1 : 0),
-            itemBuilder: (context, index) {
-              if (ended && index == days.length) {
-                // 对局结束标记
-                final gameColors = context.gameColors;
-                final goodWin = game.status == GameStatus.goodWin;
-                return Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.flag,
-                        size: 18,
+    return timelineAsync.when(
+      loading: () => const LoadingView(),
+      error: (e, _) => ErrorRetryView(
+        onRetry: () => ref.invalidate(timelineProvider(gameId)),
+      ),
+      data: (days) {
+        final hasEvents = days.any((d) => d.events.isNotEmpty);
+        if (!hasEvents) {
+          return Center(
+            child: Text(
+              '还没有记录。回到对局页记录第一天的事件。',
+              style: AppTextStyles.caption
+                  .copyWith(color: context.gameColors.inkViolet),
+            ),
+          );
+        }
+        final ended = game != null && game.status != GameStatus.ongoing;
+        return ListView.builder(
+          padding: const EdgeInsets.all(16),
+          itemCount: days.length + (ended ? 1 : 0),
+          itemBuilder: (context, index) {
+            if (ended && index == days.length) {
+              // 对局结束标记
+              final gameColors = context.gameColors;
+              final goodWin = game.status == GameStatus.goodWin;
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.flag,
+                      size: 18,
+                      color: goodWin
+                          ? gameColors.trustConfirmedGood
+                          : gameColors.blood,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      '对局结束 · ${game.status.nameCn}',
+                      style: AppTextStyles.headline.copyWith(
                         color: goodWin
                             ? gameColors.trustConfirmedGood
-                            : gameColors.blood,
+                            : gameColors.bloodBright,
                       ),
-                      const SizedBox(width: 8),
-                      Text(
-                        '对局结束 · ${game.status.nameCn}',
-                        style: AppTextStyles.headline.copyWith(
-                          color: goodWin
-                              ? gameColors.trustConfirmedGood
-                              : gameColors.bloodBright,
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              }
-              return _DaySection(day: days[index]);
-            },
-          );
-        },
-      ),
+                    ),
+                  ],
+                ),
+              );
+            }
+            return _DaySection(day: days[index]);
+          },
+        );
+      },
     );
   }
 }
