@@ -100,6 +100,9 @@ class _PlayerDetailSheetState extends ConsumerState<PlayerDetailSheet> {
 
   bool _saving = false;
 
+  /// 行为备注草稿是否有未提交文本（PopScope 守卫，#160 #5）。
+  bool _noteDraftDirty = false;
+
   /// 信息提交前确保草稿声明已落库（#134 解耦）。
   ///
   /// 非己玩家选了角色 chip 但尚未保存时直接录信息会造成「孤儿信息」——
@@ -192,7 +195,8 @@ class _PlayerDetailSheetState extends ConsumerState<PlayerDetailSheet> {
               _draftRole != initialRole) ||
       (_trustTouched && _draftTrust != initialTrust) ||
       (_poisonTouched && _draftPoison != initialPoison) ||
-      (_drunkTouched && _draftDrunk != initialDrunk);
+      (_drunkTouched && _draftDrunk != initialDrunk) ||
+      _noteDraftDirty; // 行为备注草稿（#160 #5）
 
   /// 提交所有草稿变更到 DB（不关闭弹层）。_save / _saveAndNext 共用。
   Future<bool> _commitChanges({
@@ -553,6 +557,12 @@ class _PlayerDetailSheetState extends ConsumerState<PlayerDetailSheet> {
                 playerId: playerId,
                 day: day,
                 readOnly: readOnly,
+                onDraftChanged: (hasDraft) {
+                  // 仅在脏状态翻转时 setState（非每次击键），保焦点（#160 #5）。
+                  if (hasDraft != _noteDraftDirty) {
+                    setState(() => _noteDraftDirty = hasDraft);
+                  }
+                },
               ),
               const SizedBox(height: 16),
               _TrustSection(
@@ -1110,6 +1120,7 @@ class _BehaviorNoteSection extends ConsumerStatefulWidget {
     required this.playerId,
     required this.day,
     this.readOnly = false,
+    this.onDraftChanged,
   });
 
   final int gameId;
@@ -1118,6 +1129,9 @@ class _BehaviorNoteSection extends ConsumerStatefulWidget {
 
   /// 只读（复盘）：隐藏输入框，仅展示已存备注。
   final bool readOnly;
+
+  /// 草稿脏状态变化（有未提交文本=true），供父级 PopScope 守卫（#160 #5）。
+  final void Function(bool hasDraft)? onDraftChanged;
 
   @override
   ConsumerState<_BehaviorNoteSection> createState() =>
@@ -1145,6 +1159,7 @@ class _BehaviorNoteSectionState extends ConsumerState<_BehaviorNoteSection> {
     // #164：await 后须 mounted 守卫，否则关闭 sheet 致 dispose → .clear() 崩。
     if (!mounted) return;
     _controller.clear();
+    widget.onDraftChanged?.call(false); // 提交后草稿清空（#160 #5）
   }
 
   @override
@@ -1171,6 +1186,8 @@ class _BehaviorNoteSectionState extends ConsumerState<_BehaviorNoteSection> {
                     isDense: true,
                   ),
                   inputFormatters: [LengthLimitingTextInputFormatter(500)],
+                  onChanged: (v) =>
+                      widget.onDraftChanged?.call(v.trim().isNotEmpty),
                   onSubmitted: (_) => _submit(),
                 ),
               ),
