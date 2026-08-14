@@ -1,4 +1,5 @@
 import 'package:botc_copilot/core/constants/character.dart';
+import 'package:botc_copilot/core/constants/player_setup.dart';
 import 'package:botc_copilot/core/database/app_database.dart';
 import 'package:botc_copilot/feature/reasoning/domain/contradiction.dart';
 import 'package:botc_copilot/shared/models/enums.dart';
@@ -794,5 +795,144 @@ void main() {
     expect(result, hasLength(1));
     expect(result[0].type, ContradictionType.fortuneTellerMismatch);
     expect(result[0].playerIds, containsAll([1, 2]));
+  });
+
+  group('规则3b：阵营人数硬约束（#212）', () {
+    // 7 人局：TF=5 / 外=0 / 爪=1 / 恶=1。
+    final setup = PlayerSetup.forCount(7);
+
+    test('镇民声明 > TF 槽 → teamCountOverflow', () {
+      // 6 个不同镇民声明（无重复，避免 duplicateRoleClaim）。
+      final result = ContradictionDetector.detect(
+        claims: [
+          _claim(1, Character.chef),
+          _claim(2, Character.empath),
+          _claim(3, Character.fortuneTeller),
+          _claim(4, Character.undertaker),
+          _claim(5, Character.monk),
+          _claim(6, Character.ravenkeeper),
+        ],
+        declarations: [],
+        days: [],
+        playersById: players,
+        dayRecordToDayNumber: {},
+        expectedOutsiders: 0,
+        setup: setup,
+      );
+      final overflow = result.where(
+        (c) => c.type == ContradictionType.teamCountOverflow,
+      );
+      expect(overflow, hasLength(1));
+      expect(overflow.first.severity, ContradictionSeverity.warning);
+      expect(overflow.first.playerIds, containsAll([1, 2, 3, 4, 5, 6]));
+      expect(overflow.first.description, contains('镇民'));
+    });
+
+    test('爪牙声明 > 爪牙槽 → teamCountOverflow', () {
+      final result = ContradictionDetector.detect(
+        claims: [
+          _claim(1, Character.poisoner),
+          _claim(2, Character.scarletWoman),
+        ],
+        declarations: [],
+        days: [],
+        playersById: players,
+        dayRecordToDayNumber: {},
+        expectedOutsiders: 0,
+        setup: setup,
+      );
+      final overflow = result.where(
+        (c) => c.type == ContradictionType.teamCountOverflow,
+      );
+      expect(overflow, hasLength(1));
+      expect(overflow.first.playerIds, containsAll([1, 2]));
+      expect(overflow.first.description, contains('爪牙'));
+    });
+
+    test('恶魔声明 > 恶魔槽（在世）→ teamCountOverflow', () {
+      final result = ContradictionDetector.detect(
+        claims: [
+          _claim(1, Character.imp),
+          _claim(2, Character.imp),
+        ],
+        declarations: [],
+        days: [],
+        playersById: players,
+        dayRecordToDayNumber: {},
+        expectedOutsiders: 0,
+        setup: setup,
+      );
+      final overflow = result.where(
+        (c) => c.type == ContradictionType.teamCountOverflow,
+      );
+      expect(overflow, hasLength(1));
+      expect(overflow.first.description, contains('恶魔'));
+    });
+
+    test('恶魔传承：死揭示 Imp + 在世声明 Imp → 不报（排除 revealedOnDeath）',
+        () {
+      // 1 号死亡揭示为 Imp（原恶魔），2 号在世声明 Imp（继承人）——传承下合法。
+      final result = ContradictionDetector.detect(
+        claims: [
+          _claim(1, Character.imp, type: ClaimType.revealedOnDeath),
+          _claim(2, Character.imp),
+        ],
+        declarations: [],
+        days: [],
+        playersById: players,
+        dayRecordToDayNumber: {},
+        expectedOutsiders: 0,
+        setup: setup,
+      );
+      expect(
+        result.where((c) => c.type == ContradictionType.teamCountOverflow),
+        isEmpty,
+      );
+    });
+
+    test('正好等于槽位 → 不报（边界）', () {
+      // 5 个不同镇民声明 == TF 槽，不超。
+      final result = ContradictionDetector.detect(
+        claims: [
+          _claim(1, Character.chef),
+          _claim(2, Character.empath),
+          _claim(3, Character.fortuneTeller),
+          _claim(4, Character.undertaker),
+          _claim(5, Character.monk),
+        ],
+        declarations: [],
+        days: [],
+        playersById: players,
+        dayRecordToDayNumber: {},
+        expectedOutsiders: 0,
+        setup: setup,
+      );
+      expect(
+        result.where((c) => c.type == ContradictionType.teamCountOverflow),
+        isEmpty,
+      );
+    });
+
+    test('不传 setup → 不检测（向后兼容，现有调用零改动）', () {
+      final result = ContradictionDetector.detect(
+        claims: [
+          _claim(1, Character.chef),
+          _claim(2, Character.empath),
+          _claim(3, Character.fortuneTeller),
+          _claim(4, Character.undertaker),
+          _claim(5, Character.monk),
+          _claim(6, Character.ravenkeeper),
+        ],
+        declarations: [],
+        days: [],
+        playersById: players,
+        dayRecordToDayNumber: {},
+        expectedOutsiders: 0,
+      );
+      expect(
+        result.where((c) => c.type == ContradictionType.teamCountOverflow),
+        isEmpty,
+      );
+    });
   });
 }

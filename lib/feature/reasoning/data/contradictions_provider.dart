@@ -38,8 +38,9 @@ final contradictionsProvider = Provider.family<List<Contradiction>, int>(
       final players =
           ref.watch(gamePlayersProvider(gameId)).valueOrNull ?? [];
       final game = ref.watch(gameByIdProvider(gameId)).valueOrNull;
-      final expectedOutsiders =
-          game != null ? PlayerSetup.forCount(game.playerCount).outsiders : 0;
+      final setup =
+          game != null ? PlayerSetup.forCount(game.playerCount) : null;
+      final expectedOutsiders = setup?.outsiders ?? 0;
 
       // 整局「疑似醉汉」overlay（#109）：被疑醉玩家的声明 reliability 实时降级，
       // 再交给 detect()。按天的毒已在存档 reliability 中（#122）。
@@ -61,6 +62,7 @@ final contradictionsProvider = Provider.family<List<Contradiction>, int>(
         playersById: playersById,
         dayRecordToDayNumber: {for (final d in days) d.id: d.dayNumber},
         expectedOutsiders: expectedOutsiders,
+        setup: setup,
         demonBluffs: game != null ? demonBluffsOf(game) : const {},
         myPlayerId: game?.myPlayerId,
         myRole: game?.myRole,
