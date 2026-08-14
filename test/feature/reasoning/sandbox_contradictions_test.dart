@@ -79,6 +79,8 @@ void main() {
         gamePlayersProvider(1)
             .overrideWith((ref) => Stream.value(players)),
         gameByIdProvider(1).overrideWith((ref) => Stream.value(null)),
+        gameSuccessionsProvider(1)
+            .overrideWith((ref) => Stream.value(const <DemonInheritance>[])),
       ],
     );
   });

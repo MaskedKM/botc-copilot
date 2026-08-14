@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:botc_copilot/core/constants/character.dart';
+import 'package:botc_copilot/core/constants/script.dart';
 import 'package:botc_copilot/core/constants/player_setup.dart';
 import 'package:botc_copilot/core/database/app_database.dart';
 import 'package:botc_copilot/feature/reasoning/domain/contradiction.dart';
@@ -1488,4 +1489,120 @@ void main() {
       );
     });
   });
+  group('#215 传承 × 死亡揭示冲突（跨剧本通用规则）', () {
+    DemonInheritance inh(int id, int from, int? to) => DemonInheritance(
+          id: id,
+          gameId: 1,
+          dayNumber: 2,
+          fromPlayerId: from,
+          toPlayerId: to,
+          trigger: SuccessionTrigger.suicideByImp,
+          createdAt: DateTime(2026, 8, 15),
+        );
+
+    List<RoleClaim> baseClaims() => [
+          _claim(1, Character.washerwoman),
+          _claim(2, Character.chef),
+          _claim(3, Character.monk),
+        ];
+
+    List<Contradiction> detect215({
+      List<DemonInheritance> successions = const [],
+      List<RoleClaim> extraClaims = const [],
+    }) =>
+        ContradictionDetector.detect(
+          claims: [...baseClaims(), ...extraClaims],
+          declarations: [],
+          days: [],
+          playersById: players,
+          dayRecordToDayNumber: {},
+          expectedOutsiders: 0,
+          successions: successions,
+        );
+
+    test('继承人死亡揭示为非恶魔 → warning 冲突', () {
+      final result = detect215(
+        successions: [inh(1, 2, 3)],
+        extraClaims: [
+          RoleClaim(
+            id: 10,
+            playerId: 3,
+            dayRecordId: 1,
+            character: Character.chef,
+            claimType: ClaimType.revealedOnDeath,
+          ),
+        ],
+      );
+      final hit = result.where(
+        (c) => c.type == ContradictionType.successionRevealConflict,
+      ).toList();
+      expect(hit, hasLength(1));
+      expect(hit.single.severity, ContradictionSeverity.warning);
+      expect(hit.single.playerIds, [3]);
+      expect(hit.single.description, contains('厨师')); // 揭示角色入文案
+    });
+
+    test('继承人死亡揭示为恶魔 → 不报（正常传承链）', () {
+      final result = detect215(
+        successions: [inh(1, 2, 3)],
+        extraClaims: [
+          RoleClaim(
+            id: 10,
+            playerId: 3,
+            dayRecordId: 1,
+            character: Character.imp,
+            claimType: ClaimType.revealedOnDeath,
+          ),
+        ],
+      );
+      expect(
+        result.where((c) => c.type == ContradictionType.successionRevealConflict),
+        isEmpty,
+      );
+    });
+
+    test('恶魔生前声明好人角色不构成矛盾（bluff 合法）', () {
+      // 3 号是继承人，最新**公开声明**为镇民——合法 bluff，不报
+      final result = detect215(successions: [inh(1, 2, 3)]);
+      expect(
+        result.where((c) => c.type == ContradictionType.successionRevealConflict),
+        isEmpty,
+      );
+    });
+
+    test('继承人为空（暂不指定）→ 不报', () {
+      final result = detect215(successions: [inh(1, 2, null)]);
+      expect(
+        result.where((c) => c.type == ContradictionType.successionRevealConflict),
+        isEmpty,
+      );
+    });
+
+    test('S&V 剧本同样适用（跨剧本通用）', () {
+      final result = ContradictionDetector.detect(
+        claims: [
+          ...baseClaims(),
+          RoleClaim(
+            id: 10,
+            playerId: 3,
+            dayRecordId: 1,
+            character: Character.clockmaker,
+            claimType: ClaimType.revealedOnDeath,
+          ),
+        ],
+        declarations: [],
+        days: [],
+        playersById: players,
+        dayRecordToDayNumber: {},
+        expectedOutsiders: 0,
+        script: Script.sectsAndViolets,
+        successions: [inh(1, 2, 3)],
+      );
+      expect(
+        result.where((c) => c.type == ContradictionType.successionRevealConflict),
+        hasLength(1),
+      );
+    });
+  });
+
 }

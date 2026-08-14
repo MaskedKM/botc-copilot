@@ -203,7 +203,7 @@ void main() {
       expect(Character.magician.mayRegisterAsGood, isFalse); // 锚点无修饰
     });
 
-    test('TB 矛盾规则注册表：10 条稳定 id、输出顺序即注册顺序', () {
+    test('TB 矛盾规则注册表：10 条剧本规则 + 通用规则（#215）', () {
       final rules = contradictionRulesFor(Script.troubleBrewing);
       expect(rules.map((r) => r.id), [
         'duplicate-role-claim',
@@ -216,11 +216,16 @@ void main() {
         'bluff-claim',
         'start-info-ping',
         'chef-count',
+        // 跨剧本通用（#215：传承 × 死亡揭示）
+        'succession_reveal_conflict',
       ]);
     });
 
-    test('S&V 规则集空（随 #217 注册）', () {
-      expect(contradictionRulesFor(Script.sectsAndViolets), isEmpty);
+    test('S&V 规则集仅含跨剧本通用规则（#215）', () {
+      expect(
+        contradictionRulesFor(Script.sectsAndViolets).map((r) => r.id),
+        ['succession_reveal_conflict'],
+      );
     });
   });
 
