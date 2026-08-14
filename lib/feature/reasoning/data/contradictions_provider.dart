@@ -1,4 +1,5 @@
 import 'package:botc_copilot/core/constants/player_setup.dart';
+import 'package:botc_copilot/core/constants/script.dart';
 import 'package:botc_copilot/core/database/app_database.dart';
 import 'package:botc_copilot/core/database/database_provider.dart';
 import 'package:botc_copilot/feature/game_board/presentation/providers/game_board_provider.dart';
@@ -83,6 +84,7 @@ final contradictionsProvider = Provider.family<ContradictionResult, int>(
           dayRecordToDayNumber: {for (final d in days) d.id: d.dayNumber},
           expectedOutsiders: expectedOutsiders,
           setup: setup,
+          script: game?.script ?? Script.troubleBrewing,
           demonBluffs: game != null ? demonBluffsOf(game) : const {},
           myPlayerId: game?.myPlayerId,
           myRole: game?.myRole,

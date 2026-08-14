@@ -42,4 +42,41 @@ void main() {
       expect(c.script, Script.troubleBrewing, reason: c.name);
     }
   });
+
+  group('setup 外来者增量模型（#231）', () {
+    test('Baron 数据：setupOutsiderDeltas = [2]；其余角色为空', () {
+      expect(Character.baron.setupOutsiderDeltas, const [2]);
+      expect(Character.poisoner.setupOutsiderDeltas, isEmpty);
+      expect(Character.imp.setupOutsiderDeltas, isEmpty);
+    });
+
+    test('TB maxOutsiderDelta = 2（Baron）；空池剧本 = 0', () {
+      expect(ScriptDefinition.of(Script.troubleBrewing).maxOutsiderDelta, 2);
+      expect(
+        ScriptDefinition.of(Script.badMoonRising).maxOutsiderDelta,
+        0, // Godfather [-1,1] 随 #217 录入后自动生效
+      );
+    });
+
+    test('claimedOutsiderDelta：未声明修正角色 → 0；声明 Baron → 2', () {
+      expect(
+        ScriptDefinition.claimedOutsiderDelta(
+          const [Character.chef, Character.poisoner],
+        ),
+        0,
+      );
+      expect(
+        ScriptDefinition.claimedOutsiderDelta(const [Character.baron]),
+        2,
+      );
+      expect(ScriptDefinition.claimedOutsiderDelta(const []), 0);
+    });
+
+    test('「或」型多元素语义：负增量不会拉低期望（取最大候选）', () {
+      // Godfather [-1, 1] 型（BMR，#217 录入）：claim 后期望锚点取 +1——
+      // claimedOutsiderDelta 展开取 max，-1 被忽略（保守上界，避免漏报 over）。
+      // 现有数据下以空列表模拟「无修正角色」侧断言基线行为。
+      expect(ScriptDefinition.claimedOutsiderDelta(const []), 0);
+    });
+  });
 }

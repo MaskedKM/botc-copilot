@@ -203,6 +203,7 @@ enum Character {
     team: Team.minion,
     ability: '本局游戏额外有两名外来者在场（替换两名镇民）。',
     infoInputType: InfoInputType.none,
+    setupOutsiderDeltas: const [2],
   ),
 
   // ── 恶魔 (1) ─────────────────────────────────────────────
@@ -229,6 +230,10 @@ enum Character {
     this.script = Script.troubleBrewing,
     // 官方规则：Monk/Butler 的夜间目标不能选自己（#230 数据化）。
     this.canTargetSelf = true,
+    // #231：setup 修正角色的外来者增量模型。固定增量为单元素（Baron [2]）；
+    // 「说书人选」型为多元素（BMR Godfather [-1,1]、S&V Balloonist [0,1]，
+    // 随 #217 录入）。外来者增减由镇民反向补偿。
+    this.setupOutsiderDeltas = const [],
   });
 
   /// 中文名。
@@ -251,6 +256,9 @@ enum Character {
 
   /// 夜间行动目标能否选自己（Monk/Butler 官方不可，其余可）。
   final bool canTargetSelf;
+
+  /// setup 外来者增量候选（空 = 非修正角色；「或」型含多个可能值）。
+  final List<int> setupOutsiderDeltas;
 
   /// 是否善良阵营。
   bool get isGood => team.isGood;

@@ -1,5 +1,7 @@
 import 'package:botc_copilot/core/constants/character.dart';
 import 'package:botc_copilot/core/constants/player_setup.dart';
+import 'package:botc_copilot/core/constants/script.dart';
+import 'package:botc_copilot/core/constants/script_definition.dart';
 import 'package:botc_copilot/core/constants/team.dart';
 import 'package:botc_copilot/core/database/app_database.dart';
 import 'package:botc_copilot/feature/reasoning/domain/latest_claim.dart';
@@ -58,6 +60,7 @@ class OutsiderCountAnalysis {
     required this.deviation,
     required this.claimers,
     required this.baronClaimed,
+    required this.maxOutsiderDelta,
   });
 
   /// 玩家数。
@@ -85,10 +88,16 @@ class OutsiderCountAnalysis {
   final List<OutsiderClaimer> claimers;
 
   /// 是否检测到 Baron 声明（最新声明含 Baron 或我的角色是 Baron）。
+  ///
+  /// 推广语义（#231）：实为「setup 修正角色已声明」——TB 唯一修正角色即
+  /// Baron；BMR/S&V 为 Godfather/Balloonist 等（随 #217 录入）。
   final bool baronClaimed;
 
-  /// Baron 在场时的外来者数（base + 2）。
-  int get baronOutsiders => baseOutsiders + 2;
+  /// 剧本 setup 修正角色的外来者最大可能增量（TB：Baron → 2）。
+  final int maxOutsiderDelta;
+
+  /// 修正角色在场时的外来者数（base + 剧本最大增量；字段名保留 UI 契约）。
+  int get baronOutsiders => baseOutsiders + maxOutsiderDelta;
 }
 
 /// 分析外来者计数偏差（纯函数，可测试）。
@@ -100,10 +109,13 @@ OutsiderCountAnalysis analyzeOutsiderCount({
   required List<RoleClaim> claims,
   required Character? myRole,
   int? myPlayerId,
+  Script script = Script.troubleBrewing,
 }) {
   final setup = PlayerSetup.forCount(playerCount);
   final base = setup.outsiders;
-  final baronAdj = base + 2;
+  final def = ScriptDefinition.of(script);
+  // 修正角色在场时的外来者参照数（含未声明的隐藏 Baron 可能，#151 S3）。
+  final baronAdj = base + def.maxOutsiderDelta;
 
   // 每玩家最新声明，并注入「我的真实身份」（issue #107）：我是外来者时
   // 计入（Drunk 除外——其 myRole 为被告知的镇民，保持隐藏，保留 under 信号）。
@@ -127,14 +139,22 @@ OutsiderCountAnalysis analyzeOutsiderCount({
 
   final baronClaimed = myRole == Character.baron ||
       latest.values.any((c) => c.character == Character.baron);
+  // 已声明修正角色（含 myRole）下的期望增量（「或」型取最大候选，#231）。
+  // TB 单一修正角色（Baron）下与 maxOutsiderDelta 等值，行为不变；
+  // BMR/S&V 多修正角色后：已声明的才是期望锚点，未声明的保持隐藏可能。
+  final claimedAdj = base +
+      ScriptDefinition.claimedOutsiderDelta([
+        ...{for (final c in latest.values) c.character},
+        if (myRole != null) myRole,
+      ]);
 
   // #151 S3：Baron 在场时期望外来者数 = baronAdj（base+2），故 claimed==base 应判
   // under（缺 2），而非 standard。原逻辑忽略 baronClaimed 致 Baron 已声明仍标 standard。
   final OutsiderDeviation deviation;
   if (baronClaimed) {
-    if (claimed == baronAdj) {
+    if (claimed == claimedAdj) {
       deviation = OutsiderDeviation.standard;
-    } else if (claimed < baronAdj) {
+    } else if (claimed < claimedAdj) {
       deviation = OutsiderDeviation.under;
     } else {
       deviation = OutsiderDeviation.over;
@@ -162,5 +182,6 @@ OutsiderCountAnalysis analyzeOutsiderCount({
     deviation: deviation,
     claimers: claimers,
     baronClaimed: baronClaimed,
+    maxOutsiderDelta: def.maxOutsiderDelta,
   );
 }

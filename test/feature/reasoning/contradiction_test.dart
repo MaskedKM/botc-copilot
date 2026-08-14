@@ -274,7 +274,7 @@ void main() {
     );
     expect(result, hasLength(1));
     expect(result[0].type, ContradictionType.outsiderCountAnomaly);
-    expect(result[0].description, contains('Baron'));
+    expect(result[0].description, contains('修正角色'));
   });
 
   test('规则3：声明数 == base+2（Baron 局一致）→ 不报警（#59 收紧）', () {

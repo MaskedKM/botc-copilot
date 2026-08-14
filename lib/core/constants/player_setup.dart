@@ -1,7 +1,9 @@
 /// 玩家配置表（人数 → 各阵营角色数量）。
 ///
-/// 数据为 Trouble Brewing 基准（AGENTS.md 配置表）。
-/// Baron 在场时外来者 +2、镇民 -2，见 [PlayerSetup.withBaron]。
+/// 基础人数分布表（5-15）**各官方剧本通用**（已核实官方 Wiki，#231 纠错：
+/// 原「TB 基准」表述有误）；剧本差异全部来自 setup 修正角色的外来者增量
+/// （[Character.setupOutsiderDeltas]，如 TB Baron +2 / BMR Godfather ±1 /
+/// S&V Balloonist 0/+1），经 [withOutsiderDelta] 应用，镇民反向补偿。
 class PlayerSetup {
   const PlayerSetup._({
     required this.playerCount,
@@ -133,18 +135,20 @@ class PlayerSetup {
     return setup;
   }
 
-  /// Baron 在场时的修正配置：+2 外来者、-2 镇民。
+  /// 应用 setup 修正角色的外来者增量（#231 数据化，替代 Baron 特判）。
   ///
-  /// 断言镇民数足够（5 人局 + Baron 后剩 1 镇民，规则上合法但极端）。
-  PlayerSetup withBaron() {
+  /// [delta] 为外来者增量（Baron +2、Godfather -1/+1 等），镇民反向
+  /// 补偿（总人数不变）。断言修正后两阵营数非负——5 人局 + Baron 后剩
+  /// 1 镇民，规则上合法但极端。
+  PlayerSetup withOutsiderDelta(int delta) {
     assert(
-      townsfolk >= 2,
-      'Baron 修正后镇民数不能为负（当前 $townsfolk）',
+      townsfolk - delta >= 0 && outsiders + delta >= 0,
+      '修正后阵营数为负（镇民 $townsfolk、外来者 $outsiders、增量 $delta）',
     );
     return PlayerSetup._(
       playerCount: playerCount,
-      townsfolk: townsfolk - 2,
-      outsiders: outsiders + 2,
+      townsfolk: townsfolk - delta,
+      outsiders: outsiders + delta,
       minions: minions,
       demons: demons,
     );

@@ -30,6 +30,7 @@ OutsiderCountAnalysis _analysis({
   required OutsiderDeviation deviation,
   required int claimed,
   bool baronClaimed = false,
+  int maxOutsiderDelta = 2,
 }) =>
     OutsiderCountAnalysis(
       playerCount: 9,
@@ -49,6 +50,7 @@ OutsiderCountAnalysis _analysis({
           ),
       ],
       baronClaimed: baronClaimed,
+    maxOutsiderDelta: maxOutsiderDelta,
     );
 
 Widget buildPanel(OutsiderCountAnalysis analysis) {
