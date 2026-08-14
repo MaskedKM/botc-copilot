@@ -829,12 +829,48 @@ class _InfoInputSection extends ConsumerWidget {
   /// 提交信息前回调：确保草稿声明已落库（#134 解耦，杜绝孤儿信息）。
   final Future<bool> Function() onEnsureClaim;
 
+  /// 我的角色今晚是否被唤醒（#243：官方夜序 + 掘墓条件）。
+  bool _wakesTonight(Script script, WidgetRef ref) {
+    final steps = nightStepsForDay(script, day);
+    final inOrder = steps.any((s) => s.character == character);
+    if (!inOrder) return false;
+    if (character == Character.undertaker) {
+      // 官方：掘墓人每夜*得知**今日**被处决者的角色——夜 N 跟在昼 N-1
+      // 后，须前一天有处决。
+      final days =
+          ref.watch(gameDayRecordsProvider(gameId)).valueOrNull ?? [];
+      return days.any((d) =>
+          d.dayNumber == day - 1 && d.dayExecutionPlayerId != null);
+    }
+    return true;
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final script = ref.watch(
           gameByIdProvider(gameId).select((g) => g.valueOrNull?.script),
         ) ??
         Script.troubleBrewing;
+    // #243 单一入口：我的座位 = 当夜私有知识，按官方夜序过滤（首夜信息角色
+    // 仅首夜、僧侣/掘墓/渡鸦第 2 夜起；掘墓另需前一天有处决）。渡鸦不卡
+    // 存活（被唤醒者自知死亡，死亡标记黎明才落）。他人表单**不过滤**——
+    // 白天复述 / bluff 均合法，时序问题交给矛盾引擎。
+    if (isMine && !_wakesTonight(script, ref)) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('${character.nameCn} 的信息', style: AppTextStyles.headline),
+          const SizedBox(height: 8),
+          Text(
+            '按夜序，「${character.nameCn}」第 $day 夜不被唤醒，'
+            '今夜无私有信息可录。他人今晚的公开声明可次日在此录入。',
+            style: AppTextStyles.caption.copyWith(
+              color: context.gameColors.inkViolet,
+            ),
+          ),
+        ],
+      );
+    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [

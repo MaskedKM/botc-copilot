@@ -18,7 +18,6 @@ import 'package:botc_copilot/shared/widgets/help_tooltip.dart';
 import 'package:botc_copilot/feature/game_board/presentation/providers/game_board_provider.dart';
 import 'package:botc_copilot/feature/game_board/presentation/succession_handler.dart';
 import 'package:botc_copilot/feature/game_board/presentation/widgets/end_game_dialog.dart';
-import 'package:botc_copilot/feature/game_board/presentation/widgets/night_action_section.dart';
 import 'package:botc_copilot/feature/game_board/presentation/widgets/night_order_section.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -143,8 +142,24 @@ class NightPanel extends ConsumerWidget {
           script: game?.script ?? Script.troubleBrewing,
         ),
         const SizedBox(height: 8),
-        // 夜间行动记录区（issue #110）
-        NightActionSection(gameId: gameId),
+        // #243 单一入口：夜间行动录入收敛到座位详情（我的私有信息 +
+        // 他人公开声明均唯一入口），此处只留指引。
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(Icons.nightlight_outlined,
+                size: 16, color: gameColors.goldBright),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                '你的夜间信息：点圆环上你的座位录入（按夜序过滤）；'
+                '他人的角色/信息声明同样在座位详情。',
+                style: AppTextStyles.caption
+                    .copyWith(color: gameColors.inkViolet),
+              ),
+            ),
+          ],
+        ),
       ],
     );
   }
