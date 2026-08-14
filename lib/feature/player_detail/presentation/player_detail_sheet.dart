@@ -866,6 +866,44 @@ class _InfoInputSection extends ConsumerWidget {
                 SnackBar(content: Text(isMine ? '我的信息已记录' : '信息已记录')),
               );
             }
+            // 教授复活联动（#217 增量4D，仅我的声明=事实）：教授不知是否
+            // 成功，复活与否由用户按公开信息裁决；能力总是消耗（公理4）。
+            if (isMine && character == Character.professor) {
+              final targetId = payload['playerId'];
+              final target = targetId is int
+                  ? players.where((p) => p.id == targetId).firstOrNull
+                  : null;
+              if (target != null && context.mounted) {
+                final resurrected = await showDialog<bool>(
+                  context: context,
+                  builder: (ctx) => AlertDialog(
+                    title: const Text('教授复活'),
+                    content: Text(
+                      '${target.seatNumber}号 ${target.name} 是否回到场上？\n'
+                      '官方：教授不会得知复活是否成功——按公开信息裁决；'
+                      '能力已消耗（醉/毒时使用也不返还）。',
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(ctx, false),
+                        child: const Text('未复活'),
+                      ),
+                      FilledButton(
+                        onPressed: () => Navigator.pop(ctx, true),
+                        child: const Text('已复活'),
+                      ),
+                    ],
+                  ),
+                );
+                if (resurrected != null) {
+                  await ref.read(abilityRepositoryProvider).recordProfessorResurrect(
+                        professorId: playerId,
+                        targetId: target.id,
+                        resurrected: resurrected,
+                      );
+                }
+              }
+            }
           },
         ),
       ],
