@@ -141,6 +141,68 @@ void main() {
     expect(find.text('确认邪恶（2）'), findsOneWidget);
   });
 
+  testWidgets('收缩结论/确认列表按座位序渲染（review F1：换座后 id 序≠座位序）',
+      (tester) async {
+    // 玩家 id 与座位倒挂：id1→座位7、id2→座位1……
+    final swappedPlayers = [
+      for (var i = 1; i <= 7; i++) _player(i, 8 - i, 'P$i'),
+    ];
+    final board = EliminationBoard(
+      confirmedGood: const {
+        3: [Deduction(source: DeductionSource.deathReveal, description: '揭示')],
+        4: [Deduction(source: DeductionSource.deathReveal, description: '揭示')],
+      },
+      confirmedEvil: const {
+        1: [Deduction(source: DeductionSource.evilCountForcing, description: '收缩')],
+        2: [Deduction(source: DeductionSource.evilCountForcing, description: '收缩')],
+      },
+      knownMinionIds: const {},
+      confirmedDemonPlayerId: null,
+      confirmedDemonReason: null,
+      forcedEvilRemaining: const {1, 2},
+      demonCandidates: const [1, 2, 5, 6, 7],
+      weakDemonExclusions: const {},
+      minAliveEvil: 2,
+      maxAliveEvil: 2,
+      anomalies: const [],
+    );
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          eliminationBoardProvider(1).overrideWith((ref) => board),
+          gamePlayersProvider.overrideWith(
+            (ref, gameId) => Stream.value(swappedPlayers),
+          ),
+        ],
+        child: const MaterialApp(
+          home: Scaffold(
+            body: SingleChildScrollView(child: EliminationBoardPanel(gameId: 1)),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    // id2 座位6 < id1 座位7 → 收缩框先「6号 P2」后「7号 P1」
+    expect(
+      find.textContaining('计数收缩：6号 P2、7号 P1 即全部存活邪恶'),
+      findsOneWidget,
+    );
+    // 展开确认列表同样按座位序
+    await tester.tap(find.text('确认好人（2）'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    final labels = tester
+        .widgetList<Text>(find.byType(Text))
+        .map((t) => t.data)
+        .whereType<String>()
+        .toList();
+    final i4 = labels.indexOf('4号 P4'); // 座位4（id4）
+    final i3 = labels.indexOf('5号 P3'); // 座位5（id3）
+    expect(i4, greaterThanOrEqualTo(0));
+    expect(i3, greaterThan(i4), reason: '座位4（id4）应排在座位5（id3）前');
+  });
+
   testWidgets('展开确认好人 → 显示依据', (tester) async {
     final board = EliminationEngine.evaluate(
       players: players,

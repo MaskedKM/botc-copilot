@@ -36,7 +36,12 @@ class EliminationBoardPanel extends ConsumerWidget {
       return p == null ? '?' : '${p.seatNumber}号 ${p.name}';
     }
 
-    final weakOnly = board.weakDemonExclusions.keys.toList()..sort();
+    // 座位序排序（#214 review F1）：候选由引擎排好，其余集合按座位统一，
+    // 避免换座后按 db id 乱序。
+    int bySeat(int a, int b) => (playersById[a]?.seatNumber ?? 1 << 30)
+        .compareTo(playersById[b]?.seatNumber ?? 1 << 30);
+    final weakOnly = board.weakDemonExclusions.keys.toList()..sort(bySeat);
+    final forcedSorted = board.forcedEvilRemaining.toList()..sort(bySeat);
 
     return Container(
       padding: const EdgeInsets.all(12),
@@ -103,9 +108,7 @@ class EliminationBoardPanel extends ConsumerWidget {
           if (board.forcedEvilRemaining.isNotEmpty) ...[
             const SizedBox(height: 8),
             _ForcedEvilBox(
-              labels: [
-                for (final id in board.forcedEvilRemaining) label(id),
-              ],
+              labels: [for (final id in forcedSorted) label(id)],
               gameColors: gameColors,
             ),
           ],
@@ -135,6 +138,7 @@ class EliminationBoardPanel extends ConsumerWidget {
             title: '确认好人（${board.confirmedGood.length}）',
             reasons: board.confirmedGood,
             label: label,
+            sortWith: bySeat,
             color: gameColors.trustConfirmedGood,
             gameColors: gameColors,
           ),
@@ -142,6 +146,7 @@ class EliminationBoardPanel extends ConsumerWidget {
             title: '确认邪恶（${board.confirmedEvil.length}）',
             reasons: board.confirmedEvil,
             label: label,
+            sortWith: bySeat,
             color: gameColors.blood,
             gameColors: gameColors,
           ),
@@ -231,6 +236,7 @@ class _ReasonsTile extends StatelessWidget {
     required this.title,
     required this.reasons,
     required this.label,
+    required this.sortWith,
     required this.color,
     required this.gameColors,
   });
@@ -238,12 +244,16 @@ class _ReasonsTile extends StatelessWidget {
   final String title;
   final Map<int, List<Deduction>> reasons;
   final String Function(int) label;
+
+  /// 座位序比较器（保证换座后展示顺序稳定）。
+  final int Function(int, int) sortWith;
   final Color color;
   final GameColors gameColors;
 
   @override
   Widget build(BuildContext context) {
     if (reasons.isEmpty) return const SizedBox.shrink();
+    final sortedEntries = reasons.keys.toList()..sort(sortWith);
     return ExpansionTile(
       dense: true,
       tilePadding: EdgeInsets.zero,
@@ -251,14 +261,14 @@ class _ReasonsTile extends StatelessWidget {
       title: Text(title, style: AppTextStyles.body.copyWith(color: color)),
       childrenPadding: const EdgeInsets.only(left: 8, bottom: 8),
       children: [
-        for (final e in reasons.entries)
+        for (final pid in sortedEntries)
           Padding(
             padding: const EdgeInsets.only(bottom: 4),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(label(e.key), style: AppTextStyles.body),
-                for (final d in e.value)
+                Text(label(pid), style: AppTextStyles.body),
+                for (final d in reasons[pid]!)
                   Padding(
                     padding: const EdgeInsets.only(left: 12),
                     child: Text(
