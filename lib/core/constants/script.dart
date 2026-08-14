@@ -3,12 +3,12 @@ enum Script {
   /// Trouble Brewing 暗流涌动（基础剧本）。
   troubleBrewing(nameCn: '暗流涌动', nameEn: 'Trouble Brewing', abbr: 'TB'),
 
-  /// Bad Moon Rising 血月升起。
-  badMoonRising(nameCn: '血月升起', nameEn: 'Bad Moon Rising', abbr: 'BMR'),
+  /// Bad Moon Rising 黯月初升（官方中文名，#217 数据录入时勘正）。
+  badMoonRising(nameCn: '黯月初升', nameEn: 'Bad Moon Rising', abbr: 'BMR'),
 
-  /// Sects & Violets 紫罗兰教派。
+  /// Sects & Violets 灾祸滋生（官方中文名，#217 数据录入时勘正）。
   sectsAndViolets(
-    nameCn: '紫罗兰教派',
+    nameCn: '灾祸滋生',
     nameEn: 'Sects & Violets',
     abbr: 'S&V',
   );
