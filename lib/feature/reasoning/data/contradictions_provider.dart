@@ -27,8 +27,25 @@ final _daysProvider =
   return ref.watch(appDatabaseProvider).dayRecordsDao.watchByGame(gameId);
 });
 
+/// 矛盾引擎计算结果（issue #211）。
+///
+/// [failed] = true 表示 [ContradictionDetector.detect] 抛异常被兜底捕获——
+/// 此时 [contradictions] 为空但**不代表「无矛盾」**，UI 须展示降级提示，
+/// 而非按空成功渲染。原先 release 下 `debugPrint` 是 no-op、直接返回 `[]`，
+/// 引擎真出 bug 时会**无信号地关闭全部矛盾检测**（注释「不静默」仅在 debug
+/// 成立）。
+class ContradictionResult {
+  const ContradictionResult(this.contradictions, {this.failed = false});
+
+  /// 检测到的矛盾标记（[failed] 时为空）。
+  final List<Contradiction> contradictions;
+
+  /// 引擎是否异常兜底。true → UI 展示「推理引擎暂不可用」。
+  final bool failed;
+}
+
 /// 当前对局的矛盾标记流（issue #38）。
-final contradictionsProvider = Provider.family<List<Contradiction>, int>(
+final contradictionsProvider = Provider.family<ContradictionResult, int>(
   (ref, gameId) {
     try {
       final claims = ref.watch(gameClaimsProvider(gameId)).valueOrNull ?? [];
@@ -55,23 +72,28 @@ final contradictionsProvider = Provider.family<List<Contradiction>, int>(
           ),
       ];
 
-      return ContradictionDetector.detect(
-        claims: claims,
-        declarations: effectiveDeclarations,
-        days: days,
-        playersById: playersById,
-        dayRecordToDayNumber: {for (final d in days) d.id: d.dayNumber},
-        expectedOutsiders: expectedOutsiders,
-        setup: setup,
-        demonBluffs: game != null ? demonBluffsOf(game) : const {},
-        myPlayerId: game?.myPlayerId,
-        myRole: game?.myRole,
+      return ContradictionResult(
+        ContradictionDetector.detect(
+          claims: claims,
+          declarations: effectiveDeclarations,
+          days: days,
+          playersById: playersById,
+          dayRecordToDayNumber: {for (final d in days) d.id: d.dayNumber},
+          expectedOutsiders: expectedOutsiders,
+          setup: setup,
+          demonBluffs: game != null ? demonBluffsOf(game) : const {},
+          myPlayerId: game?.myPlayerId,
+          myRole: game?.myRole,
+        ),
       );
-    } on Object {
+    } on Object catch (e, st) {
       // 兜底：损坏数据不应让同步 Provider 抛异常致主界面红屏（#164 B5）。
-      // debugPrint 保留诊断：不静默吞掉 detect() 的真实 bug。
-      if (kDebugMode) debugPrint('contradictionsProvider 兜底捕获异常');
-      return const [];
+      // #211：release 下 debugPrint 是 no-op，原先返回空 [] 等于无信号关闭全部
+      // 检测；现返回 failed=true 让 UI 展示降级横幅。debugPrint 仍保留 debug 诊断。
+      if (kDebugMode) {
+        debugPrint('contradictionsProvider 兜底捕获异常: $e\n$st');
+      }
+      return const ContradictionResult([], failed: true);
     }
   },
 );
