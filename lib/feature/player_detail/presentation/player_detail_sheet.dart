@@ -137,6 +137,49 @@ class _PlayerDetailSheetState extends ConsumerState<PlayerDetailSheet> {
     }
   }
 
+  /// 撤销最新声明（误声明纠错，#160 #11；与信息/备注/提名可删对称）。
+  Future<void> _undoLatestClaim(RoleClaim latest) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('撤销声明'),
+        content: Text(
+          '撤销 ${widget.player.seatNumber}号 ${widget.player.name} 的'
+          '「${latest.character.nameCn}」声明？',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('撤销'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      await ref.read(appDatabaseProvider).roleClaimsDao.deleteClaim(latest.id);
+      if (mounted) {
+        // 重置草稿：撤销后回到「未声明」状态（chips 无选中）。
+        setState(() {
+          _roleTouched = false;
+          _draftRole = null;
+          _claimAutoCommitted = false;
+        });
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('已撤销声明')));
+      }
+    } on Object {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('撤销失败，请重试')));
+      }
+    }
+  }
+
   /// 是否存在未保存的修改。
   bool _isDirty({
     required Character? initialRole,
@@ -420,6 +463,9 @@ class _PlayerDetailSheetState extends ConsumerState<PlayerDetailSheet> {
                     // 改草稿后重置：允许新角色随信息提交重新自动落库（#134）
                     _claimAutoCommitted = false;
                   }),
+                  onUndo: !readOnly && claims.isNotEmpty
+                      ? () => _undoLatestClaim(claims.last)
+                      : null,
                 ),
               // 一次性能力（仅进行中可记录动作）：我座位按真实角色，他人按声明角色
               if (!readOnly &&
@@ -615,6 +661,7 @@ class _RoleClaimSection extends ConsumerWidget {
     required this.selected,
     required this.onSelect,
     this.readOnly = false,
+    this.onUndo,
   });
 
   final int gameId;
@@ -623,6 +670,9 @@ class _RoleClaimSection extends ConsumerWidget {
 
   /// 只读（复盘）：chip 不可选。
   final bool readOnly;
+
+  /// 撤销最新声明（误声明纠错，#160 #11）；null=无声明/只读，不显示。
+  final Future<void> Function()? onUndo;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -670,6 +720,16 @@ class _RoleClaimSection extends ConsumerWidget {
             level: helpLevel,
             icon: Icons.auto_stories_outlined,
             text: '${selected!.nameCn}：${selected!.ability}',
+          ),
+        // 撤销最新声明（误声明纠错，#160 #11；与信息/备注/提名可删对称）。
+        if (onUndo != null && selected != null && !readOnly)
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton.icon(
+              onPressed: onUndo,
+              icon: const Icon(Icons.undo, size: 18),
+              label: const Text('撤销声明'),
+            ),
           ),
       ],
     );
