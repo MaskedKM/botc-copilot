@@ -107,6 +107,21 @@ void main() {
     expect(updated[4].isAlive, isTrue);
   });
 
+  test('recordExecution：确认白天结果 dayConfirmed（#156 S2）', () async {
+    await notifier().recordExecution(null); // 无处决
+    var day = await db.dayRecordsDao.getByGameAndDay(gameId, 1);
+    expect(day!.dayExecutionPlayerId, isNull);
+    expect(day.dayConfirmed, isTrue); // 显式确认「无处决」（非预选中）
+
+    await notifier().recordExecution(players[4].id); // 处决
+    day = await db.dayRecordsDao.getByGameAndDay(gameId, 1);
+    expect(day!.dayConfirmed, isTrue);
+
+    await notifier().revivePlayer(players[4].id); // 撤销处决
+    day = await db.dayRecordsDao.getByGameAndDay(gameId, 1);
+    expect(day!.dayConfirmed, isFalse); // 撤销 → 不再视为已确认
+  });
+
   test('revivePlayer：复活误标死亡的玩家', () async {
     await notifier().quickToggleDead(players[1]);
     await notifier().revivePlayer(players[1].id);

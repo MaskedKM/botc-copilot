@@ -30,7 +30,7 @@ void main() {
 
     List<TimelineEvent> build(List<DemonInheritance> successions) {
       final days = [
-        DayRecord(id: 10, gameId: 1, dayNumber: 1, notes: '', nightConfirmed: true),
+        DayRecord(id: 10, gameId: 1, dayNumber: 1, notes: '', nightConfirmed: true, dayConfirmed: true),
       ];
       final result = TimelineBuilder.build(
         days: days,
@@ -127,6 +127,7 @@ void main() {
           dayNumber: 1,
           notes: '',
           nightConfirmed: true,
+          dayConfirmed: true,
         ),
       ];
       final decl = InfoDeclaration(
