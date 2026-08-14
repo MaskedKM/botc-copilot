@@ -298,58 +298,33 @@ abstract final class EliminationEngine {
             .compareTo(playersById[b]?.seatNumber ?? 1 << 30),
       );
 
-    // ---- 弱排除层：FT 读「否」/ Empath 读 0（若信息为真则非恶魔）----
-    // 传承继承人豁免：读数只证明当时非恶魔，其后传承可使其成为新恶魔。
+    // ---- 弱排除层（#234 机制化）：按信息角色类型经注册表分派 ----
+    // 「若信息为真 → 目标非现任恶魔」；传承继承人豁免（读数只证明当时
+    // 非恶魔，其后传承可使其成为新恶魔）。
     final weakExclusions = <int, List<Deduction>>{};
     for (final decl in declarations) {
       if (decl.reliability == Reliability.possiblyTainted ||
           decl.reliability == Reliability.invalidated) {
         continue;
       }
-      if (decl.characterType == Character.fortuneTeller) {
-        final pair = _parseFortuneTellerNo(decl.payloadJson);
-        if (pair == null) continue;
-        final day = dayRecordToDayNumber[decl.dayRecordId];
-        for (final pid in pair) {
-          if (!candidates.contains(pid) || successorIds.contains(pid)) {
-            continue;
-          }
-          weakExclusions.putIfAbsent(pid, () => []).add(
-            Deduction(
-              source: DeductionSource.fortuneTellerNo,
-              description: '${labelFor(decl.playerId)} 的占卜师读「否」'
-                  '${day != null ? '（第 $day 天）' : ''}——若信息为真，'
-                  '其中无恶魔（「否」不受红鲱鱼影响，恶魔必登记为恶魔）',
-            ),
-          );
-        }
-      } else if (decl.characterType == Character.empath) {
-        final value = _payloadValue(decl.payloadJson);
-        if (value == null || value != 0) continue;
-        final day = dayRecordToDayNumber[decl.dayRecordId];
-        final empath = playersById[decl.playerId];
-        if (day == null || empath == null) continue;
-        final aliveThen = playersById.values
-            .where(
-              (p) =>
-                  p.deathDay == null ||
-                  p.deathDay! > day ||
-                  (p.deathDay == day && p.deathCause != DeathCause.nightKill),
-            )
-            .toList();
-        for (final n in _seatNeighbors(empath, aliveThen)) {
-          if (!candidates.contains(n.id) || successorIds.contains(n.id)) {
-            continue;
-          }
-          weakExclusions.putIfAbsent(n.id, () => []).add(
-            Deduction(
-              source: DeductionSource.empathZero,
-              description: '${labelFor(decl.playerId)} 的共情者读 0'
-                  '（第 $day 天）——若信息为真，'
-                  '${labelFor(n.id)} 当时登记为善良、非恶魔',
-            ),
-          );
-        }
+      final rule = weakExclusionRulesFor(
+        decl.characterType,
+      );
+      if (rule == null) continue;
+      for (final (pid, source, text) in rule.extract(
+        WeakExclusionFacts(
+          decl: decl,
+          day: dayRecordToDayNumber[decl.dayRecordId],
+          playersById: playersById,
+          candidates: candidates,
+          successorIds: successorIds,
+          labelFor: labelFor,
+        ),
+      )) {
+        if (successorIds.contains(pid)) continue;
+        weakExclusions.putIfAbsent(pid, () => []).add(
+          Deduction(source: source, description: text),
+        );
       }
     }
 
@@ -407,4 +382,118 @@ abstract final class EliminationEngine {
       sorted[(idx + 1) % sorted.length],
     ];
   }
+}
+
+/// 弱排除规则事实（#234 机制层）。
+class WeakExclusionFacts {
+  /// 创建事实。
+  const WeakExclusionFacts({
+    required this.decl,
+    required this.day,
+    required this.playersById,
+    required this.candidates,
+    required this.successorIds,
+    required this.labelFor,
+  });
+
+  /// 触发读数的信息声明（reliability 已滤醉/毒）。
+  final InfoDeclaration decl;
+
+  /// 读数天数（缺失映射时 null，规则自行跳过）。
+  final int? day;
+
+  /// 全体玩家视图。
+  final Map<int, Player> playersById;
+
+  /// 恶魔候选（弱排除仅作用于候选）。
+  final List<int> candidates;
+
+  /// 传承继承人（时效豁免）。
+  final Set<int> successorIds;
+
+  /// 展示标签（#145 必填模式）。
+  final String Function(int playerId) labelFor;
+}
+
+/// 弱排除规则（#234 机制层）：按信息角色类型分派。
+///
+/// extract 返回 `(目标, 依据来源, 描述)` 列表；目标不在候选由引擎过滤，
+/// 继承人豁免统一在引擎层（规则只管「读数意味着谁非恶魔」）。
+class WeakExclusionRule {
+  /// 创建规则。
+  const WeakExclusionRule({required this.characterType, required this.extract});
+
+  /// 信息角色类型（分派键）。
+  final Character characterType;
+
+  /// 执行。
+  final List<(int, DeductionSource, String)> Function(WeakExclusionFacts f)
+      extract;
+}
+
+/// 弱排除规则注册表（TB：FT「否」/ Empath 0；新剧本随 #217 追加）。
+const _weakExclusionRules = <WeakExclusionRule>[
+  WeakExclusionRule(
+    characterType: Character.fortuneTeller,
+    extract: _fortuneTellerNoRule,
+  ),
+  WeakExclusionRule(
+    characterType: Character.empath,
+    extract: _empathZeroRule,
+  ),
+];
+
+/// 按信息角色类型取弱排除规则（无则 null）。
+WeakExclusionRule? weakExclusionRulesFor(Character characterType) {
+  for (final r in _weakExclusionRules) {
+    if (r.characterType == characterType) return r;
+  }
+  return null;
+}
+
+/// FT 读「否」：pair（若真）无恶魔——「否」不受红鲱鱼影响，恶魔必登记为恶魔。
+List<(int, DeductionSource, String)> _fortuneTellerNoRule(
+  WeakExclusionFacts f,
+) {
+  final pair = EliminationEngine._parseFortuneTellerNo(f.decl.payloadJson);
+  if (pair == null) return const [];
+  return [
+    for (final pid in pair)
+      if (f.candidates.contains(pid))
+        (
+          pid,
+          DeductionSource.fortuneTellerNo,
+          '${f.labelFor(f.decl.playerId)} 的占卜师读「否」'
+              '${f.day != null ? '（第 ${f.day} 天）' : ''}——若信息为真，'
+              '其中无恶魔（「否」不受红鲱鱼影响，恶魔必登记为恶魔）',
+        ),
+  ];
+}
+
+/// Empath 读 0：当时存活邻座（若真）登记为善良、非恶魔。
+List<(int, DeductionSource, String)> _empathZeroRule(WeakExclusionFacts f) {
+  final value = EliminationEngine._payloadValue(f.decl.payloadJson);
+  if (value != 0) return const [];
+  final day = f.day;
+  final empath = f.playersById[f.decl.playerId];
+  if (day == null || empath == null) return const [];
+  final aliveThen = f.playersById.values
+      .where(
+        (p) =>
+            p.deathDay == null ||
+            p.deathDay! > day ||
+            (p.deathDay == day && p.deathCause != DeathCause.nightKill),
+      )
+      .toList();
+  return [
+    for (final n in EliminationEngine._seatNeighbors(empath, aliveThen))
+      if (f.candidates.contains(n.id))
+        (
+          n.id,
+          DeductionSource.empathZero,
+          '${f.labelFor(f.decl.playerId)} 的共情者读 0'
+              '（第 $day 天）——若信息为真，'
+              '${f.labelFor(n.id)} 当时登记为善良、非恶魔',
+        ),
+  ];
 }

@@ -3,6 +3,7 @@ import 'package:botc_copilot/core/constants/jinx_rule.dart';
 import 'package:botc_copilot/core/constants/night_order.dart';
 import 'package:botc_copilot/core/constants/script.dart';
 import 'package:botc_copilot/core/constants/script_definition.dart';
+import 'package:botc_copilot/feature/reasoning/domain/contradiction.dart';
 import 'package:botc_copilot/core/constants/team.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -156,6 +157,39 @@ void main() {
       expect(rule.involves(Character.magician), isTrue);
       expect(rule.involves(Character.legion), isTrue);
       expect(rule.involves(Character.imp), isFalse);
+    });
+  });
+
+  group('registration 修饰与规则注册表（#234）', () {
+    test('registration 旗标：Spy 单向善良 / Recluse 单向邪恶，其余无', () {
+      expect(Character.spy.mayRegisterAsGood, isTrue);
+      expect(Character.spy.mayRegisterAsEvil, isFalse);
+      expect(Character.recluse.mayRegisterAsEvil, isTrue);
+      expect(Character.recluse.mayRegisterAsGood, isFalse);
+      expect(Character.imp.mayRegisterAsGood, isFalse);
+      expect(Character.poisoner.mayRegisterAsEvil, isFalse);
+      expect(Character.magician.mayRegisterAsGood, isFalse); // 锚点无修饰
+    });
+
+    test('TB 矛盾规则注册表：10 条稳定 id、输出顺序即注册顺序', () {
+      final rules = contradictionRulesFor(Script.troubleBrewing);
+      expect(rules.map((r) => r.id), [
+        'duplicate-role-claim',
+        'confirmed-role-conflict',
+        'outsider-count-anomaly',
+        'team-count-overflow',
+        'empath-mismatch',
+        'fortune-teller-mismatch',
+        'no-death-night',
+        'bluff-claim',
+        'start-info-ping',
+        'chef-count',
+      ]);
+    });
+
+    test('BMR/S&V 规则集空（随 #217 注册）', () {
+      expect(contradictionRulesFor(Script.badMoonRising), isEmpty);
+      expect(contradictionRulesFor(Script.sectsAndViolets), isEmpty);
     });
   });
 }

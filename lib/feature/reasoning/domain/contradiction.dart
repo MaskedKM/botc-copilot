@@ -115,14 +115,6 @@ abstract final class ContradictionDetector {
       myRole: myRole,
     );
 
-    String labelOf(int playerId) {
-      final p = playersById[playerId];
-      final name = p != null ? '${p.seatNumber}号 ${p.name}' : '?';
-      // 我座位的注入项标 myRole——描述中区分「你的真实角色」与公开声明
-      return latestClaim[playerId]?.claimType == ClaimType.myRole
-          ? '$name（你的真实角色）'
-          : name;
-    }
     // 已确认角色（issue #82）：仅死亡揭示视为「确认」（村规流程）。
     final confirmedRoles = <int, Character>{}; // playerId → confirmed
     for (final c in claims) {
@@ -142,61 +134,154 @@ abstract final class ContradictionDetector {
     final undertakerRoles =
         _undertakerReportedRoles(declarations, days, dayRecordToDayNumber);
 
+    // 机制层（#234）：facts 一次性打包原始输入与派生视图，规则经注册表
+    // 按剧本选择执行——BMR/S&V 落地时「注册新规则」而非改本方法。
+    final facts = ContradictionFacts(
+      script: script,
+      claims: claims,
+      declarations: declarations,
+      days: days,
+      playersById: playersById,
+      dayRecordToDayNumber: dayRecordToDayNumber,
+      expectedOutsiders: expectedOutsiders,
+      setup: setup,
+      demonBluffs: demonBluffs,
+      myPlayerId: myPlayerId,
+      myRole: myRole,
+      latestClaim: latestClaim,
+      confirmedRoles: confirmedRoles,
+      undertakerRoles: undertakerRoles,
+    );
+
     return [
-      ..._duplicateRoleClaims(latestClaim, labelOf),
-      ..._confirmedRoleConflicts(
-        latestClaim,
-        confirmedRoles,
-        undertakerRoles,
-        labelOf,
-      ),
-      ..._outsiderCountAnomaly(
-        latestClaim,
-        expectedOutsiders,
-        ScriptDefinition.of(script).maxOutsiderDelta,
-        labelOf,
-      ),
-      if (setup != null)
-        ..._teamCountOverflow(latestClaim, setup, labelOf),
-      ..._empathMismatch(
-        declarations,
-        latestClaim,
-        playersById,
-        dayRecordToDayNumber,
-        confirmedRoles,
-        labelOf,
-        myPlayerId: myPlayerId,
-        myRole: myRole,
-      ),
-      ..._fortuneTellerMismatch(
-        declarations,
-        confirmedRoles,
-        dayRecordToDayNumber,
-        labelOf,
-        myPlayerId: myPlayerId,
-        myRole: myRole,
-      ),
-      ..._noDeathNights(days, declarations, dayRecordToDayNumber),
-      ..._bluffClaims(latestClaim, demonBluffs, labelOf),
-      ..._startInfoPingConflicts(
-        declarations,
-        confirmedRoles,
-        demonBluffs,
-        labelOf,
-        myPlayerId: myPlayerId,
-        myRole: myRole,
-      ),
-      ..._chefCountMismatch(
-        declarations,
-        confirmedRoles,
-        playersById,
-        setup,
-        labelOf,
-        myPlayerId: myPlayerId,
-        myRole: myRole,
-      ),
+      for (final rule in contradictionRulesFor(script))
+        if (rule.applies(facts)) ...rule.run(facts),
     ];
   }
+
+  /// detect 的展示标签（供规则复用；抽取自原内联 labelOf）。
+  static String _labelOf(
+    Map<int, RoleClaim> latestClaim,
+    Map<int, Player> playersById,
+    int playerId,
+  ) {
+    final p = playersById[playerId];
+    final name = p != null ? '${p.seatNumber}号 ${p.name}' : '?';
+    return latestClaim[playerId]?.claimType == ClaimType.myRole
+        ? '$name（你的真实角色）'
+        : name;
+  }
+
+  /// 规则 3：外来者声明数即便 Baron 在场（+2）也无法解释 → 必有假报（机制层适配）。
+  static List<Contradiction> _ruleOutsiderCount(ContradictionFacts f) =>
+      _outsiderCountAnomaly(
+        f.latestClaim,
+        f.expectedOutsiders,
+        ScriptDefinition.of(f.script).maxOutsiderDelta,
+        (pid) => _labelOf(f.latestClaim, f.playersById, pid),
+      );
+
+  /// 规则 3b：阵营人数硬约束（#212；仅 setup 可得时适用，机制层适配）。
+  static List<Contradiction> _ruleTeamCountOverflow(ContradictionFacts f) =>
+      _teamCountOverflow(
+        f.latestClaim,
+        f.setup!,
+        (pid) => _labelOf(f.latestClaim, f.playersById, pid),
+      );
+
+  /// 规则 7：开局指认交叉验证（机制层适配）。
+  static List<Contradiction> _ruleStartInfoPing(ContradictionFacts f) =>
+      _startInfoPingConflicts(
+        f.script,
+        f.declarations,
+        f.confirmedRoles,
+        f.demonBluffs,
+        (pid) => _labelOf(f.latestClaim, f.playersById, pid),
+        myPlayerId: f.myPlayerId,
+        myRole: f.myRole,
+      );
+
+  /// 规则 8：厨师计数交叉验证（机制层适配）。
+  static List<Contradiction> _ruleChefCount(ContradictionFacts f) =>
+      _chefCountMismatch(
+        f.declarations,
+        f.confirmedRoles,
+        f.playersById,
+        f.setup,
+        (pid) => _labelOf(f.latestClaim, f.playersById, pid),
+        myPlayerId: f.myPlayerId,
+        myRole: f.myRole,
+      );
+
+  // ---- 机制层适配器（#234）：闭包把 facts 摊回既有规则函数，语义零变化 ----
+
+  static List<Contradiction> _ruleDuplicate(ContradictionFacts f) =>
+      _duplicateRoleClaims(
+        f.latestClaim,
+        (pid) => _labelOf(f.latestClaim, f.playersById, pid),
+      );
+
+  static List<Contradiction> _ruleConfirmedConflict(ContradictionFacts f) =>
+      _confirmedRoleConflicts(
+        f.latestClaim,
+        f.confirmedRoles,
+        f.undertakerRoles,
+        (pid) => _labelOf(f.latestClaim, f.playersById, pid),
+      );
+
+  static List<Contradiction> _ruleEmpath(ContradictionFacts f) =>
+      _empathMismatch(
+        f.declarations,
+        f.latestClaim,
+        f.playersById,
+        f.dayRecordToDayNumber,
+        f.confirmedRoles,
+        (pid) => _labelOf(f.latestClaim, f.playersById, pid),
+        myPlayerId: f.myPlayerId,
+        myRole: f.myRole,
+      );
+
+  static List<Contradiction> _ruleFortuneTeller(ContradictionFacts f) =>
+      _fortuneTellerMismatch(
+        f.declarations,
+        f.confirmedRoles,
+        f.dayRecordToDayNumber,
+        (pid) => _labelOf(f.latestClaim, f.playersById, pid),
+        myPlayerId: f.myPlayerId,
+        myRole: f.myRole,
+      );
+
+  static List<Contradiction> _ruleNoDeathNight(ContradictionFacts f) =>
+      _noDeathNights(f.days, f.declarations, f.dayRecordToDayNumber);
+
+  static List<Contradiction> _ruleBluffClaim(ContradictionFacts f) =>
+      _bluffClaims(
+        f.latestClaim,
+        f.demonBluffs,
+        (pid) => _labelOf(f.latestClaim, f.playersById, pid),
+      );
+
+  /// TB 规则集（#234 注册表）：顺序即输出顺序（与单体时代一致，golden）。
+  /// 新剧本规则经各自注册表追加（#217），不再改 detect 单体。
+  static const _tbRules = <ContradictionRule>[
+    ContradictionRule(id: 'duplicate-role-claim', run: _ruleDuplicate),
+    ContradictionRule(id: 'confirmed-role-conflict', run: _ruleConfirmedConflict),
+    ContradictionRule(id: 'outsider-count-anomaly', run: _ruleOutsiderCount),
+    ContradictionRule(
+      id: 'team-count-overflow',
+      applies: _needsSetup,
+      run: _ruleTeamCountOverflow,
+    ),
+    ContradictionRule(id: 'empath-mismatch', run: _ruleEmpath),
+    ContradictionRule(id: 'fortune-teller-mismatch', run: _ruleFortuneTeller),
+    ContradictionRule(id: 'no-death-night', run: _ruleNoDeathNight),
+    ContradictionRule(id: 'bluff-claim', run: _ruleBluffClaim),
+    ContradictionRule(id: 'start-info-ping', run: _ruleStartInfoPing),
+    ContradictionRule(id: 'chef-count', run: _ruleChefCount),
+  ];
+
+  static bool _needsSetup(ContradictionFacts f) => f.setup != null;
+
 
   /// 规则 1：≥2 人声明同一好人角色。
   ///
@@ -502,7 +587,7 @@ abstract final class ContradictionDetector {
       final allConfirmedGoodNonRecluse = neighbors.every((n) {
         final c =
             confirmedRoles[n.id] ?? (n.id == myPlayerId ? myRole : null);
-        return c != null && c.team.isGood && c != Character.recluse;
+        return c != null && c.team.isGood && !c.mayRegisterAsEvil;
       });
       if (allConfirmedGoodNonRecluse) {
         results.add(
@@ -534,7 +619,8 @@ abstract final class ContradictionDetector {
       final registrationExplains = neighbors.any((n) {
         final c =
             confirmedRoles[n.id] ?? (n.id == myPlayerId ? myRole : null);
-        return c == Character.recluse || c == Character.spy;
+        return c != null &&
+            (c.mayRegisterAsEvil || c.mayRegisterAsGood);
       });
       if (allGoodClaims && !registrationExplains) {
         results.add(
@@ -589,10 +675,11 @@ abstract final class ContradictionDetector {
       return false;
     }
 
-    // 是否「登记为恶魔」：真恶魔（Imp）或 Recluse（registration 登记为邪恶）。
-    // FT 对二者均读「是」；Spy 登记为好人，不触发。
+    // 是否「登记为恶魔」：真恶魔，或可向邪恶登记的修饰角色（TB=Recluse，
+    // #234 数据化）。FT 对二者均读「是」；Spy 向善良登记，不触发。
     bool registersAsDemon(int pid) =>
-        isKnownDemon(pid) || confirmedRoles[pid] == Character.recluse;
+        isKnownDemon(pid) ||
+        (confirmedRoles[pid]?.mayRegisterAsEvil ?? false);
 
     for (final decl in declarations) {
       if (decl.characterType != Character.fortuneTeller) continue;
@@ -627,7 +714,7 @@ abstract final class ContradictionDetector {
         // 读「是」：两人都已确认好人且非 Recluse 时，无恶魔/Recluse 解释 → 提示。
         bool confirmedGoodNonRecluse(int pid) {
           final c = confirmedRoles[pid];
-          return c != null && c.team.isGood && c != Character.recluse;
+          return c != null && c.team.isGood && !c.mayRegisterAsEvil;
         }
 
         if (pair.every(confirmedGoodNonRecluse)) {
@@ -662,6 +749,7 @@ abstract final class ContradictionDetector {
   /// 逃生舱：善良 Y 仅 Spy、爪牙 Y 仅 Recluse。pair 全员已确认非逃生角色 →
   /// 无合法解释 → warning；否则 info（可能含未确认的 Spy/Recluse）。
   static List<Contradiction> _startInfoPingConflicts(
+    Script script,
     List<InfoDeclaration> declarations,
     Map<int, Character> confirmedRoles,
     Set<Character> demonBluffs,
@@ -734,11 +822,21 @@ abstract final class ContradictionDetector {
       final isBluff = demonBluffs.contains(y);
       if (elsewhere.isEmpty && !isBluff) continue;
 
-      final escape = y.team.isGood ? Character.spy : Character.recluse;
-      final escapePossible = pair.any((pid) {
-        final c = confirmedOf(pid);
-        return c == null || c == escape;
-      });
+      // 逃生舱数据化（#234）：善良 Y 仅「可向善良登记」者（TB=Spy）可冒充、
+      // 爪牙 Y 仅「可向邪恶登记」者（TB=Recluse）。文案名称从剧本池回查
+      // 首个具备该修饰的角色（TB 输出与硬编码时代逐字一致）。
+      final escapeIsGood = y.team.isGood;
+      bool canEscape(Character? c) =>
+          c == null ||
+          (escapeIsGood ? c.mayRegisterAsGood : c.mayRegisterAsEvil);
+      final escapePossible = pair.any((pid) => canEscape(confirmedOf(pid)));
+      var escapeName = '登记型角色';
+      for (final c in ScriptDefinition.of(script).characters) {
+        if (escapeIsGood ? c.mayRegisterAsGood : c.mayRegisterAsEvil) {
+          escapeName = c.nameCn;
+          break;
+        }
+      }
 
       final evidence = isBluff
           ? '${y.nameCn} 在恶魔 Bluff 名单中（确定性不在场）'
@@ -750,7 +848,7 @@ abstract final class ContradictionDetector {
           description:
               '${labelOf(decl.playerId)} 的${type.nameCn}信息称 '
               '${pair.map(labelOf).join('、')} 中有一人是 ${y.nameCn}，'
-              '但 $evidence——信息为假，或其中有人是${escape.nameCn}（登记冒充）。',
+              '但 $evidence——信息为假，或其中有人是$escapeName（登记冒充）。',
           severity: escapePossible
               ? ContradictionSeverity.info
               : ContradictionSeverity.warning,
@@ -837,12 +935,13 @@ abstract final class ContradictionDetector {
     return results;
   }
 
-  /// 严格邪恶：非 Spy 的爪牙/恶魔（登记语义无弹性，可作确定性信号）。
+  /// 严格邪恶：无登记弹性的爪牙/恶魔（可作确定性信号）。
   ///
-  /// Spy「可能登记为善良」、Recluse「可能登记为邪恶」——官方 might register
-  /// 均为说书人可选，故涉及二者的交叉验证不可作为确定结论。
+  /// 登记修饰（#234 数据化）：可向善良登记者（TB=Spy）有弹性、不可作
+  /// 确定邪恶信号；可向邪恶登记者（TB=Recluse）可解释「读出邪恶」。
   static bool _strictlyEvil(Character c) =>
-      (c.team == Team.minion || c.team == Team.demon) && c != Character.spy;
+      (c.team == Team.minion || c.team == Team.demon) &&
+      !c.mayRegisterAsGood;
 
   /// 解析开局指认 payload `{"character": "...", "playerIds": [a, b]}`。
   ///
@@ -1010,3 +1109,78 @@ abstract final class ContradictionDetector {
     return roles;
   }
 }
+
+/// 矛盾检测事实集（机制层，#234）：原始输入 + detect 预计算的派生视图。
+///
+/// 规则只读 facts，不自行取数/派生——保证同一次检测内视图一致。
+class ContradictionFacts {
+  /// 创建事实集。
+  const ContradictionFacts({
+    required this.script,
+    required this.claims,
+    required this.declarations,
+    required this.days,
+    required this.playersById,
+    required this.dayRecordToDayNumber,
+    required this.expectedOutsiders,
+    required this.setup,
+    required this.demonBluffs,
+    required this.myPlayerId,
+    required this.myRole,
+    required this.latestClaim,
+    required this.confirmedRoles,
+    required this.undertakerRoles,
+  });
+
+  /// 对局剧本（规则集分派依据，#234）。
+  final Script script;
+
+  /// 原始输入（与 detect 同名参数语义一致）。
+  final List<RoleClaim> claims;
+  final List<InfoDeclaration> declarations;
+  final List<DayRecord> days;
+  final Map<int, Player> playersById;
+  final Map<int, int> dayRecordToDayNumber;
+  final int expectedOutsiders;
+  final PlayerSetup? setup;
+  final Set<Character> demonBluffs;
+  final int? myPlayerId;
+  final Character? myRole;
+
+  /// 派生视图（detect 预计算，规则共享）。
+  final Map<int, RoleClaim> latestClaim;
+  final Map<int, Character> confirmedRoles;
+  final Map<int, Character> undertakerRoles;
+}
+
+/// 矛盾规则（机制层，#234）：id + 适用谓词 + 执行。
+///
+/// [applies] 为数据化谓词（默认恒真；如 team-count 需 setup 可得）；
+/// [run] 为静态 tear-off（const 注册表要求）。
+class ContradictionRule {
+  /// 创建规则。
+  const ContradictionRule({
+    required this.id,
+    required this.run,
+    this.applies = _alwaysApplies,
+  });
+
+  /// 规则 id（稳定标识，供注册表测试与未来脚本工具对照）。
+  final String id;
+
+  /// 适用谓词。
+  final bool Function(ContradictionFacts facts) applies;
+
+  /// 执行（输出矛盾列表，可为空）。
+  final List<Contradiction> Function(ContradictionFacts facts) run;
+
+  static bool _alwaysApplies(ContradictionFacts facts) => true;
+}
+
+/// 按剧本选择矛盾规则集（#234）：TB 全量；BMR/S&V 规则随 #217 注册
+/// （机制层已就绪——语义层接口见 #229 决策记录 2，随 #217 设计）。
+List<ContradictionRule> contradictionRulesFor(Script script) =>
+    switch (script) {
+      Script.troubleBrewing => ContradictionDetector._tbRules,
+      _ => const [],
+    };
