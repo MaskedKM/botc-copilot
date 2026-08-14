@@ -170,6 +170,22 @@ class VotingPanel extends ConsumerWidget {
                                   ? gameColors.blood
                                   : gameColors.inkViolet,
                             ),
+                            // 编辑误录的提名（#160 #2 纠错闭环）
+                            IconButton(
+                              tooltip: '编辑提名',
+                              icon: Icon(
+                                Icons.edit_outlined,
+                                size: 20,
+                                color: gameColors.inkViolet,
+                              ),
+                              onPressed: ongoing
+                                  ? () => NominationEntrySheet.show(
+                                        context,
+                                        gameId: gameId,
+                                        existing: n,
+                                      )
+                                  : null,
+                            ),
                             // 删除误录的提名（issue #83）
                             IconButton(
                               tooltip: '删除提名',
