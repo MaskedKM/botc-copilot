@@ -801,8 +801,38 @@ void main() {
     // 7 人局：TF=5 / 外=0 / 爪=1 / 恶=1。
     final setup = PlayerSetup.forCount(7);
 
-    test('镇民声明 > TF 槽 → teamCountOverflow', () {
-      // 6 个不同镇民声明（无重复，避免 duplicateRoleClaim）。
+    test('镇民声明 > base+1（Drunk 容差）→ teamCountOverflow', () {
+      // 7 个不同镇民声明（无重复）。7 人局 TF=5 +1 Drunk 容差=6，7>6 报。
+      final result = ContradictionDetector.detect(
+        claims: [
+          _claim(1, Character.chef),
+          _claim(2, Character.empath),
+          _claim(3, Character.fortuneTeller),
+          _claim(4, Character.undertaker),
+          _claim(5, Character.monk),
+          _claim(6, Character.ravenkeeper),
+          _claim(7, Character.virgin),
+        ],
+        declarations: [],
+        days: [],
+        playersById: players,
+        dayRecordToDayNumber: {},
+        expectedOutsiders: 0,
+        setup: setup,
+      );
+      final overflow = result.where(
+        (c) => c.type == ContradictionType.teamCountOverflow,
+      );
+      expect(overflow, hasLength(1));
+      expect(overflow.first.severity, ContradictionSeverity.warning);
+      expect(overflow.first.playerIds, containsAll([1, 2, 3, 4, 5, 6, 7]));
+      expect(overflow.first.description, contains('镇民'));
+    });
+
+    test('镇民声明 == base+1 → 不报（Drunk 可能误声明镇民，#212 容差）', () {
+      // 8 人局 TF=5/外=1。6 个镇民声明 = 5 真镇民 + 1 Drunk（以镇民 bluff
+      // 自居，latestClaimWithSelf 不识破——见其 dartdoc）。这是正常场景，
+      // 不应误报为「阵营人数超限」。
       final result = ContradictionDetector.detect(
         claims: [
           _claim(1, Character.chef),
@@ -817,15 +847,12 @@ void main() {
         playersById: players,
         dayRecordToDayNumber: {},
         expectedOutsiders: 0,
-        setup: setup,
+        setup: PlayerSetup.forCount(8),
       );
-      final overflow = result.where(
-        (c) => c.type == ContradictionType.teamCountOverflow,
+      expect(
+        result.where((c) => c.type == ContradictionType.teamCountOverflow),
+        isEmpty,
       );
-      expect(overflow, hasLength(1));
-      expect(overflow.first.severity, ContradictionSeverity.warning);
-      expect(overflow.first.playerIds, containsAll([1, 2, 3, 4, 5, 6]));
-      expect(overflow.first.description, contains('镇民'));
     });
 
     test('爪牙声明 > 爪牙槽 → teamCountOverflow', () {
