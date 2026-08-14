@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:botc_copilot/core/constants/character.dart';
 import 'package:botc_copilot/core/constants/player_setup.dart';
+import 'package:botc_copilot/core/constants/script.dart';
+import 'package:botc_copilot/core/constants/script_definition.dart';
 import 'package:botc_copilot/core/constants/team.dart';
 import 'package:botc_copilot/core/database/app_database.dart';
 import 'package:botc_copilot/feature/player_detail/domain/info_payload_formatter.dart';
@@ -100,6 +102,7 @@ abstract final class ContradictionDetector {
     required Map<int, int> dayRecordToDayNumber,
     required int expectedOutsiders,
     PlayerSetup? setup,
+    Script script = Script.troubleBrewing,
     Set<Character> demonBluffs = const {},
     int? myPlayerId,
     Character? myRole,
@@ -147,7 +150,12 @@ abstract final class ContradictionDetector {
         undertakerRoles,
         labelOf,
       ),
-      ..._outsiderCountAnomaly(latestClaim, expectedOutsiders, labelOf),
+      ..._outsiderCountAnomaly(
+        latestClaim,
+        expectedOutsiders,
+        ScriptDefinition.of(script).maxOutsiderDelta,
+        labelOf,
+      ),
       if (setup != null)
         ..._teamCountOverflow(latestClaim, setup, labelOf),
       ..._empathMismatch(
@@ -302,19 +310,22 @@ abstract final class ContradictionDetector {
 
   /// 规则 3：外来者声明数即便 Baron 在场（+2）也无法解释 → 必有假报。
   ///
-  /// Baron 感知（issue #59 收紧）：不再对「与 Baron 局一致（claimed == base+2）」
-  /// 误报。仅在 `claimed > base+2` 时报警；`under / partial / baronConsistent`
-  /// 的细致解读交由配置分析面板（SetupAnalysisPanel）。
+  /// 修正角色感知（issue #59 收紧，#231 数据化）：不再对「与修正局一致
+  /// （claimed == base+最大增量）」误报。仅在超过时报警；`under / partial /
+  /// baronConsistent` 的细致解读交由配置分析面板（SetupAnalysisPanel）。
   static List<Contradiction> _outsiderCountAnomaly(
     Map<int, RoleClaim> latestClaim,
     int expectedOutsiders,
+    int maxOutsiderDelta,
     String Function(int) labelOf,
   ) {
     final outsiderClaims = latestClaim.entries
         .where((e) => e.value.character.team == Team.outsider)
         .toList();
-    // Baron 在场最多 base+2；超过即硬矛盾
-    if (outsiderClaims.length <= expectedOutsiders + 2) return [];
+    // 修正角色在场最多 base+最大增量（TB：Baron +2）；超过即硬矛盾
+    if (outsiderClaims.length <= expectedOutsiders + maxOutsiderDelta) {
+      return [];
+    }
     return [
       Contradiction(
         type: ContradictionType.outsiderCountAnomaly,
@@ -322,7 +333,8 @@ abstract final class ContradictionDetector {
         description:
             '外来者涉及 ${outsiderClaims.map((e) => labelOf(e.key)).join('、')}'
             '（共 ${outsiderClaims.length} 人），'
-            '即便 Baron 在场（+2）最多 ${expectedOutsiders + 2} 个——'
+            '即便修正角色在场（+$maxOutsiderDelta）'
+            '最多 ${expectedOutsiders + maxOutsiderDelta} 个——'
             '必有假报外来者。',
         severity: ContradictionSeverity.warning,
       ),

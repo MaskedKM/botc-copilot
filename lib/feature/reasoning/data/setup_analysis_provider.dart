@@ -17,5 +17,6 @@ final setupAnalysisProvider =
     claims: claims,
     myRole: game.myRole,
     myPlayerId: game.myPlayerId,
+    script: game.script,
   );
 });

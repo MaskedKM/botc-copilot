@@ -38,12 +38,25 @@ void main() {
       expect(() => PlayerSetup.forCount(16), throwsArgumentError);
     });
 
-    test('withBaron：+2 外来者、-2 镇民', () {
-      final setup = PlayerSetup.forCount(7).withBaron();
+    test('withOutsiderDelta(2)（Baron）：+2 外来者、-2 镇民（#231）', () {
+      final setup = PlayerSetup.forCount(7).withOutsiderDelta(2);
       expect(setup.townsfolk, 3);
       expect(setup.outsiders, 2);
-      expect(setup.minions, 1);
-      expect(setup.demons, 1);
+      expect(setup.playerCount, 7);
+      expect(setup.evilCount, 2);
+    });
+
+    test('withOutsiderDelta 通用性：负增量（Godfather -1 型）', () {
+      final setup = PlayerSetup.forCount(9).withOutsiderDelta(-1);
+      expect(setup.outsiders, 1);
+      expect(setup.townsfolk, 6); // 镇民反向补偿 +1
+      expect(setup.playerCount, 9);
+    });
+
+    test('withOutsiderDelta(1)（Fang Gu / Balloonist 上界型）', () {
+      final setup = PlayerSetup.forCount(7).withOutsiderDelta(1);
+      expect(setup.outsiders, 1);
+      expect(setup.townsfolk, 4);
     });
   });
 }

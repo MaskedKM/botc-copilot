@@ -29,6 +29,29 @@ class ScriptDefinition {
   /// 按阵营取角色池子集。
   List<Character> byTeam(Team team) =>
       characters.where((c) => c.team == team).toList();
+
+  /// 剧本内外来者增量的**最大可能值**（TB：Baron → 2；无修正角色 → 0）。
+  ///
+  /// 「或」型角色（Godfather ±1）取其各候选的最大值。
+  int get maxOutsiderDelta => characters
+      .expand((c) => c.setupOutsiderDeltas)
+      .fold(0, (a, b) => a > b ? a : b);
+
+  /// 已声明修正角色下的外来者最大可能增量（#231）。
+  ///
+  /// [claimedCharacters] 为每玩家最新声明的角色集合（可含 myRole 注入项）。
+  /// 未声明任何修正角色 → 0（基础配置）；声明了则取该角色增量候选的最大
+  /// 值（隐藏的真修正角色未声明时不可知，返回 0 保持保守——与原 Baron
+  /// 语义一致：只有 Baron 已声明才按 base+2 期望）。
+  static int claimedOutsiderDelta(Iterable<Character> claimedCharacters) {
+    var max = 0;
+    for (final c in claimedCharacters) {
+      for (final d in c.setupOutsiderDeltas) {
+        if (d > max) max = d;
+      }
+    }
+    return max;
+  }
 }
 
 /// 剧本注册表（剧本级数据唯一入口，#230）。
