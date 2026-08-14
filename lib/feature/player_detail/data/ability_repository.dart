@@ -13,6 +13,15 @@ enum SlayerGuessResult {
   missed,
 }
 
+/// 教授复活结果（#217 增量4D）。
+enum ProfessorResurrectResult {
+  /// 目标复活（用户按公开信息确认其回到场上）。
+  resurrected,
+
+  /// 未复活（目标非镇民 / 醉毒失效 / 无法确认）——能力仍消耗。
+  notResurrected,
+}
+
 /// 一次性能力追踪仓库（issue #54：Virgin / Slayer / Saint）。
 ///
 /// App 追踪的是玩家**声明**角色的能力状态，并提供录入动作；
@@ -54,6 +63,30 @@ class AbilityRepository {
         return SlayerGuessResult.killed;
       }
       return SlayerGuessResult.missed;
+    });
+  }
+
+  /// 录入一次教授复活（#217 增量4D）。
+  ///
+  /// 官方：每局限一次，夜晚*选择一名已死玩家：若其为镇民则复活。
+  /// 教授**不会得知是否成功**——[resurrected] 由用户按公开信息裁决
+  /// （目标是否回到场上）。能力总是消耗（公理4：醉/毒时使用也永久消耗）。
+  ///
+  /// 复活 = 玩家级 `revive`（isAlive=true + 清 deathDay/Cause），**保留**
+  /// 死亡当日的 day-record 记录——复活不是撤销死亡，历史事件照旧（区别
+  /// 于 [GameBoardNotifier.revivePlayer] 的误标撤销路径）。
+  Future<ProfessorResurrectResult> recordProfessorResurrect({
+    required int professorId,
+    required int targetId,
+    required bool resurrected,
+  }) async {
+    return _db.transaction(() async {
+      await _db.playersDao.markAbilityUsed(professorId, used: true);
+      if (resurrected) {
+        await _db.playersDao.revive(targetId);
+        return ProfessorResurrectResult.resurrected;
+      }
+      return ProfessorResurrectResult.notResurrected;
     });
   }
 }

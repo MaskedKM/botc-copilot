@@ -96,4 +96,54 @@ void main() {
       expect(players.every((p) => !p.abilityUsed), isTrue);
     });
   });
+
+  group('教授复活（#217 增量4D）', () {
+    test('复活确认 → 目标复活（isAlive=true）+ 能力消耗', () async {
+      await db.playersDao.markDead(players[1].id, 2, DeathCause.nightKill);
+      final result = await repo.recordProfessorResurrect(
+        professorId: players[0].id,
+        targetId: players[1].id,
+        resurrected: true,
+      );
+      expect(result, ProfessorResurrectResult.resurrected);
+      final updated = await db.playersDao.watchByGame(gameId).first;
+      expect(updated[1].isAlive, isTrue);
+      expect(updated[1].deathDay, isNull);
+      expect(updated[0].abilityUsed, isTrue);
+    });
+
+    test('未复活 → 能力仍消耗（公理4 一次性），目标保持死亡', () async {
+      await db.playersDao.markDead(players[1].id, 2, DeathCause.nightKill);
+      final result = await repo.recordProfessorResurrect(
+        professorId: players[0].id,
+        targetId: players[1].id,
+        resurrected: false,
+      );
+      expect(result, ProfessorResurrectResult.notResurrected);
+      final updated = await db.playersDao.watchByGame(gameId).first;
+      expect(updated[1].isAlive, isFalse);
+      expect(updated[0].abilityUsed, isTrue);
+    });
+
+    test('复活保留死亡当日记录（历史事件不回擦，区别于撤销误标）', () async {
+      final dayId = await db.dayRecordsDao.insertDay(
+        DayRecordsCompanion(gameId: Value(gameId), dayNumber: Value(2)),
+      );
+      await db.dayRecordsDao.updateDay(
+        dayId,
+        DayRecordsCompanion(
+          nightDeathPlayerIds: Value('[${players[1].id}]'),
+          nightConfirmed: const Value(true),
+        ),
+      );
+      await db.playersDao.markDead(players[1].id, 2, DeathCause.nightKill);
+      await repo.recordProfessorResurrect(
+        professorId: players[0].id,
+        targetId: players[1].id,
+        resurrected: true,
+      );
+      final day = await db.dayRecordsDao.getByGameAndDay(gameId, 2);
+      expect(nightDeathIdsOf(day), isNotEmpty); // 死亡史保留
+    });
+  });
 }
