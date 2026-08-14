@@ -1686,6 +1686,11 @@ Future<void> _changeSeatDialog(
                 selected: picked == p.id,
                 onSelected: (_) => setState(() => picked = p.id),
               ),
+            // #163 P2：提示私密数据迁移语义。
+            const Text(
+              '换座后：私密信息（isMine）按新座位重标记，私密爪牙名单清空。',
+              style: AppTextStyles.caption,
+            ),
           ],
         ),
         actions: [
@@ -1704,14 +1709,21 @@ Future<void> _changeSeatDialog(
   );
   final id = picked;
   if (confirmed == true && id != null && id != game.myPlayerId) {
-    await ref
-        .read(appDatabaseProvider)
-        .gamesDao
-        .updateMyPlayerId(game.id, id);
-    if (context.mounted) {
+    // #163 P2：换座迁移私密数据（重标记 isMine + 清空爪牙名单），事务内完成。
+    try {
+      await ref
+          .read(appDatabaseProvider)
+          .gamesDao
+          .reassignMySeat(game.id, id);
+      if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('已更换座位')),
+        const SnackBar(content: Text('已更换座位（私密信息已随新座位迁移）')),
       );
+    } on Object {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('更换失败，请重试')));
+      }
     }
   }
 }
