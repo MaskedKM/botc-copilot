@@ -282,4 +282,70 @@ void main() {
       );
     });
   });
+
+  group('reassignMySeat（#163 P2 换座迁移 isMine）', () {
+    /// 插一条信息声明，返回其 id。
+    Future<int> addDecl(int playerId, int dayRecordId, {bool isMine = false}) =>
+        db.infoDeclarationsDao.insertDeclaration(
+          InfoDeclarationsCompanion(
+            playerId: Value(playerId),
+            dayRecordId: Value(dayRecordId),
+            characterType: const Value(Character.empath),
+            payloadJson: const Value('{"value": 1}'),
+            reliability: const Value(Reliability.unverified),
+            isMine: Value(isMine),
+          ),
+        );
+
+    test('换座后 isMine 按新我重标记 + 爪牙名单清空', () async {
+      final (gameId, playerIds) = await seedGame();
+      final me = playerIds.first;
+      final other = playerIds[1];
+      final dayRecordId = await db.dayRecordsDao.insertDay(
+        DayRecordsCompanion(
+          gameId: Value(gameId),
+          dayNumber: const Value(1),
+        ),
+      );
+      // 初始：我（me）有一条 isMine 声明，other 一条公开声明。
+      await addDecl(me, dayRecordId, isMine: true);
+      await addDecl(other, dayRecordId, isMine: false);
+      await db.gamesDao.updateMyPlayerId(gameId, me);
+      await db.gamesDao.updateMyMinionIds(gameId, '[${other}]');
+
+      // 换座到 other。
+      await db.gamesDao.reassignMySeat(gameId, other);
+
+      final game = await db.gamesDao.getById(gameId);
+      expect(game!.myPlayerId, other);
+      expect(game.myMinionIdsJson, isNull); // 爪牙名单清空
+
+      final decls = await db.infoDeclarationsDao.watchByGame(gameId).first;
+      final byMe = decls.firstWhere((d) => d.playerId == me);
+      final byOther = decls.firstWhere((d) => d.playerId == other);
+      // 旧我 → 非私密；新我（other）→ 私密。
+      expect(byMe.isMine, isFalse);
+      expect(byOther.isMine, isTrue);
+    });
+
+    test('只影响本局玩家（他局声明不动）', () async {
+      final (game1, p1) = await seedGame();
+      final (game2, p2) = await seedGame();
+      final dr1 = await db.dayRecordsDao.insertDay(
+        DayRecordsCompanion(gameId: Value(game1), dayNumber: const Value(1)),
+      );
+      final dr2 = await db.dayRecordsDao.insertDay(
+        DayRecordsCompanion(gameId: Value(game2), dayNumber: const Value(1)),
+      );
+      // game1 的一条 isMine 声明；game2 的一条 isMine 声明。
+      await addDecl(p1.first, dr1, isMine: true);
+      await addDecl(p2.first, dr2, isMine: true);
+
+      await db.gamesDao.reassignMySeat(game1, p1[1]);
+
+      // game2 的声明不受影响（仍 isMine）。
+      final g2decls = await db.infoDeclarationsDao.watchByGame(game2).first;
+      expect(g2decls.single.isMine, isTrue);
+    });
+  });
 }

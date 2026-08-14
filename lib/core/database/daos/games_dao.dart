@@ -42,6 +42,28 @@ class GamesDao extends DatabaseAccessor<AppDatabase> with _$GamesDaoMixin {
       (update(games)..where((g) => g.id.equals(id)))
           .write(GamesCompanion(myPlayerId: Value(playerId)));
 
+  /// 更换「我的座位」并同步迁移私密数据（#163 P2）。
+  ///
+  /// 仅改 `myPlayerId` 会导致旧 `isMine` 声明错挂、私密爪牙名单错位。故在
+  /// 同一事务内：
+  /// 1. 写新 `myPlayerId`；
+  /// 2. 按新 `myPlayerId` 重标记本局全部声明的 `isMine`（声明者==新我→true，
+  ///    其余→false）——`isMine` 本就是「这条信息是否为我的私密录入」的快照；
+  /// 3. 清空 `myMinionIdsJson`（旧我若为恶魔的私密爪牙名单随换座作废）。
+  Future<void> reassignMySeat(int gameId, int newMyPlayerId) {
+    return attachedDatabase.transaction(() async {
+      await updateMyPlayerId(gameId, newMyPlayerId);
+      // 重标记 isMine：声明者==新我 → 1，其余 → 0（限定本局玩家）。
+      await customStatement(
+        'UPDATE info_declarations SET is_mine = (player_id = ?) '
+        'WHERE player_id IN (SELECT id FROM players WHERE game_id = ?)',
+        [newMyPlayerId, gameId],
+      );
+      await (update(games)..where((g) => g.id.equals(gameId)))
+          .write(const GamesCompanion(myMinionIdsJson: Value(null)));
+    });
+  }
+
   /// 设置帮助层级。
   Future<int> updateHelpLevel(int id, HelpLevel level) =>
       (update(games)..where((g) => g.id.equals(id)))
