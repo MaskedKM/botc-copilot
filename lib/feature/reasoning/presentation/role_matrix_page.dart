@@ -1,4 +1,5 @@
 import 'package:botc_copilot/core/constants/character.dart';
+import 'package:botc_copilot/core/constants/script.dart';
 import 'package:botc_copilot/core/database/app_database.dart';
 import 'package:botc_copilot/core/router.dart';
 import 'package:botc_copilot/core/theme/app_text_styles.dart';
@@ -51,6 +52,7 @@ class _RoleMatrixPageState extends ConsumerState<RoleMatrixPage> {
     final bluffs = game != null ? demonBluffsOf(game).toList() : <Character>[];
 
     final (allColumns, rows) = RoleMatrixBuilder.build(
+      script: game?.script ?? Script.troubleBrewing,
       players: players,
       claims: claims,
       demonBluffs: bluffs,

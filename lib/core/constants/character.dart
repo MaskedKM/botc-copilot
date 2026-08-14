@@ -80,6 +80,7 @@ enum Character {
     ability: '每个夜晚（除首夜），选择一名除你以外的存活玩家：'
         '恶魔的能力今晚不会杀死他。',
     infoInputType: InfoInputType.singlePlayerTarget,
+    canTargetSelf: false,
   ),
 
   /// 渡鸦守护者：夜晚死亡时选择一名玩家，得知其角色。
@@ -137,6 +138,7 @@ enum Character {
     ability: '每个夜晚，选择一名除你以外的玩家作为"主人"：'
         '明天你只能在主人投票时投票。',
     infoInputType: InfoInputType.singlePlayerTarget,
+    canTargetSelf: false,
   ),
 
   /// 醉汉：不知道自己是醉汉，以为自己是一个镇民角色，能力无效。
@@ -220,6 +222,13 @@ enum Character {
     required this.team,
     required this.ability,
     required this.infoInputType,
+    // #230：剧本归属参数化（原 script getter 硬编码 TB 的 TODO 落实）。
+    // 现仅 TB 角色，默认 TB；BMR/S&V 角色录入（#217）时显式传入。
+    // 现仅 TB 角色全部走默认；#217 录入 BMR/S&V 角色时将显式传入。
+    // ignore: unused_element_parameter
+    this.script = Script.troubleBrewing,
+    // 官方规则：Monk/Butler 的夜间目标不能选自己（#230 数据化）。
+    this.canTargetSelf = true,
   });
 
   /// 中文名。
@@ -237,9 +246,11 @@ enum Character {
   /// 信息输入模板类型。
   final InfoInputType infoInputType;
 
-  /// 所属剧本（当前全部角色均属 TB）。
-  // TODO: 扩展 BMR/S&V 角色时改为构造参数（搜索本标记）。
-  Script get script => Script.troubleBrewing;
+  /// 所属剧本（#230 参数化；现仅 TB 角色，默认 TB）。
+  final Script script;
+
+  /// 夜间行动目标能否选自己（Monk/Butler 官方不可，其余可）。
+  final bool canTargetSelf;
 
   /// 是否善良阵营。
   bool get isGood => team.isGood;

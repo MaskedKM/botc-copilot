@@ -1,4 +1,6 @@
 import 'package:botc_copilot/core/constants/character.dart';
+import 'package:botc_copilot/core/constants/script.dart';
+import 'package:botc_copilot/core/constants/script_definition.dart';
 import 'package:botc_copilot/core/theme/app_text_styles.dart';
 import 'package:botc_copilot/core/theme/game_colors.dart';
 import 'package:botc_copilot/feature/game_board/domain/game_end.dart';
@@ -75,6 +77,7 @@ abstract final class EndGameDialog {
   static Future<GameEndResult?> showDemonCheck(
     BuildContext context, {
     required String executedName,
+    Script script = Script.troubleBrewing,
   }) {
     Character? revealed;
     return showDialog<GameEndResult>(
@@ -95,7 +98,7 @@ abstract final class EndGameDialog {
                   isDense: true,
                 ),
                 items: [
-                  for (final c in Character.values)
+                  for (final c in ScriptDefinition.of(script).characters)
                     DropdownMenuItem(value: c, child: Text(c.nameCn)),
                 ],
                 onChanged: (c) => setState(() => revealed = c),
@@ -138,6 +141,7 @@ abstract final class EndGameDialog {
     required List<({int playerId, String name})> heirCandidates,
     bool allowDeathReveal = false,
     Character? initialRevealedRole,
+    Script script = Script.troubleBrewing,
   }) {
     // SW 满足时默认选 SW；否则 null（「继承人未知」项）。
     int? selectedHeir =
@@ -198,7 +202,7 @@ abstract final class EndGameDialog {
                     isDense: true,
                   ),
                   items: [
-                    for (final c in Character.values)
+                    for (final c in ScriptDefinition.of(script).characters)
                       DropdownMenuItem(value: c, child: Text(c.nameCn)),
                   ],
                   onChanged: (c) => setState(() => revealed = c),

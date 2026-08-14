@@ -3,6 +3,8 @@ import 'package:botc_copilot/core/constants/info_input_type.dart';
 import 'package:botc_copilot/core/constants/player_setup.dart';
 import 'package:botc_copilot/core/constants/team.dart';
 import 'package:botc_copilot/core/database/app_database.dart';
+import 'package:botc_copilot/core/constants/script.dart';
+import 'package:botc_copilot/core/constants/script_definition.dart';
 import 'package:botc_copilot/core/theme/app_text_styles.dart';
 import 'package:botc_copilot/feature/player_detail/presentation/widgets/player_pair_picker.dart';
 import 'package:flutter/material.dart';
@@ -21,8 +23,11 @@ abstract final class InfoInputFactory {
     required Character character,
     required List<Player> players,
     required void Function(Map<String, Object?> payload) onSubmit,
+    required Script script,
     int? actingPlayerId,
   }) {
+    // 剧本角色池（#230）：多剧本后角色 chips 只列本局剧本的角色。
+    final pool = ScriptDefinition.of(script);
     return switch (character.infoInputType) {
       InfoInputType.none => const _NoInput(),
       // Chef：相邻邪恶对数。用 evilCount（容纳 Recluse 注册为邪恶的边缘——
@@ -37,34 +42,35 @@ abstract final class InfoInputFactory {
       InfoInputType.twoPlayersYesNo =>
         _TwoPlayersYesNoInput(players: players, onSubmit: onSubmit),
       InfoInputType.minionPlusTwoPlayers => _CharacterPlusTwoPlayersInput(
-          team: Team.minion,
+          characters: pool.byTeam(Team.minion),
           players: players,
           onSubmit: onSubmit,
         ),
       InfoInputType.townsfolkPlusTwoPlayers => _CharacterPlusTwoPlayersInput(
-          team: Team.townsfolk,
+          characters: pool.byTeam(Team.townsfolk),
           players: players,
           onSubmit: onSubmit,
         ),
       InfoInputType.outsiderPlusTwoPlayersOrNone =>
         _CharacterPlusTwoPlayersInput(
-          team: Team.outsider,
+          characters: pool.byTeam(Team.outsider),
           players: players,
           allowNone: true,
           onSubmit: onSubmit,
         ),
       InfoInputType.characterName =>
-        _CharacterNameInput(onSubmit: onSubmit),
-      InfoInputType.playerPlusCharacter =>
-        _PlayerPlusCharacterInput(players: players, onSubmit: onSubmit),
+        _CharacterNameInput(characters: pool.characters, onSubmit: onSubmit),
+      InfoInputType.playerPlusCharacter => _PlayerPlusCharacterInput(
+          characters: pool.characters,
+          players: players,
+          onSubmit: onSubmit,
+        ),
       InfoInputType.singlePlayerTarget => _SinglePlayerInput(
           players: players,
           onSubmit: onSubmit,
-          // 官方规则：Monk/Butler「不能选自己」；Poisoner 可选任何人。
+          // 官方规则：Monk/Butler「不能选自己」（canTargetSelf 数据化，#230）。
           excludePlayerId:
-              (character == Character.monk || character == Character.butler)
-                  ? actingPlayerId
-                  : null,
+              character.canTargetSelf ? null : actingPlayerId,
         ),
       InfoInputType.freeText => _FreeTextInput(onSubmit: onSubmit),
     };
@@ -188,13 +194,14 @@ class _TwoPlayersYesNoInputState extends State<_TwoPlayersYesNoInput> {
 /// Librarian 允许"无外来者"：payload: {"character": null, "playerIds": []}
 class _CharacterPlusTwoPlayersInput extends StatefulWidget {
   const _CharacterPlusTwoPlayersInput({
-    required this.team,
+    required this.characters,
     required this.players,
     required this.onSubmit,
     this.allowNone = false,
   });
 
-  final Team team;
+  /// 剧本角色池子集（#230，按阵营预过滤）。
+  final List<Character> characters;
   final List<Player> players;
   final bool allowNone;
   final void Function(Map<String, Object?>) onSubmit;
@@ -212,7 +219,7 @@ class _CharacterPlusTwoPlayersInputState
 
   @override
   Widget build(BuildContext context) {
-    final characters = Character.byTeam(widget.team);
+    final characters = widget.characters;
     final ready = _isNone || (_character != null && _selected.length == 2);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -268,8 +275,13 @@ class _CharacterPlusTwoPlayersInputState
 
 /// 角色名选择（Undertaker）。payload: {"character": "imp"}
 class _CharacterNameInput extends StatefulWidget {
-  const _CharacterNameInput({required this.onSubmit});
+  const _CharacterNameInput({
+    required this.characters,
+    required this.onSubmit,
+  });
 
+  /// 剧本角色池（#230）。
+  final List<Character> characters;
   final void Function(Map<String, Object?>) onSubmit;
 
   @override
@@ -288,7 +300,7 @@ class _CharacterNameInputState extends State<_CharacterNameInput> {
           spacing: 8,
           runSpacing: 4,
           children: [
-            for (final c in Character.values)
+            for (final c in widget.characters)
               ChoiceChip(
                 label: Text(c.nameCn),
                 selected: _character == c,
@@ -315,10 +327,13 @@ class _CharacterNameInputState extends State<_CharacterNameInput> {
 /// payload: {"playerId": 3, "character": "poisoner"}
 class _PlayerPlusCharacterInput extends StatefulWidget {
   const _PlayerPlusCharacterInput({
+    required this.characters,
     required this.players,
     required this.onSubmit,
   });
 
+  /// 剧本角色池（#230）。
+  final List<Character> characters;
   final List<Player> players;
   final void Function(Map<String, Object?>) onSubmit;
 
@@ -354,7 +369,7 @@ class _PlayerPlusCharacterInputState
           spacing: 8,
           runSpacing: 4,
           children: [
-            for (final c in Character.values)
+            for (final c in widget.characters)
               ChoiceChip(
                 label: Text(c.nameCn),
                 selected: _character == c,
