@@ -1,7 +1,7 @@
 import 'package:botc_copilot/core/constants/character.dart';
 import 'package:botc_copilot/core/constants/info_input_type.dart';
-import 'package:botc_copilot/core/constants/night_order.dart';
 import 'package:botc_copilot/core/constants/script.dart';
+import 'package:botc_copilot/core/constants/script_definition.dart';
 import 'package:botc_copilot/core/database/app_database.dart';
 import 'package:botc_copilot/core/theme/app_text_styles.dart';
 import 'package:botc_copilot/core/theme/game_colors.dart';
@@ -46,7 +46,7 @@ class NightActionSection extends ConsumerWidget {
     }
 
     // 当夜可记录的夜行动作角色（按夜序，排除被动 / 无录入模板的）
-    final recordable = nightStepsForDay(day)
+    final recordable = nightStepsForDay(game?.script ?? Script.troubleBrewing, day)
         .where(
           (s) =>
               s.character != null &&

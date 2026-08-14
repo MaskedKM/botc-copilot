@@ -33,10 +33,10 @@ class NightOrderStep {
 
 /// 首夜行动顺序（TB）。
 ///
-/// 官方顺序：醉汉分配 → 爪牙信息 → 恶魔信息（7+）→ Poisoner → Spy →
-/// Scarlet Woman → Imp（首夜不杀人）→ Washerwoman → Librarian →
-/// Investigator → Chef → Empath → Fortune Teller → Butler。
-const firstNightSteps = <NightOrderStep>[
+/// 开场说明性步骤（全局规则，非剧本专属，#232 提取共享）：
+/// 醉汉分配 → 爪牙信息 → 恶魔信息（7+）。各官方剧本首夜共用；
+/// 后续夜无开场步骤（爪牙/恶魔信息仅首夜）。
+const openingSteps = <NightOrderStep>[
   NightOrderStep(
     label: '醉汉（分配）',
     action: '说书人秘密指定一名玩家为醉汉——其角色 / 信息为假',
@@ -52,6 +52,13 @@ const firstNightSteps = <NightOrderStep>[
     action: '恶魔看爪牙 + 3 个不在场好人角色（Bluff）',
     note: '仅 7+ 人局；≤6 人局恶魔无 Bluff',
   ),
+];
+
+/// TB 首夜步骤（官方顺序）：开场共享步骤 → Poisoner → Spy →
+/// Scarlet Woman → Imp（首夜不杀人）→ Washerwoman → Librarian →
+/// Investigator → Chef → Empath → Fortune Teller → Butler。
+const firstNightSteps = <NightOrderStep>[
+  ...openingSteps,
   NightOrderStep(
     character: Character.poisoner,
     action: '投毒',
@@ -139,6 +146,3 @@ const otherNightSteps = <NightOrderStep>[
   ),
 ];
 
-/// 当天对应的夜晚步骤：day ≤ 1 首夜，否则后续夜。
-List<NightOrderStep> nightStepsForDay(int dayNumber) =>
-    dayNumber <= 1 ? firstNightSteps : otherNightSteps;

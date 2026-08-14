@@ -1,4 +1,6 @@
 import 'package:botc_copilot/core/constants/night_order.dart';
+import 'package:botc_copilot/core/constants/script.dart';
+import 'package:botc_copilot/core/constants/script_definition.dart';
 import 'package:botc_copilot/core/theme/app_text_styles.dart';
 import 'package:botc_copilot/core/theme/game_colors.dart';
 import 'package:botc_copilot/shared/models/enums.dart';
@@ -20,11 +22,15 @@ class NightOrderSection extends StatefulWidget {
   const NightOrderSection({
     required this.currentDay,
     required this.helpLevel,
+    this.script = Script.troubleBrewing,
     super.key,
   });
 
   /// 当前天数（决定默认展示首夜还是后续夜）。
   final int currentDay;
+
+  /// 对局剧本（夜序分派，#232；默认 TB 兼容既有纯展示调用）。
+  final Script script;
 
   /// 帮助层级（决定展开 / 折叠 / 隐藏）。
   final HelpLevel helpLevel;
@@ -89,8 +95,9 @@ class _NightOrderSectionState extends State<NightOrderSection> {
   }
 
   Widget _content(NightPhase phase) {
+    final def = ScriptDefinition.of(widget.script);
     final steps =
-        phase == NightPhase.firstNight ? firstNightSteps : otherNightSteps;
+        phase == NightPhase.firstNight ? def.firstNightSteps : def.otherNightSteps;
     final checkedCount = [
       for (var i = 0; i < steps.length; i++)
         if (_checked.contains('${phase.name}:$i')) i,

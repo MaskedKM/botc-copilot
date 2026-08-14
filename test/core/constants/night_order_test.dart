@@ -1,5 +1,7 @@
 import 'package:botc_copilot/core/constants/character.dart';
 import 'package:botc_copilot/core/constants/night_order.dart';
+import 'package:botc_copilot/core/constants/script.dart';
+import 'package:botc_copilot/core/constants/script_definition.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -149,9 +151,18 @@ void main() {
 
   group('nightStepsForDay', () {
     test('day 1 → 首夜；day ≥ 2 → 后续夜', () {
-      expect(nightStepsForDay(1), same(firstNightSteps));
-      expect(nightStepsForDay(2), same(otherNightSteps));
-      expect(nightStepsForDay(5), same(otherNightSteps));
+      expect(
+        nightStepsForDay(Script.troubleBrewing, 1),
+        same(firstNightSteps),
+      );
+      expect(
+        nightStepsForDay(Script.troubleBrewing, 2),
+        same(otherNightSteps),
+      );
+      expect(
+        nightStepsForDay(Script.troubleBrewing, 5),
+        same(otherNightSteps),
+      );
     });
   });
 

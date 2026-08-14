@@ -127,7 +127,11 @@ class NightPanel extends ConsumerWidget {
           ),
         const SizedBox(height: 8),
         // 夜晚行动顺序参考（issue #61）
-        NightOrderSection(currentDay: day, helpLevel: helpLevel),
+        NightOrderSection(
+          currentDay: day,
+          helpLevel: helpLevel,
+          script: game?.script ?? Script.troubleBrewing,
+        ),
         const SizedBox(height: 8),
         // 夜间行动记录区（issue #110）
         NightActionSection(gameId: gameId),
