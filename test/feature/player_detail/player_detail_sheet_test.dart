@@ -246,31 +246,33 @@ void main() {
     expect(saveAfter.onPressed, isNotNull);
   });
 
-  testWidgets('保存一次性提交角色/信任度/毒草稿', (tester) async {
+  // #138：信任度/毒/醉改为即时落库（与信息/备注一致），仅角色声明走「保存」。
+  testWidgets('信任度/毒即时落库，角色声明保存提交（#138）', (tester) async {
     useTallSurface(tester);
     await tester.pumpWidget(buildSheet());
     await tester.pump();
 
-    await tester.tap(find.text('共情者')); // 角色草稿
+    await tester.tap(find.text('共情者')); // 角色草稿（不即时写）
     await tester.pump();
-    await tester.tap(find.text('确信好人')); // 信任度草稿
+    await tester.tap(find.text('确信好人')); // 信任度 → 即时落库
     await tester.pump();
-    await tester.tap(find.text('标记为可能被毒（第 1 天）')); // 毒草稿（#109 拆分）
+    await tester.tap(find.text('标记为可能被毒（第 1 天）')); // 毒 → 即时落库
     await tester.pump();
 
-    // 草稿阶段均不写库
+    // 角色声明仍为草稿（未保存）；信任度/毒已即时写库。
     expect(detailRepo.claimCalls, 0);
-    expect(detailRepo.trustCalls, 0);
-    expect(poisonRepo.toggleCalls, 0);
+    expect(detailRepo.trustCalls, 1);
+    expect(detailRepo.trustLevel, TrustLevel.confirmedGood);
+    expect(poisonRepo.toggleCalls, 1);
 
     await tester.tap(find.text('保存'));
     await tester.pump(); // _save 的 async 间隙
     await tester.pump(); // SnackBar 出现
 
+    // 保存提交角色声明；信任度/毒不再重复写。
     expect(detailRepo.claimCalls, 1);
     expect(detailRepo.claimedRole, Character.empath);
     expect(detailRepo.trustCalls, 1);
-    expect(detailRepo.trustLevel, TrustLevel.confirmedGood);
     expect(poisonRepo.toggleCalls, 1);
     expect(find.text('已保存'), findsOneWidget);
   });
@@ -420,7 +422,7 @@ void main() {
     expect(find.text('先声明角色，再录入该角色的信息。'), findsOneWidget);
   });
 
-  testWidgets('疑似醉汉整局开关：草稿→保存提交 setSuspectedDrunk（#109）',
+  testWidgets('疑似醉汉整局开关：即时落库 setSuspectedDrunk（#109/#138）',
       (tester) async {
     useTallSurface(tester);
     await tester.pumpWidget(buildSheet());
@@ -430,14 +432,12 @@ void main() {
     expect(find.text('标记为可能被毒（第 1 天）'), findsOneWidget);
     expect(find.text('怀疑是醉汉'), findsOneWidget);
 
-    // 草稿阶段不写库
-    expect(detailRepo.drunkCalls, 0);
+    expect(detailRepo.drunkCalls, 0); // 初始未写
 
+    // #138：拨开关即时落库（不再等「保存」）。
     await tester.tap(find.text('怀疑是醉汉'));
     await tester.pump();
-    await tester.tap(find.text('保存'));
-    await tester.pump();
-    await tester.pump();
+    await tester.pump(); // 即时写 async 完成
 
     expect(detailRepo.drunkCalls, 1);
     expect(detailRepo.lastSuspectedDrunk, isTrue);
