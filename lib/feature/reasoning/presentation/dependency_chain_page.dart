@@ -4,6 +4,8 @@ import 'package:botc_copilot/core/theme/app_text_styles.dart';
 import 'package:botc_copilot/core/theme/game_colors.dart';
 import 'package:botc_copilot/feature/game_board/presentation/providers/game_board_provider.dart';
 import 'package:botc_copilot/feature/player_detail/presentation/player_detail_sheet.dart';
+import 'package:botc_copilot/feature/reasoning/data/contradictions_provider.dart';
+import 'package:botc_copilot/feature/reasoning/domain/contradiction.dart';
 import 'package:botc_copilot/feature/reasoning/data/dependency_chain_provider.dart';
 import 'package:botc_copilot/feature/reasoning/domain/dependency_chain.dart';
 import 'package:botc_copilot/shared/models/enums.dart';
@@ -68,6 +70,11 @@ class DependencyChainPage extends ConsumerWidget {
                               onReset: () => ref
                               .read(dependencySandboxProvider(gameId).notifier)
                               .reset(),
+                          gameColors: gameColors,
+                        ),
+                      if (sandbox.isNotEmpty)
+                        _SandboxContradictionCard(
+                          gameId: gameId,
                           gameColors: gameColors,
                         ),
                       _Legend(gameColors: gameColors),
@@ -477,4 +484,87 @@ String _seat(Map<int, Player> byId, int id) {
 String _seatName(Map<int, Player> byId, int id) {
   final p = byId[id];
   return p == null ? '?' : '${p.seatNumber}号 ${p.name}';
+}
+
+
+/// 沙箱假设下的本地矛盾试算卡（#211 Part2 方案3）。
+///
+/// 展示「假设 X 醉后矛盾 N → M」对比与剩余清单——用于验证「压掉这条
+/// 矛盾需要假设谁醉」。只读本页沙箱 + 共享数据流，不写存档、不影响主
+/// 界面矛盾角标（autoDispose 沙箱离开页面即回基线）。
+class _SandboxContradictionCard extends ConsumerWidget {
+  const _SandboxContradictionCard({
+    required this.gameId,
+    required this.gameColors,
+  });
+
+  final int gameId;
+  final GameColors gameColors;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final baseline = ref.watch(contradictionsProvider(gameId));
+    final assumed = ref.watch(sandboxContradictionsProvider(gameId));
+    final disappeared =
+        baseline.contradictions.length - assumed.contradictions.length;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: gameColors.blood.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: gameColors.blood.withValues(alpha: 0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.rule_outlined, size: 18, color: gameColors.blood),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  assumed.failed
+                      ? '假设下的矛盾：推理引擎暂不可用'
+                      : '假设下的矛盾：'
+                          '${baseline.contradictions.length} → '
+                          '${assumed.contradictions.length}'
+                          '（消失 $disappeared 条）',
+                  style: AppTextStyles.body,
+                ),
+              ),
+            ],
+          ),
+          if (!assumed.failed && assumed.contradictions.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            for (final c in assumed.contradictions.take(5))
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 2),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(
+                      Icons.circle,
+                      size: 8,
+                      // 着色与矛盾面板一致：warning 血色 / info 紫罗兰。
+                      color: c.severity == ContradictionSeverity.warning
+                          ? gameColors.blood
+                          : gameColors.inkViolet,
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(c.description, style: AppTextStyles.caption),
+                    ),
+                  ],
+                ),
+              ),
+            if (assumed.contradictions.length > 5)
+              Text('… 共 ${assumed.contradictions.length} 条',
+                  style: AppTextStyles.caption),
+          ],
+        ],
+      ),
+    );
+  }
 }
