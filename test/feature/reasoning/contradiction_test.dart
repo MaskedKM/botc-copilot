@@ -678,4 +678,114 @@ void main() {
     );
     expect(result, isEmpty);
   });
+
+  // 占卜师 payload：{"playerIds": [a,b], "answer": bool}（true=是/有恶魔）。
+  InfoDeclaration _ftDecl(
+    int playerId,
+    int dayRecordId,
+    List<int> pair,
+    bool demonPresent, {
+    Reliability reliability = Reliability.unverified,
+  }) =>
+      InfoDeclaration(
+        id: playerId,
+        playerId: playerId,
+        dayRecordId: dayRecordId,
+        characterType: Character.fortuneTeller,
+        payloadJson:
+            '{"playerIds": [${pair.join(',')}], "answer": $demonPresent}',
+        reliability: reliability,
+        isMine: false,
+      );
+
+  test('规则5(FT)：读「否」但 pair 含已确认 Imp → mismatch（#159 G1）', () {
+    final result = ContradictionDetector.detect(
+      claims: [_claim(2, Character.imp, type: ClaimType.revealedOnDeath)],
+      declarations: [_ftDecl(1, 10, [2, 3], false)],
+      days: [],
+      playersById: players,
+      dayRecordToDayNumber: {10: 2},
+      expectedOutsiders: 0,
+    );
+    expect(result, hasLength(1));
+    expect(result[0].type, ContradictionType.fortuneTellerMismatch);
+    expect(result[0].playerIds, containsAll([1, 2]));
+    expect(result[0].dayNumber, 2);
+    expect(result[0].severity, ContradictionSeverity.info);
+  });
+
+  test('规则5(FT)：读「是」但 pair 两人都确认好人 → mismatch（#159 G1）', () {
+    final result = ContradictionDetector.detect(
+      claims: [
+        _claim(2, Character.chef, type: ClaimType.revealedOnDeath),
+        _claim(3, Character.monk, type: ClaimType.revealedOnDeath),
+      ],
+      declarations: [_ftDecl(1, 10, [2, 3], true)],
+      days: [],
+      playersById: players,
+      dayRecordToDayNumber: {10: 2},
+      expectedOutsiders: 0,
+    );
+    expect(result, hasLength(1));
+    expect(result[0].type, ContradictionType.fortuneTellerMismatch);
+    expect(result[0].playerIds, containsAll([1, 2, 3]));
+  });
+
+  test('规则5(FT)：醉/毒（possiblyTainted）→ 信息不可靠，不报（公理4）', () {
+    final result = ContradictionDetector.detect(
+      claims: [_claim(2, Character.imp, type: ClaimType.revealedOnDeath)],
+      declarations: [
+        _ftDecl(1, 10, [2, 3], false, reliability: Reliability.possiblyTainted),
+      ],
+      days: [],
+      playersById: players,
+      dayRecordToDayNumber: {10: 2},
+      expectedOutsiders: 0,
+    );
+    expect(
+      result.where(
+        (c) => c.type == ContradictionType.fortuneTellerMismatch,
+      ),
+      isEmpty,
+    );
+  });
+
+  test('规则5(FT)：读「是」+ pair 含已确认 Recluse → 不报（登记为邪恶，合法）',
+      () {
+    // Recluse 登记为邪恶 → FT 读「是」是合法解释，不构成矛盾。
+    final result = ContradictionDetector.detect(
+      claims: [
+        _claim(2, Character.recluse, type: ClaimType.revealedOnDeath),
+        _claim(3, Character.chef, type: ClaimType.revealedOnDeath),
+      ],
+      declarations: [_ftDecl(1, 10, [2, 3], true)],
+      days: [],
+      playersById: players,
+      dayRecordToDayNumber: {10: 2},
+      expectedOutsiders: 0,
+    );
+    expect(
+      result.where(
+        (c) => c.type == ContradictionType.fortuneTellerMismatch,
+      ),
+      isEmpty,
+    );
+  });
+
+  test('规则5(FT)：读「否」+ 我座位真实 Imp 在 pair → mismatch（myRole 注入）',
+      () {
+    final result = ContradictionDetector.detect(
+      claims: [],
+      declarations: [_ftDecl(1, 10, [2, 3], false)],
+      days: [],
+      playersById: players,
+      dayRecordToDayNumber: {10: 2},
+      expectedOutsiders: 0,
+      myPlayerId: 2,
+      myRole: Character.imp,
+    );
+    expect(result, hasLength(1));
+    expect(result[0].type, ContradictionType.fortuneTellerMismatch);
+    expect(result[0].playerIds, containsAll([1, 2]));
+  });
 }

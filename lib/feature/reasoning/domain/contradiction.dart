@@ -21,6 +21,9 @@ enum ContradictionType {
   /// Empath 报有邪恶但邻居都声明好人。
   empathMismatch('Empath 信息与邻居声明不符'),
 
+  /// Fortune Teller 读数与已确认角色不符（#159 G1）。
+  fortuneTellerMismatch('占卜师信息与已确认角色不符'),
+
   /// 无人死亡夜晚。
   noDeathNight('无人死亡夜晚'),
 
@@ -137,6 +140,14 @@ abstract final class ContradictionDetector {
         playersById,
         dayRecordToDayNumber,
         labelOf,
+      ),
+      ..._fortuneTellerMismatch(
+        declarations,
+        confirmedRoles,
+        dayRecordToDayNumber,
+        labelOf,
+        myPlayerId: myPlayerId,
+        myRole: myRole,
       ),
       ..._noDeathNights(days, declarations, dayRecordToDayNumber),
       ..._bluffClaims(latestClaim, demonBluffs, labelOf),
@@ -352,8 +363,103 @@ abstract final class ContradictionDetector {
     return results;
   }
 
-  /// 规则 5：无人死亡夜晚 → 列出可能性（仅提示，不涉及具体玩家）。
+  /// 规则 5（FT）：Fortune Teller 读数与已确认角色交叉验证（#159 G1）。
   ///
+  /// 占卜师每夜选 2 人得知「其中是否有恶魔」。registration 语义：
+  /// - **Recluse 登记为邪恶** → FT 对含 Recluse 的 pair 读「是」（合法解释）。
+  /// - **Spy 登记为好人** → 不触发 FT。
+  /// - 官方红鲱鱼机制：FT 信息**不一定准确**（外来者为 0 时有 1/3 概率取反），
+  ///   故所有 FT 矛盾均为 **info 级**，仅提示可能性，不输出身份结论。
+  ///
+  /// 公理4：醉/毒 FT 信息不可靠，跳过（reliability 已 overlay 降级）。
+  ///
+  /// 已知局限：仅用**死亡揭示 / 我座位真实角色**等「确认」信号交叉验证；
+  /// 不依赖公开声明（声称为好人的玩家可能是说谎的恶魔）。Recluse 未确认时
+  /// 仍是合法解释，故「是 + 两人确认好人」仅在两人都**确认非 Recluse** 时才提示。
+  static List<Contradiction> _fortuneTellerMismatch(
+    List<InfoDeclaration> declarations,
+    Map<int, Character> confirmedRoles,
+    Map<int, int> dayRecordToDayNumber,
+    String Function(int) labelOf, {
+    int? myPlayerId,
+    Character? myRole,
+  }) {
+    final results = <Contradiction>[];
+
+    // 是否「确认/已知为恶魔」：死亡揭示为恶魔，或我座位真实角色为恶魔。
+    bool isKnownDemon(int pid) {
+      final c = confirmedRoles[pid];
+      if (c != null && c.team == Team.demon) return true;
+      if (pid == myPlayerId &&
+          myRole != null &&
+          myRole.team == Team.demon) {
+        return true;
+      }
+      return false;
+    }
+
+    // 是否「登记为恶魔」：真恶魔（Imp）或 Recluse（registration 登记为邪恶）。
+    // FT 对二者均读「是」；Spy 登记为好人，不触发。
+    bool registersAsDemon(int pid) =>
+        isKnownDemon(pid) || confirmedRoles[pid] == Character.recluse;
+
+    for (final decl in declarations) {
+      if (decl.characterType != Character.fortuneTeller) continue;
+      if (decl.reliability == Reliability.possiblyTainted ||
+          decl.reliability == Reliability.invalidated) {
+        continue;
+      }
+      final parsed = _parseFortuneTellerPayload(decl.payloadJson);
+      if (parsed == null) continue;
+      final (pair, demonPresent) = parsed;
+      if (pair.length != 2) continue;
+      final day = dayRecordToDayNumber[decl.dayRecordId];
+
+      if (!demonPresent) {
+        // 读「否」：pair 中不应有登记为恶魔者（Imp / Recluse）。
+        final hit = pair.where(registersAsDemon).toList();
+        if (hit.isEmpty) continue;
+        results.add(
+          Contradiction(
+            type: ContradictionType.fortuneTellerMismatch,
+            playerIds: [decl.playerId, ...hit],
+            description:
+                '${labelOf(decl.playerId)} 的占卜师读「否」（无恶魔），'
+                '但 ${hit.map(labelOf).join('、')} 登记为恶魔'
+                '（Imp 或 Recluse）。信息可能被污染（醉/毒）'
+                '或受官方红鲱鱼机制影响。',
+            severity: ContradictionSeverity.info,
+            dayNumber: day,
+          ),
+        );
+      } else {
+        // 读「是」：两人都已确认好人且非 Recluse 时，无恶魔/Recluse 解释 → 提示。
+        bool confirmedGoodNonRecluse(int pid) {
+          final c = confirmedRoles[pid];
+          return c != null && c.team.isGood && c != Character.recluse;
+        }
+
+        if (pair.every(confirmedGoodNonRecluse)) {
+          results.add(
+            Contradiction(
+              type: ContradictionType.fortuneTellerMismatch,
+              playerIds: [decl.playerId, ...pair],
+              description:
+                  '${labelOf(decl.playerId)} 的占卜师读「是」（有恶魔），'
+                  '但 ${pair.map(labelOf).join('、')} 均已确认好人。'
+                  '可能被污染（醉/毒）、官方红鲱鱼，'
+                  '或有未确认的 Recluse（登记为邪恶）。',
+              severity: ContradictionSeverity.info,
+              dayNumber: day,
+            ),
+          );
+        }
+      }
+    }
+    return results;
+  }
+
+  /// 规则 5：无人死亡夜晚 → 列出可能性（仅提示，不涉及具体玩家）。
   /// 第 1 天跳过：官方规则恶魔首夜不杀人，无夜死是常态。
   /// 仅对**已确认**（nightConfirmed）的天生效，避免预建未录的天误报（#77）。
   ///
@@ -441,6 +547,21 @@ abstract final class ContradictionDetector {
       }
       return null;
     } on FormatException {
+      return null;
+    }
+  }
+
+  /// 解析占卜师 payload `{"playerIds": [a, b], "answer": bool}`（#159 G1）。
+  /// answer=true → 读「是」（有恶魔）；false → 读「否」。损坏 payload 返回 null。
+  static (List<int>, bool)? _parseFortuneTellerPayload(String payloadJson) {
+    try {
+      final decoded = jsonDecode(payloadJson);
+      if (decoded is! Map) return null;
+      final ids = decoded['playerIds'];
+      final answer = decoded['answer'];
+      if (ids is! List || answer is! bool) return null;
+      return (ids.whereType<int>().toList(), answer);
+    } on Object {
       return null;
     }
   }
