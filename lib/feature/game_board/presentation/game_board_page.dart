@@ -554,6 +554,17 @@ class _GameBoardBodyState extends ConsumerState<_GameBoardBody> {
             .read(gameBoardProvider(gameId).notifier)
             .endGame(goodWin: false);
       }
+    } else if (suggestion is GoodWinCandidate && context.mounted) {
+      // 恶魔确认已死无继 + 2 人存活 → 善良胜（#208，用户终裁）。
+      final good = await EndGameDialog.showGoodWinCandidate(
+        context,
+        aliveCount: suggestion.aliveCount,
+      );
+      if (good ?? false) {
+        await ref
+            .read(gameBoardProvider(gameId).notifier)
+            .endGame(goodWin: true);
+      }
     } else if (suggestion is DemonSuccessionCandidate && context.mounted) {
       // 长按标死疑似恶魔 → 传承确认（#136 公理5，与夜死/处决/Slayer 统一）
       await handleEndSuggestion(context, ref, gameId, suggestion);

@@ -537,4 +537,45 @@ void main() {
     // day 2 记录已删
     expect(await db.dayRecordsDao.getByGameAndDay(gameId, 2), isNull);
   });
+
+  group('#208 人头终局：恶魔存活性门控（checkHeadsWin）', () {
+    // 僵尸态种子：1 号被处决（可选死亡揭示=恶魔），2-4 号已死 → 存活 3 人。
+    Future<void> seed({required bool withDemonReveal}) async {
+      final dayId = await db.dayRecordsDao.insertDay(
+        DayRecordsCompanion(gameId: Value(gameId), dayNumber: const Value(1)),
+      );
+      await db.playersDao.markDead(players[0].id, 1, DeathCause.execution);
+      if (withDemonReveal) {
+        await db.roleClaimsDao.insertClaim(
+          RoleClaimsCompanion(
+            playerId: Value(players[0].id),
+            dayRecordId: Value(dayId),
+            character: Value(Character.imp),
+            claimType: const Value(ClaimType.revealedOnDeath),
+          ),
+        );
+      }
+      for (final i in [1, 2, 3]) {
+        await db.playersDao.markDead(players[i].id, 1, DeathCause.nightKill);
+      }
+    }
+
+    test('僵尸态：恶魔已处决无传承 → 夜死压到 2 人 → GoodWinCandidate',
+        () async {
+      await seed(withDemonReveal: true);
+      final suggestion = await notifier().recordNightDeath(players[4].id);
+      expect(suggestion, isA<GoodWinCandidate>());
+      expect((suggestion as GoodWinCandidate).aliveCount, 2);
+    });
+
+    test('无恶魔死亡记录（现状回归）→ EvilWinCandidate', () async {
+      await seed(withDemonReveal: false);
+      final suggestion = await notifier().recordNightDeath(players[4].id);
+      expect(suggestion, isA<EvilWinCandidate>());
+    });
+
+    test('checkHeadsWin：存活 > 2 → null', () async {
+      expect(await notifier().checkHeadsWin(), isNull);
+    });
+  });
 }

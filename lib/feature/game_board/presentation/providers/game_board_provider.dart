@@ -1,9 +1,12 @@
 import 'package:botc_copilot/core/constants/character.dart';
+import 'package:botc_copilot/core/constants/team.dart';
 import 'package:botc_copilot/core/database/app_database.dart';
 import 'package:botc_copilot/core/database/database_provider.dart';
+import 'package:botc_copilot/feature/game_board/domain/demon_status.dart';
 import 'package:botc_copilot/feature/game_board/domain/game_end.dart';
 import 'package:botc_copilot/feature/game_board/domain/nomination_rules.dart';
 import 'package:botc_copilot/feature/game_board/domain/succession.dart';
+import 'package:botc_copilot/shared/game_private.dart';
 import 'package:botc_copilot/shared/models/enums.dart';
 import 'package:drift/drift.dart' hide Column;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -216,7 +219,7 @@ class GameBoardNotifier extends StateNotifier<GameBoardState> {
       return checkDemonDeath(playerId, way: DeathWay.suicide);
     }
     // 非恶魔死亡 → 判人头邪恶胜（存活 ≤ 2）。
-    return _evilWinCheck();
+    return checkHeadsWin();
   }
 
   /// 记录白天处决（null = 无处决）。
@@ -351,14 +354,56 @@ class GameBoardNotifier extends StateNotifier<GameBoardState> {
     });
   }
 
-  /// 存活 ≤ 2 时返回邪恶获胜候选。
-  Future<GameEndSuggestion?> _evilWinCheck() async {
+  /// 存活 ≤ 2 时的人头终局候选（#208）。
+  ///
+  /// 官方前提「恶魔**活到**只剩 2 人」：恶魔确认已死且无存活继承人
+  /// （传承确认框被关闭等僵尸态）→ [GoodWinCandidate]；否则
+  /// [EvilWinCandidate]。两候选均由用户在对话框终裁。
+  Future<GameEndSuggestion?> checkHeadsWin() async {
     final players = await _db.playersDao.watchByGame(_gameId).first;
     final alive = players.where((p) => p.isAlive).length;
-    if (GameEndRules.isEvilWinCandidate(alive)) {
-      return EvilWinCandidate(alive);
+    if (!GameEndRules.isEvilWinCandidate(alive)) return null;
+    final status = await _demonStatus(players);
+    return status == DemonStatus.dead
+        ? GoodWinCandidate(alive)
+        : EvilWinCandidate(alive);
+  }
+
+  /// 汇集存档事实（死亡揭示 / 传承链 / 我的恶魔 / 爪牙候选）判定恶魔
+  /// 存活性（#208 design v2，纯判定在 [DemonStatusResolver]）。
+  Future<DemonStatus> _demonStatus(List<Player> players) async {
+    final game = await _db.gamesDao.getById(_gameId);
+    final claims = await _db.roleClaimsDao.watchByGame(_gameId).first;
+    final inheritances =
+        await _db.demonInheritancesDao.watchByGame(_gameId).first;
+    return DemonStatusResolver.resolve(
+      players: players,
+      myRole: game?.myRole,
+      myPlayerId: game?.myPlayerId,
+      claims: claims,
+      inheritances: inheritances,
+      aliveMinionCandidates: _aliveMinionCandidates(players, game, claims),
+    );
+  }
+
+  /// 存活爪牙候选：私密爪牙名单 ∪ 最新声明为爪牙的存活玩家（推断有弱性，
+  /// 仅用于 starpass 方向判断，宁 evil 不误 good）。
+  Set<int> _aliveMinionCandidates(
+    List<Player> players,
+    Game? game,
+    List<RoleClaim> claims,
+  ) {
+    final latest = <int, Character>{};
+    for (final c in claims) {
+      latest[c.playerId] = c.character; // id 升序，后者覆盖
     }
-    return null;
+    final ids = <int>{
+      if (game != null) ...minionIdsOf(game),
+    };
+    for (final p in players.where((p) => p.isAlive)) {
+      if (latest[p.id]?.team == Team.minion) ids.add(p.id);
+    }
+    return ids;
   }
 
   /// 结束对局：更新状态 + 可选记录被处决者的死亡揭示声明。
@@ -433,7 +478,7 @@ class GameBoardNotifier extends StateNotifier<GameBoardState> {
               await _isDemonCandidate(player.id))) {
         return checkDemonDeath(player.id, way: DeathWay.suicide);
       }
-      return _evilWinCheck();
+      return checkHeadsWin();
     } else {
       // 复活：走 revivePlayer（同步清 day-record，#154 BUG-2）。
       await revivePlayer(player.id);
