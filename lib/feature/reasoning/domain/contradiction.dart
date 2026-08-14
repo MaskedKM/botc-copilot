@@ -43,7 +43,10 @@ enum ContradictionType {
   zeroOutsiderConflict('「无外来者」与确认冲突'),
 
   /// 厨师计数与邪恶配置/已确认邪恶座位冲突（#213）。
-  chefCountMismatch('厨师计数与邪恶不符');
+  chefCountMismatch('厨师计数与邪恶不符'),
+
+  /// 传承记录确认的新恶魔与死亡揭示角色冲突（#215）。
+  successionRevealConflict('传承与死亡揭示冲突');
 
   const ContradictionType(this.nameCn);
 
@@ -106,6 +109,7 @@ abstract final class ContradictionDetector {
     Set<Character> demonBluffs = const {},
     int? myPlayerId,
     Character? myRole,
+    List<DemonInheritance> successions = const [],
   }) {
     // 每玩家最新声明，并注入「我的真实身份」（issue #107）——使我座位对
     // 规则 1/3/4 可见。死亡揭示仍另行计入 confirmedRoles（myRole 不计入）。
@@ -151,6 +155,7 @@ abstract final class ContradictionDetector {
       latestClaim: latestClaim,
       confirmedRoles: confirmedRoles,
       undertakerRoles: undertakerRoles,
+      successions: successions,
     );
 
     return [
@@ -263,6 +268,34 @@ abstract final class ContradictionDetector {
 
   /// TB 规则集（#234 注册表）：顺序即输出顺序（与单体时代一致，golden）。
   /// 新剧本规则经各自注册表追加（#217），不再改 detect 单体。
+  /// 传承 × 死亡揭示冲突（#215）：传承记录确认 X 为新恶魔，X 的死亡
+  /// 揭示却为非恶魔角色 → warning（误记传承 or 误记揭示，必有一假）。
+  ///
+  /// 只对村规确认的 revealedOnDeath 判定——恶魔生前 bluff 好人角色
+  /// 完全合法，声明不构成证据。每继承人至多一条（取任一揭示即证伪）。
+  static List<Contradiction> _successionRevealConflicts(
+    ContradictionFacts f,
+  ) {
+    return [
+      for (final s in f.successions)
+        if (s.toPlayerId != null)
+          for (final c in f.claims)
+            if (c.playerId == s.toPlayerId &&
+                c.claimType == ClaimType.revealedOnDeath &&
+                c.character.team != Team.demon)
+              Contradiction(
+                type: ContradictionType.successionRevealConflict,
+                severity: ContradictionSeverity.warning,
+                playerIds: [s.toPlayerId!],
+                description: '传承记录确认 ${_labelOf(f.latestClaim, f.playersById, s.toPlayerId!)} '
+                    '为新恶魔，但其死亡揭示为「${c.character.nameCn}」（非恶魔）——'
+                    '传承与揭示必有一假，请核对录入。',
+                dayNumber: f.dayRecordToDayNumber[c.dayRecordId] ??
+                    s.dayNumber,
+              ),
+    ];
+  }
+
   static const _tbRules = <ContradictionRule>[
     ContradictionRule(id: 'duplicate-role-claim', run: _ruleDuplicate),
     ContradictionRule(id: 'confirmed-role-conflict', run: _ruleConfirmedConflict),
@@ -1130,6 +1163,7 @@ class ContradictionFacts {
     required this.latestClaim,
     required this.confirmedRoles,
     required this.undertakerRoles,
+    required this.successions,
   });
 
   /// 对局剧本（规则集分派依据，#234）。
@@ -1151,6 +1185,9 @@ class ContradictionFacts {
   final Map<int, RoleClaim> latestClaim;
   final Map<int, Character> confirmedRoles;
   final Map<int, Character> undertakerRoles;
+
+  /// 恶魔传承事件（demon_inheritances，id 升序；#215）。
+  final List<DemonInheritance> successions;
 }
 
 /// 矛盾规则（机制层，#234）：id + 适用谓词 + 执行。
@@ -1179,8 +1216,19 @@ class ContradictionRule {
 
 /// 按剧本选择矛盾规则集（#234）：TB 全量；BMR/S&V 规则随 #217 注册
 /// （机制层已就绪——语义层接口见 #229 决策记录 2，随 #217 设计）。
-List<ContradictionRule> contradictionRulesFor(Script script) =>
-    switch (script) {
-      Script.troubleBrewing => ContradictionDetector._tbRules,
-      _ => const [],
-    };
+List<ContradictionRule> contradictionRulesFor(Script script) => [
+      ...switch (script) {
+        Script.troubleBrewing => ContradictionDetector._tbRules,
+        _ => const [],
+      },
+      // 跨剧本通用机制规则（传承是三官方剧本共有的恶魔规则，#215）。
+      ..._universalRules,
+    ];
+
+/// 跨剧本通用矛盾规则（#215）。
+const _universalRules = <ContradictionRule>[
+  ContradictionRule(
+    id: 'succession_reveal_conflict',
+    run: ContradictionDetector._successionRevealConflicts,
+  ),
+];

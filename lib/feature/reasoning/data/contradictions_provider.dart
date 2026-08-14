@@ -58,6 +58,8 @@ final contradictionsProvider = Provider.family<ContradictionResult, int>(
       days: ref.watch(gameAllDaysProvider(gameId)).valueOrNull ?? [],
       players: ref.watch(gamePlayersProvider(gameId)).valueOrNull ?? [],
       game: ref.watch(gameByIdProvider(gameId)).valueOrNull,
+      successions:
+          ref.watch(gameSuccessionsProvider(gameId)).valueOrNull ?? const [],
     );
   },
 );
@@ -80,6 +82,8 @@ final sandboxContradictionsProvider =
     players: ref.watch(gamePlayersProvider(gameId)).valueOrNull ?? [],
     game: ref.watch(gameByIdProvider(gameId)).valueOrNull,
     extraDrunkIds: sandbox,
+    successions:
+        ref.watch(gameSuccessionsProvider(gameId)).valueOrNull ?? const [],
   );
 });
 
@@ -95,6 +99,7 @@ ContradictionResult detectWithOverlay({
   required List<Player> players,
   required Game? game,
   Set<int> extraDrunkIds = const {},
+  List<DemonInheritance> successions = const [],
 }) {
   try {
     final setup = game != null ? PlayerSetup.forCount(game.playerCount) : null;
@@ -128,6 +133,7 @@ ContradictionResult detectWithOverlay({
         demonBluffs: game != null ? demonBluffsOf(game) : const {},
         myPlayerId: game?.myPlayerId,
         myRole: game?.myRole,
+        successions: successions,
       ),
     );
   } on Object catch (e, st) {
