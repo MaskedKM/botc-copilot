@@ -12,6 +12,7 @@ class PlayerPairPicker extends StatelessWidget {
     required this.players,
     required this.selected,
     required this.onChanged,
+    this.excludePlayerId,
     super.key,
   });
 
@@ -20,6 +21,9 @@ class PlayerPairPicker extends StatelessWidget {
 
   /// 当前选中的玩家 id 集合（最多 2 个）。
   final Set<int> selected;
+
+  /// 排除的玩家 id（Chambermaid 不能选自己；null = 不排除）。
+  final int? excludePlayerId;
 
   /// 选择变化回调。
   final ValueChanged<Set<int>> onChanged;
@@ -38,7 +42,8 @@ class PlayerPairPicker extends StatelessWidget {
           spacing: 8,
           runSpacing: 4,
           children: [
-            for (final p in players)
+            for (final p
+                in players.where((p) => p.id != excludePlayerId))
               ChoiceChip(
                 label: Text('${p.seatNumber}号 ${p.name}'),
                 selected: selected.contains(p.id),

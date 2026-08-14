@@ -237,7 +237,7 @@ void main() {
       await tester.pump();
       await tester.tap(find.text('1 人'));
       await tester.pump();
-      await tester.tap(find.text('保存'));
+      await tester.tap(find.text('记录'));
       await tester.pump();
       expect(submitted, isNotNull);
       expect((submitted!['playerIds'] as List).toSet(), {1, 2});
@@ -254,11 +254,53 @@ void main() {
       await tester.pump();
       await tester.tap(find.textContaining('4号').first);
       await tester.pump();
-      await tester.tap(find.text('保存'));
+      await tester.tap(find.text('记录'));
       await tester.pump();
       expect(submitted, isNotNull);
       expect((submitted!['playerIds'] as List).toSet(), {3, 4});
       expect(submitted!.containsKey('value'), isFalse);
+    });
+
+    testWidgets('侍女不能选自己（官方 "not yourself"）', (tester) async {
+      await tester.pumpWidget(
+        buildInput(Character.chambermaid, (_) {}, actingPlayerId: 1),
+      );
+      await tester.pump();
+      // 官方：choose 2 alive players (not yourself)。自己（1 号）不可选。
+      expect(find.text('1号 玩家1'), findsNothing);
+      expect(find.text('2号 玩家2'), findsOneWidget);
+    });
+
+    testWidgets('教授只能选死亡玩家（官方 "choose a dead player"）', (tester) async {
+      final withDead = [
+        ...players,
+        Player(
+          id: 8,
+          gameId: 1,
+          name: '亡者',
+          seatNumber: 8,
+          isAlive: false,
+          abilityUsed: false, suspectedDrunk: false,
+          deathDay: 2,
+        ),
+      ];
+      Map<String, Object?>? submitted;
+      await tester.pumpWidget(
+        buildInput(
+          Character.professor,
+          (p) => submitted = p,
+          playersOverride: withDead,
+        ),
+      );
+      await tester.pump();
+      // 官方：choose a dead player。死亡玩家可选，存活玩家不出现。
+      expect(find.text('8号 亡者'), findsOneWidget);
+      expect(find.text('2号 玩家2'), findsNothing);
+      await tester.tap(find.text('8号 亡者'));
+      await tester.pump();
+      await tester.tap(find.text('记录'));
+      await tester.pump();
+      expect(submitted, {'playerId': 8});
     });
 
     testWidgets('赌徒复用 playerPlusCharacter（BMR）', (tester) async {

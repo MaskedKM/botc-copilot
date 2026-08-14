@@ -257,6 +257,8 @@ enum Character {
     ability: '每个夜晚，选择两名存活玩家（不能是自己）：你得知今晚'
         '有多少人因他们的能力被唤醒。',
     infoInputType: InfoInputType.twoPlayersNumber,
+    // 官方：choose 2 alive players (not yourself)。
+    canTargetSelf: false,
     script: Script.badMoonRising,
   ),
 
@@ -363,6 +365,8 @@ enum Character {
     ability: '每局限一次，在夜晚*选择一名已死玩家：若其为镇民，'
         '将其复活。',
     infoInputType: InfoInputType.singlePlayerTarget,
+    // 官方：choose a dead player（复活目标，区别于常规存活目标）。
+    requiresDeadTarget: true,
     script: Script.badMoonRising,
   ),
 
@@ -528,8 +532,10 @@ enum Character {
     // #230：剧本归属参数化（原 script getter 硬编码 TB 的 TODO 落实）。
     // 现仅 TB 角色，默认 TB；BMR/S&V 角色录入（#217）时显式传入。
     this.script = Script.troubleBrewing,
-    // 官方规则：Monk/Butler 的夜间目标不能选自己（#230 数据化）。
+    // 官方规则：Monk/Butler/Chambermaid 的目标不能选自己（#230 数据化）。
     this.canTargetSelf = true,
+    // 官方规则：Professor 的复活目标须为已死玩家（其余夜间目标为存活者）。
+    this.requiresDeadTarget = false,
     // #231：setup 修正角色的外来者增量模型。固定增量为单元素（Baron [2]）；
     // 「说书人选」型为多元素（BMR Godfather [-1,1]、S&V Balloonist [0,1]，
     // 随 #217 录入）。外来者增减由镇民反向补偿。
@@ -561,8 +567,11 @@ enum Character {
   /// 所属剧本（#230 参数化；现仅 TB 角色，默认 TB）。
   final Script script;
 
-  /// 夜间行动目标能否选自己（Monk/Butler 官方不可，其余可）。
+  /// 夜间行动目标能否选自己（Monk/Butler/Chambermaid 官方不可，其余可）。
   final bool canTargetSelf;
+
+  /// 目标须为已死玩家（Professor 复活；其余默认存活目标）。
+  final bool requiresDeadTarget;
 
   /// setup 外来者增量候选（空 = 非修正角色；「或」型含多个可能值）。
   final List<int> setupOutsiderDeltas;
