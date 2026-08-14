@@ -1790,7 +1790,9 @@ class _MyMinionsSection extends ConsumerWidget {
                           if (!context.mounted) return;
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
-                              content: Text('$expected 人局仅有 $expected 个爪牙，已达上限'),
+                              content: Text(
+                                '${game.playerCount} 人局仅有 $expected 个爪牙，已达上限',
+                              ),
                             ),
                           );
                           return;
