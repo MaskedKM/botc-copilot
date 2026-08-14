@@ -6,6 +6,7 @@ import 'package:botc_copilot/feature/game_board/domain/demon_status.dart';
 import 'package:botc_copilot/feature/game_board/domain/game_end.dart';
 import 'package:botc_copilot/feature/game_board/domain/nomination_rules.dart';
 import 'package:botc_copilot/feature/game_board/domain/succession.dart';
+import 'package:botc_copilot/feature/reasoning/domain/latest_claim.dart';
 import 'package:botc_copilot/shared/game_private.dart';
 import 'package:botc_copilot/shared/models/enums.dart';
 import 'dart:convert';
@@ -468,10 +469,7 @@ class GameBoardNotifier extends StateNotifier<GameBoardState> {
     Game? game,
     List<RoleClaim> claims,
   ) {
-    final latest = <int, Character>{};
-    for (final c in claims) {
-      latest[c.playerId] = c.character; // id 升序，后者覆盖
-    }
+    final latest = latestCharacterByPlayer(claims); // id 升序，后者覆盖
     final ids = <int>{
       if (game != null) ...minionIdsOf(game),
     };
@@ -618,10 +616,7 @@ class GameBoardNotifier extends StateNotifier<GameBoardState> {
     final claims = await _db.roleClaimsDao.watchByGame(_gameId).first;
     final players = await _db.playersDao.watchByGame(_gameId).first;
     final aliveById = {for (final p in players) p.id: p.isAlive};
-    final latestByPlayer = <int, Character>{};
-    for (final c in claims) {
-      latestByPlayer[c.playerId] = c.character;
-    }
+    final latestByPlayer = latestCharacterByPlayer(claims);
     for (final entry in latestByPlayer.entries) {
       if (entry.value == Character.mayor &&
           (aliveById[entry.key] ?? false)) {
@@ -715,10 +710,7 @@ class GameBoardNotifier extends StateNotifier<GameBoardState> {
     }
     // 最新声明 SW 且存活
     final claims = await _db.roleClaimsDao.watchByGame(_gameId).first;
-    final latestByPlayer = <int, Character>{};
-    for (final c in claims) {
-      latestByPlayer[c.playerId] = c.character;
-    }
+    final latestByPlayer = latestCharacterByPlayer(claims);
     for (final entry in latestByPlayer.entries) {
       if (entry.value == Character.scarletWoman &&
           byId[entry.key]?.isAlive == true) {
