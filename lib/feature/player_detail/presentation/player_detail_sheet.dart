@@ -184,6 +184,9 @@ class _PlayerDetailSheetState extends ConsumerState<PlayerDetailSheet> {
   }
 
   /// 是否存在未保存的修改。
+  ///
+  /// 信任度 / 毒 / 疑似醉汉已即时落库（#138），不计脏——仅角色声明草稿
+  /// 与行为备注草稿参与 PopScope 守卫。
   bool _isDirty({
     required Character? initialRole,
     required TrustLevel initialTrust,
@@ -191,11 +194,8 @@ class _PlayerDetailSheetState extends ConsumerState<PlayerDetailSheet> {
     required bool initialDrunk,
   }) =>
       (_roleTouched &&
-              !_claimAutoCommitted &&
-              _draftRole != initialRole) ||
-      (_trustTouched && _draftTrust != initialTrust) ||
-      (_poisonTouched && _draftPoison != initialPoison) ||
-      (_drunkTouched && _draftDrunk != initialDrunk) ||
+          !_claimAutoCommitted &&
+          _draftRole != initialRole) ||
       _noteDraftDirty; // 行为备注草稿（#160 #5）
 
   /// 提交所有草稿变更到 DB（不关闭弹层）。_save / _saveAndNext 共用。
@@ -209,10 +209,10 @@ class _PlayerDetailSheetState extends ConsumerState<PlayerDetailSheet> {
     setState(() => _saving = true);
     try {
       final repo = ref.read(playerDetailRepositoryProvider);
-      final poisonRepo = ref.read(poisonRepositoryProvider);
       final notifier = ref.read(gameBoardProvider(widget.gameId).notifier);
 
-      // 角色声明（仅当改了且选了角色；已随信息自动落库则跳过，#134）
+      // 角色声明（仅当改了且选了角色；已随信息自动落库则跳过，#134）。
+      // 信任度 / 毒 / 疑似醉汉已改为即时落库（#138），此处只提交声明。
       if (_roleTouched &&
           !_claimAutoCommitted &&
           _draftRole != null &&
@@ -222,30 +222,6 @@ class _PlayerDetailSheetState extends ConsumerState<PlayerDetailSheet> {
           playerId: widget.player.id,
           dayRecordId: dayRecordId,
           character: _draftRole!,
-        );
-      }
-      // 信任度
-      if (_trustTouched && _draftTrust != initialTrust) {
-        await repo.setTrustLevel(
-          gameId: widget.gameId,
-          playerId: widget.player.id,
-          day: day,
-          level: _draftTrust,
-        );
-      }
-      // 毒（按天，toggleStatus：草稿与初始不同时翻转一次即到位）
-      if (_poisonTouched && _draftPoison != initialPoison) {
-        await poisonRepo.toggleStatus(
-          gameId: widget.gameId,
-          playerId: widget.player.id,
-          dayNumber: day,
-        );
-      }
-      // 疑似醉汉（整局身份，#109）
-      if (_drunkTouched && _draftDrunk != initialDrunk) {
-        await repo.setSuspectedDrunk(
-          widget.player.id,
-          suspected: _draftDrunk,
         );
       }
       return true;
@@ -537,19 +513,49 @@ class _PlayerDetailSheetState extends ConsumerState<PlayerDetailSheet> {
                 day: day,
                 marked: displayPoison,
                 readOnly: readOnly,
-                onChanged: (v) => setState(() {
-                  _poisonTouched = true;
-                  _draftPoison = v;
-                }),
+                // #138：毒标记即时落库（与信息/备注一致），不再等「保存」。
+                onChanged: (v) async {
+                  setState(() {
+                    _poisonTouched = true;
+                    _draftPoison = v;
+                  });
+                  try {
+                    await ref.read(poisonRepositoryProvider).toggleStatus(
+                          gameId: widget.gameId,
+                          playerId: widget.player.id,
+                          dayNumber: day,
+                        );
+                  } on Object {
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('保存失败，请重试')),
+                      );
+                    }
+                  }
+                },
               ),
               const SizedBox(height: 16),
               _DrunkSuspicionSection(
                 marked: displayDrunk,
                 readOnly: readOnly,
-                onChanged: (v) => setState(() {
-                  _drunkTouched = true;
-                  _draftDrunk = v;
-                }),
+                // #138：疑似醉汉即时落库（整局身份），不再等「保存」。
+                onChanged: (v) async {
+                  setState(() {
+                    _drunkTouched = true;
+                    _draftDrunk = v;
+                  });
+                  try {
+                    await ref
+                        .read(playerDetailRepositoryProvider)
+                        .setSuspectedDrunk(widget.player.id, suspected: v);
+                  } on Object {
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('保存失败，请重试')),
+                      );
+                    }
+                  }
+                },
               ),
               const SizedBox(height: 16),
               _BehaviorNoteSection(
@@ -568,10 +574,27 @@ class _PlayerDetailSheetState extends ConsumerState<PlayerDetailSheet> {
               _TrustSection(
                 current: displayTrust,
                 readOnly: readOnly,
-                onSelect: (l) => setState(() {
-                  _trustTouched = true;
-                  _draftTrust = l;
-                }),
+                // #138：信任度即时落库（与信息/备注一致），不再等「保存」。
+                onSelect: (l) async {
+                  setState(() {
+                    _trustTouched = true;
+                    _draftTrust = l;
+                  });
+                  try {
+                    await ref.read(playerDetailRepositoryProvider).setTrustLevel(
+                          gameId: widget.gameId,
+                          playerId: widget.player.id,
+                          day: day,
+                          level: l,
+                        );
+                  } on Object {
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('保存失败，请重试')),
+                      );
+                    }
+                  }
+                },
               ),
               // 保存按钮仅进行中显示（复盘只读，#134）
               if (!readOnly) ...[
