@@ -95,19 +95,7 @@ void main() {
   });
 
   testWidgets('弱排除与收缩结论渲染', (tester) async {
-    final board = EliminationEngine.evaluate(
-      players: players,
-      setup: PlayerSetup.forCount(7),
-      confirmedRoles: const {
-        1: Character.monk,
-        2: Character.chef,
-        3: Character.empath,
-        4: Character.fortuneTeller,
-      },
-      // 1-4 号需要死亡才是合法揭示：重造玩家表。
-      labelFor: (id) => '$id号 P$id',
-    );
-    // 直接手工构造以精确控制字段（引擎构造需配套死亡状态）。
+    // 手工构造以精确控制各字段（引擎构造需配套死亡状态）。
     final manual = EliminationBoard(
       confirmedGood: const {
         1: [Deduction(source: DeductionSource.deathReveal, description: '死亡揭示为僧侣（镇民）')],
