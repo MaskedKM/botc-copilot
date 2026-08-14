@@ -8,6 +8,7 @@ import 'package:botc_copilot/feature/game_board/presentation/providers/game_boar
 import 'package:botc_copilot/feature/player_detail/presentation/player_detail_sheet.dart';
 import 'package:botc_copilot/feature/reasoning/data/voting_analysis_provider.dart';
 import 'package:botc_copilot/feature/reasoning/domain/voting_analysis.dart';
+import 'package:botc_copilot/shared/widgets/loading_error_view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -34,26 +35,35 @@ class VotingAnalysisPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final analysis = ref.watch(votingAnalysisProvider(gameId));
-    final players =
-        ref.watch(gamePlayersProvider(gameId)).valueOrNull ?? [];
-    // 区分「加载中」与「确无提名」：provider 在两种情况都返回 null，
-    // 这里用底层提名流的加载态把加载中单独显示为转圈。
-    final nominationsLoading =
-        ref.watch(gameNominationsProvider(gameId).select((a) => a.isLoading));
+    final playersAsync = ref.watch(gamePlayersProvider(gameId));
+    final nominationsAsync = ref.watch(gameNominationsProvider(gameId));
+    final players = playersAsync.valueOrNull ?? [];
+    // 区分「加载中 / 出错」与「确无提名」：provider 在这几种情况都返回 null，
+    // 用底层流的加载/错误态分别显示（#138：裸转圈改文案、流错误改重试）。
+    final loading =
+        nominationsAsync.isLoading || playersAsync.isLoading;
+    final hasError = nominationsAsync.hasError || playersAsync.hasError;
     final gameColors = context.gameColors;
 
     return Scaffold(
       appBar: AppBar(title: const Text('投票分析')),
       body: SafeArea(
-        child: nominationsLoading
-            ? const Center(child: CircularProgressIndicator())
-            : analysis == null
-                ? _Empty(gameColors: gameColors)
-                : _VotingAnalysisView(
-                    gameId: gameId,
-                    analysis: analysis,
-                    players: players,
-                  ),
+        child: hasError
+            ? ErrorRetryView(
+                onRetry: () {
+                  ref.invalidate(gameNominationsProvider(gameId));
+                  ref.invalidate(gamePlayersProvider(gameId));
+                },
+              )
+            : loading
+                ? const LoadingView()
+                : analysis == null
+                    ? _Empty(gameColors: gameColors)
+                    : _VotingAnalysisView(
+                        gameId: gameId,
+                        analysis: analysis,
+                        players: players,
+                      ),
       ),
     );
   }
