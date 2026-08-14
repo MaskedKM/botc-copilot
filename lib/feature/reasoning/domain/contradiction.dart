@@ -283,6 +283,11 @@ abstract final class ContradictionDetector {
   }
 
   /// 规则 4：Empath 报 N>0 邪恶，但当时存活的邻座都声明好人。
+  ///
+  /// 已知局限（#151 S4，可接受）：未建模 Recluse（可登记为邪恶）/ Spy（可登记为
+  /// 好人）的 registration——邻座是 Recluse 时 Empath 合法读出邪恶，可能误报。
+  /// 属隐藏信息，App 无法确认真身；该矛盾为 info 级（仅提示），且 Recluse/Spy 在场
+  /// 时可靠性 overlay 已降级，误报影响可控。
   static List<Contradiction> _empathMismatch(
     List<InfoDeclaration> declarations,
     Map<int, RoleClaim> latestClaim,
