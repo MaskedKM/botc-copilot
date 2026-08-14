@@ -113,7 +113,9 @@ class _FakePoisonRepository implements PoisonRepository {
 
 /// 不碰 DB 的 GameBoardNotifier（currentDay 固定 1，dayRecordId 固定 1）。
 class _FakeGameBoardNotifier extends GameBoardNotifier {
-  _FakeGameBoardNotifier(super.ref, super.gameId);
+  _FakeGameBoardNotifier(super.ref, super.gameId, {int day = 1}) {
+    state = state.copyWith(currentDay: day);
+  }
 
   @override
   Future<int> ensureCurrentDayRecord() async => 1;
@@ -191,6 +193,7 @@ void main() {
     List<BehaviorNote> notes = const [],
     List<DayRecord> dayRecords = const [],
     bool enableChain = false,
+    int day = 1,
   }) {
     final g = game.copyWith(
       myPlayerId: Value(myPlayerId),
@@ -205,7 +208,7 @@ void main() {
           (ref) => Stream.value([player]),
         ),
         gameBoardProvider(1)
-            .overrideWith((ref) => _FakeGameBoardNotifier(ref, 1)),
+            .overrideWith((ref) => _FakeGameBoardNotifier(ref, 1, day: day)),
         playerClaimsProvider(1)
             .overrideWith((ref) => Stream.value(const <RoleClaim>[])),
         playerDeclarationsProvider(1)
@@ -772,5 +775,149 @@ void main() {
     expect(find.text('第二天备注'), findsOneWidget);
     expect(find.text('第 3 天'), findsOneWidget);
     expect(find.text('第 2 天'), findsOneWidget);
+  });
+
+  group('#243 单一入口：我的表单按夜序过滤', () {
+    DayRecord rec(int id, int day, {int? exec}) => DayRecord(
+          id: id,
+          gameId: 1,
+          dayNumber: day,
+          nightDeathPlayerIds: null,
+          nightConfirmed: false,
+          dayExecutionPlayerId: exec,
+          dayConfirmed: false,
+          notes: '',
+        );
+
+    testWidgets('首夜：洗衣妇表单在（夜序命中）', (tester) async {
+      useTallSurface(tester);
+      await tester.pumpWidget(buildSheet(
+        myPlayerId: me.id,
+        myRole: Character.washerwoman,
+      ));
+      await tester.pumpAndSettle();
+      expect(find.text('洗衣妇 的信息'), findsOneWidget);
+      expect(find.textContaining('不被唤醒'), findsNothing);
+    });
+
+    testWidgets('首夜：掘墓（非首夜角色）被过滤出提示', (tester) async {
+      useTallSurface(tester);
+      await tester.pumpWidget(buildSheet(
+        myPlayerId: me.id,
+        myRole: Character.undertaker,
+      ));
+      await tester.pumpAndSettle();
+      expect(find.text('掘墓人 的信息'), findsOneWidget);
+      expect(find.textContaining('第 1 夜不被唤醒'), findsOneWidget);
+      expect(find.text('记录'), findsNothing);
+    });
+
+    testWidgets('第 2 夜：洗衣妇（首夜信息）被过滤', (tester) async {
+      useTallSurface(tester);
+      await tester.pumpWidget(buildSheet(
+        myPlayerId: me.id,
+        myRole: Character.washerwoman,
+        day: 2,
+      ));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('第 2 夜不被唤醒'), findsOneWidget);
+      expect(find.text('记录'), findsNothing);
+    });
+
+    testWidgets('第 2 夜：僧侣表单在', (tester) async {
+      useTallSurface(tester);
+      await tester.pumpWidget(buildSheet(
+        myPlayerId: me.id,
+        myRole: Character.monk,
+        day: 2,
+      ));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('不被唤醒'), findsNothing);
+      expect(find.text('僧侣 的信息'), findsOneWidget);
+    });
+
+    testWidgets('掘墓第 2 夜：前一天无执行 → 过滤', (tester) async {
+      useTallSurface(tester);
+      await tester.pumpWidget(buildSheet(
+        myPlayerId: me.id,
+        myRole: Character.undertaker,
+        day: 2,
+      ));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('不被唤醒'), findsOneWidget);
+    });
+
+    testWidgets('掘墓第 2 夜：前一天有处决 → 表单在（官方条件）',
+        (tester) async {
+      useTallSurface(tester);
+      await tester.pumpWidget(buildSheet(
+        myPlayerId: me.id,
+        myRole: Character.undertaker,
+        day: 2,
+        dayRecords: [rec(1, 1, exec: me.id)],
+      ));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('不被唤醒'), findsNothing);
+      expect(find.text('掘墓人 的信息'), findsOneWidget);
+    });
+
+  testWidgets('S&V 日间私密询问型（博学者）不被夜序过滤', (tester) async {
+      useTallSurface(tester);
+      await tester.pumpWidget(buildSheet(
+        myPlayerId: me.id,
+        myRole: Character.savant,
+      ));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('不被唤醒'), findsNothing);
+      expect(find.text('博学者 的信息'), findsOneWidget);
+    });
+
+  testWidgets('他人表单不过滤（第 2 夜仍可录首夜角色的公开声明）',
+        (tester) async {
+      useTallSurface(tester);
+      final claim = RoleClaim(
+        id: 1,
+        playerId: me.id,
+        dayRecordId: 1,
+        character: Character.washerwoman,
+        claimType: ClaimType.firstClaim,
+      );
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            gameByIdProvider(1).overrideWith((ref) => Stream.value(game)),
+            gamePlayersProvider(1)
+                .overrideWith((ref) => Stream.value([me])),
+            gameBoardProvider(1)
+                .overrideWith((ref) => _FakeGameBoardNotifier(ref, 1, day: 2)),
+            playerClaimsProvider(1)
+                .overrideWith((ref) => Stream.value([claim])),
+            playerDeclarationsProvider(1)
+                .overrideWith((ref) => Stream.value(const <InfoDeclaration>[])),
+            gameClaimsProvider(1)
+                .overrideWith((ref) => Stream.value([claim])),
+            latestTrustLevelsProvider(1)
+                .overrideWith((ref) => Stream.value(const <int, TrustLevel>{})),
+            gamePoisonStatusesProvider(1)
+                .overrideWith((ref) => Stream.value(const <PoisonStatus>[])),
+            playerBehaviorNotesProvider(1)
+                .overrideWith((ref) => Stream.value(const <BehaviorNote>[])),
+            gameDayRecordsProvider(1)
+                .overrideWith((ref) => Stream.value(const <DayRecord>[])),
+            playerDetailRepositoryProvider.overrideWithValue(detailRepo),
+            poisonRepositoryProvider.overrideWithValue(poisonRepo),
+          ],
+          child: MaterialApp(
+            theme: AppTheme.dark,
+            home: Scaffold(
+              body: PlayerDetailSheet(gameId: 1, player: me),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('洗衣妇 的信息'), findsOneWidget);
+      expect(find.textContaining('不被唤醒'), findsNothing);
+    });
   });
 }
