@@ -6,6 +6,7 @@ import 'package:botc_copilot/feature/player_detail/presentation/player_detail_sh
 import 'package:botc_copilot/feature/reasoning/data/dependency_chain_provider.dart';
 import 'package:botc_copilot/feature/reasoning/domain/dependency_chain.dart';
 import 'package:botc_copilot/shared/models/enums.dart';
+import 'package:botc_copilot/shared/widgets/loading_error_view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -33,34 +34,40 @@ class DependencyChainPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final nodes = ref.watch(dependencyNodesProvider(gameId));
-    final players =
-        ref.watch(gamePlayersProvider(gameId)).valueOrNull ?? [];
+    final declarationsAsync = ref.watch(gameDeclarationsProvider(gameId));
+    final playersAsync = ref.watch(gamePlayersProvider(gameId));
+    final players = playersAsync.valueOrNull ?? [];
     final sandbox = ref.watch(dependencySandboxProvider(gameId));
     // 同时等声明与玩家流：玩家未就绪时 suspectedDrunk overlay 未生效、
-    // 座位号也无法解析，故两者都在加载时显示转圈。
-    final loading = ref.watch(
-          gameDeclarationsProvider(gameId).select((a) => a.isLoading),
-        ) ||
-        ref.watch(gamePlayersProvider(gameId).select((a) => a.isLoading));
+    // 座位号也无法解析，故两者都在加载时显示占位（#138：文案 + 错误重试）。
+    final loading = declarationsAsync.isLoading || playersAsync.isLoading;
+    final hasError = declarationsAsync.hasError || playersAsync.hasError;
     final gameColors = context.gameColors;
     final byId = {for (final p in players) p.id: p};
 
     return Scaffold(
       appBar: AppBar(title: const Text('信息依赖链')),
       body: SafeArea(
-        child: loading
-            ? const Center(child: CircularProgressIndicator())
-            : nodes.isEmpty
-                ? _Empty(gameColors: gameColors)
-                : ListView(
-                    padding: const EdgeInsets.all(16),
-                    children: [
-                      if (sandbox.isNotEmpty)
-                        _SandboxBar(
-                          assumedSeats: [
-                            for (final id in sandbox) _seat(byId, id),
-                          ],
-                          onReset: () => ref
+        child: hasError
+            ? ErrorRetryView(
+                onRetry: () {
+                  ref.invalidate(gameDeclarationsProvider(gameId));
+                  ref.invalidate(gamePlayersProvider(gameId));
+                },
+              )
+            : loading
+                ? const LoadingView()
+                : nodes.isEmpty
+                    ? _Empty(gameColors: gameColors)
+                    : ListView(
+                        padding: const EdgeInsets.all(16),
+                        children: [
+                          if (sandbox.isNotEmpty)
+                            _SandboxBar(
+                              assumedSeats: [
+                                for (final id in sandbox) _seat(byId, id),
+                              ],
+                              onReset: () => ref
                               .read(dependencySandboxProvider(gameId).notifier)
                               .reset(),
                           gameColors: gameColors,
