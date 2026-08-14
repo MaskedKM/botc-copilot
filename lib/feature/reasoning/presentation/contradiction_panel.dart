@@ -20,7 +20,8 @@ class ContradictionPanel extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final contradictions = ref.watch(contradictionsProvider(gameId));
+    final result = ref.watch(contradictionsProvider(gameId));
+    final contradictions = result.contradictions;
     final gameColors = context.gameColors;
     // 矛盾 tile drill-down（#138）：playerIds → 玩家详情。
     final players = ref.watch(gamePlayersProvider(gameId)).valueOrNull ??
@@ -59,7 +60,9 @@ class ContradictionPanel extends ConsumerWidget {
               AppTextStyles.caption.copyWith(color: gameColors.inkViolet),
         ),
         const SizedBox(height: 12),
-        if (contradictions.isEmpty)
+        if (result.failed)
+          _DegradedBanner(gameColors: gameColors)
+        else if (contradictions.isEmpty)
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 24),
             child: Center(
@@ -162,6 +165,43 @@ class _ContradictionTile extends StatelessWidget {
                   ],
                 ],
               ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 引擎异常降级横幅（issue #211）。
+///
+/// detect() 抛异常兜底后展示——明确告知「推理引擎暂不可用」而非空成功，
+/// 避免用户误以为「无矛盾」。只在 release 下真正兜底时出现（debug 下异常
+/// 会经 debugPrint 输出，仍同样展示横幅以便发现）。
+class _DegradedBanner extends StatelessWidget {
+  const _DegradedBanner({required this.gameColors});
+
+  final GameColors gameColors;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: gameColors.blood.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: gameColors.blood.withValues(alpha: 0.4)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.error_outline, size: 18, color: gameColors.blood),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              '推理引擎暂不可用，矛盾检测已暂停。请重启或反馈问题。',
+              style: AppTextStyles.caption
+                  .copyWith(color: gameColors.bloodBright),
             ),
           ),
         ],

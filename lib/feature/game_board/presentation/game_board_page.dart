@@ -104,7 +104,7 @@ class _GameBoardBodyState extends ConsumerState<_GameBoardBody> {
     };
     final contradictions = ref.watch(contradictionsProvider(gameId));
     final contradictionPlayerIds = {
-      for (final c in contradictions) ...c.playerIds,
+      for (final c in contradictions.contradictions) ...c.playerIds,
     };
     final ringPlayers = [
       for (final p in players)
@@ -327,13 +327,13 @@ class _GameBoardBodyState extends ConsumerState<_GameBoardBody> {
           // #160 #8：推理 tab 矛盾计数 badge（迁移自原当日 TabBar）。
           NavigationDestination(
             icon: Badge(
-              isLabelVisible: contradictions.isNotEmpty,
-              label: Text('${contradictions.length}'),
+              isLabelVisible: contradictions.contradictions.isNotEmpty,
+              label: Text('${contradictions.contradictions.length}'),
               child: const Icon(Icons.psychology_outlined),
             ),
             selectedIcon: Badge(
-              isLabelVisible: contradictions.isNotEmpty,
-              label: Text('${contradictions.length}'),
+              isLabelVisible: contradictions.contradictions.isNotEmpty,
+              label: Text('${contradictions.contradictions.length}'),
               child: const Icon(Icons.psychology),
             ),
             label: '推理',

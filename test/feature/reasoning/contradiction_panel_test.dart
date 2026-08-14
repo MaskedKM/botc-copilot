@@ -34,7 +34,8 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          contradictionsProvider(1).overrideWith((ref) => [contradiction]),
+          contradictionsProvider(1)
+              .overrideWith((ref) => ContradictionResult([contradiction])),
           gamePlayersProvider(1).overrideWith((ref) => Stream.value(players)),
         ],
         child: MaterialApp(
@@ -69,7 +70,8 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          contradictionsProvider(1).overrideWith((ref) => [contradiction]),
+          contradictionsProvider(1)
+              .overrideWith((ref) => ContradictionResult([contradiction])),
           gamePlayersProvider(1)
               .overrideWith((ref) => Stream.value(const <Player>[])),
         ],
@@ -88,5 +90,31 @@ void main() {
 
     // 无 chip（ActionChip 不在树中）
     expect(find.byType(ActionChip), findsNothing);
+  });
+
+  // #211：引擎异常兜底后须展示降级横幅，而非「未发现矛盾」的空成功。
+  testWidgets('引擎 failed 时展示降级横幅而非空成功（#211）', (tester) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          contradictionsProvider(1)
+              .overrideWith((ref) => const ContradictionResult([], failed: true)),
+          gamePlayersProvider(1)
+              .overrideWith((ref) => Stream.value(const <Player>[])),
+        ],
+        child: MaterialApp(
+          theme: AppTheme.dark,
+          home: const Scaffold(
+            body: SingleChildScrollView(child: ContradictionPanel(gameId: 1)),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('推理引擎暂不可用，矛盾检测已暂停。请重启或反馈问题。'),
+        findsOneWidget);
+    // 不应误显示「未发现矛盾标记」
+    expect(find.text('未发现矛盾标记'), findsNothing);
   });
 }
