@@ -1,4 +1,5 @@
 import 'package:botc_copilot/core/constants/character.dart';
+import 'package:botc_copilot/core/constants/script.dart';
 import 'package:botc_copilot/core/database/app_database.dart';
 import 'package:botc_copilot/core/theme/app_theme.dart';
 import 'package:botc_copilot/feature/player_detail/presentation/widgets/info_input_factory.dart';
@@ -29,6 +30,7 @@ void main() {
       home: Scaffold(
         body: SingleChildScrollView(
           child: InfoInputFactory.build(
+        script: Script.troubleBrewing,
             character: character,
             players: playersOverride ?? players,
             actingPlayerId: actingPlayerId,

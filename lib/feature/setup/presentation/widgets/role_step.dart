@@ -1,4 +1,5 @@
 import 'package:botc_copilot/core/constants/character.dart';
+import 'package:botc_copilot/core/constants/script_definition.dart';
 import 'package:botc_copilot/core/constants/team.dart';
 import 'package:botc_copilot/core/theme/app_colors.dart';
 import 'package:botc_copilot/core/theme/app_text_styles.dart';
@@ -24,6 +25,7 @@ class RoleStep extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final selected = ref.watch(setupProvider.select((s) => s.myRole));
+    final script = ref.watch(setupProvider.select((s) => s.script));
     final notifier = ref.read(setupProvider.notifier);
     final gameColors = context.gameColors;
 
@@ -45,7 +47,7 @@ class RoleStep extends ConsumerWidget {
             spacing: 8,
             runSpacing: 8,
             children: [
-              for (final role in Character.byTeam(team))
+              for (final role in ScriptDefinition.of(script).byTeam(team))
                 _RoleChip(
                   role: role,
                   selected: role == selected,

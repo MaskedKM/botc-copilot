@@ -1,9 +1,12 @@
 import 'package:botc_copilot/core/constants/character.dart';
+import 'package:botc_copilot/core/constants/script.dart';
+import 'package:botc_copilot/core/constants/script_definition.dart';
 import 'package:botc_copilot/core/constants/character_reference.dart';
 import 'package:botc_copilot/core/constants/team.dart';
 import 'package:botc_copilot/core/database/app_database.dart';
 import 'package:botc_copilot/core/theme/app_text_styles.dart';
 import 'package:botc_copilot/core/theme/game_colors.dart';
+import 'package:botc_copilot/feature/game_board/presentation/providers/game_board_provider.dart';
 import 'package:botc_copilot/feature/reasoning/data/contradictions_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -56,6 +59,10 @@ class _CharacterReferencePageState
   Widget build(BuildContext context) {
     final claims =
         ref.watch(gameClaimsProvider(widget.gameId)).valueOrNull ?? [];
+    final script = ref.watch(
+          gameByIdProvider(widget.gameId).select((g) => g.valueOrNull?.script),
+        ) ??
+        Script.troubleBrewing;
     final claimed = _claimedSet(claims);
 
     final teams = [
@@ -83,7 +90,7 @@ class _CharacterReferencePageState
         padding: const EdgeInsets.symmetric(vertical: 8),
         children: [
           for (final team in teams)
-            ..._teamSection(team, claimed),
+            ..._teamSection(team, claimed, script),
           if (_claimedOnly && claimed.isEmpty)
             const Padding(
               padding: EdgeInsets.all(24),
@@ -97,9 +104,13 @@ class _CharacterReferencePageState
     );
   }
 
-  List<Widget> _teamSection(Team team, Set<Character> claimed) {
+  List<Widget> _teamSection(
+    Team team,
+    Set<Character> claimed,
+    Script script,
+  ) {
     final gameColors = context.gameColors;
-    var chars = Character.byTeam(team);
+    var chars = ScriptDefinition.of(script).byTeam(team);
     if (_claimedOnly) {
       chars = chars.where((c) => claimed.contains(c)).toList();
     }

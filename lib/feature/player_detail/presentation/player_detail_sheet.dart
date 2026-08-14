@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'package:botc_copilot/core/constants/character.dart';
 import 'package:botc_copilot/core/constants/team.dart';
 import 'package:botc_copilot/core/constants/player_setup.dart';
+import 'package:botc_copilot/core/constants/script.dart';
+import 'package:botc_copilot/core/constants/script_definition.dart';
 import 'package:botc_copilot/core/database/app_database.dart';
 import 'package:botc_copilot/core/database/database_provider.dart';
 import 'package:botc_copilot/core/theme/app_colors.dart';
@@ -710,6 +712,10 @@ class _RoleClaimSection extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final helpLevel = ref.watch(gameHelpLevelProvider(gameId));
+    final script = ref.watch(
+          gameByIdProvider(gameId).select((g) => g.valueOrNull?.script),
+        ) ??
+        Script.troubleBrewing;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -738,7 +744,7 @@ class _RoleClaimSection extends ConsumerWidget {
             spacing: 8,
             runSpacing: 4,
             children: [
-              for (final c in Character.byTeam(team))
+              for (final c in ScriptDefinition.of(script).byTeam(team))
                 ChoiceChip(
                   label: Text(c.nameCn),
                   selected: selected == c,
@@ -795,6 +801,10 @@ class _InfoInputSection extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final script = ref.watch(
+          gameByIdProvider(gameId).select((g) => g.valueOrNull?.script),
+        ) ??
+        Script.troubleBrewing;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -803,6 +813,7 @@ class _InfoInputSection extends ConsumerWidget {
         InfoInputFactory.build(
           character: character,
           players: players,
+          script: script,
           actingPlayerId: playerId,
           onSubmit: (payload) async {
             // 先落库草稿声明（非己且选了 chip 时），再录信息（#134）。

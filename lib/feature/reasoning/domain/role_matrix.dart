@@ -1,4 +1,6 @@
 import 'package:botc_copilot/core/constants/character.dart';
+import 'package:botc_copilot/core/constants/script.dart';
+import 'package:botc_copilot/core/constants/script_definition.dart';
 import 'package:botc_copilot/core/database/app_database.dart';
 import 'package:botc_copilot/shared/models/enums.dart';
 
@@ -52,6 +54,7 @@ typedef MatrixRow = Map<Character, MatrixCellState>;
 abstract final class RoleMatrixBuilder {
   /// 构建列聚合 + 每玩家行状态。
   static (List<MatrixColumn>, Map<int, MatrixRow>) build({
+    required Script script,
     required List<Player> players,
     required List<RoleClaim> claims,
     required List<Character> demonBluffs,
@@ -106,7 +109,7 @@ abstract final class RoleMatrixBuilder {
 
     // 列：每角色的声明者
     final columns = <MatrixColumn>[
-      for (final c in Character.values)
+      for (final c in ScriptDefinition.of(script).characters)
         MatrixColumn(
           character: c,
           claimantIds: [

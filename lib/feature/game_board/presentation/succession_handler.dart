@@ -1,4 +1,5 @@
 import 'package:botc_copilot/core/constants/character.dart';
+import 'package:botc_copilot/core/constants/script.dart';
 import 'package:botc_copilot/core/database/database_provider.dart';
 import 'package:botc_copilot/feature/game_board/domain/game_end.dart';
 import 'package:botc_copilot/feature/game_board/domain/succession.dart';
@@ -68,6 +69,7 @@ Future<void> handleSuccession(
     heirCandidates: heirs,
     allowDeathReveal: candidate.way == DeathWay.slayer,
     initialRevealedRole: revealedRole,
+    script: game?.script ?? Script.troubleBrewing,
   );
   if (result == null || !context.mounted) return;
   // 优先用调用方传入的揭示角色（处决），否则用对话框收集的（Slayer）。

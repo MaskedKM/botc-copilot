@@ -1,4 +1,5 @@
 import 'package:botc_copilot/core/constants/character.dart';
+import 'package:botc_copilot/core/constants/script.dart';
 import 'package:botc_copilot/core/database/app_database.dart';
 import 'package:botc_copilot/feature/game_board/domain/nomination_rules.dart';
 import 'package:botc_copilot/feature/reasoning/domain/latest_claim.dart';
@@ -79,6 +80,7 @@ void main() {
     test('我座位显示 myRole（私密状态）并计入列', () {
       final players = [_player(1), _player(2)];
       final (columns, rows) = RoleMatrixBuilder.build(
+      script: Script.troubleBrewing,
         players: players,
         claims: [_claim(2, Character.chef)],
         demonBluffs: const [],
@@ -96,6 +98,7 @@ void main() {
     test('无 myRole → 我座位仍空（不注入）', () {
       final players = [_player(1)];
       final (columns, rows) = RoleMatrixBuilder.build(
+      script: Script.troubleBrewing,
         players: players,
         claims: const [],
         demonBluffs: const [],

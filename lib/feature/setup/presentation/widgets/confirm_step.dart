@@ -1,4 +1,4 @@
-import 'package:botc_copilot/core/constants/character.dart';
+import 'package:botc_copilot/core/constants/script_definition.dart';
 import 'package:botc_copilot/core/constants/team.dart';
 import 'package:botc_copilot/core/theme/app_text_styles.dart';
 import 'package:botc_copilot/core/theme/game_colors.dart';
@@ -114,12 +114,15 @@ class ConfirmStep extends ConsumerWidget {
                       spacing: 8,
                       runSpacing: 4,
                       children: [
-                        for (final c in Character.values.where(
-                          // #152 BUG-1：官方 Bluff = 3 个不在场的好人角色
-                          // （镇民 + 外来者）。原 `!= demon` 误含爪牙（Poisoner/
-                          // Spy/SW/Baron），污染角色矩阵标注与排除法矛盾检测。
-                          (c) => c.team.isGood,
-                        ))
+                        for (final c in ScriptDefinition.of(state.script)
+                            .characters
+                            .where(
+                              // #152 BUG-1：官方 Bluff = 3 个不在场的好人角色
+                              // （镇民 + 外来者）。原 `!= demon` 误含爪牙（
+                              // Poisoner/Spy/SW/Baron），污染角色矩阵标注与
+                              // 排除法矛盾检测。
+                              (c) => c.team.isGood,
+                            ))
                           ChoiceChip(
                             label: Text(c.nameCn),
                             selected: state.demonBluffs.contains(c),

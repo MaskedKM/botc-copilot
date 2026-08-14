@@ -1,6 +1,7 @@
 import 'package:botc_copilot/core/constants/character.dart';
 import 'package:botc_copilot/core/constants/info_input_type.dart';
 import 'package:botc_copilot/core/constants/night_order.dart';
+import 'package:botc_copilot/core/constants/script.dart';
 import 'package:botc_copilot/core/database/app_database.dart';
 import 'package:botc_copilot/core/theme/app_text_styles.dart';
 import 'package:botc_copilot/core/theme/game_colors.dart';
@@ -118,6 +119,10 @@ class _NightActionEntry extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final players = ref.watch(gamePlayersProvider(gameId)).valueOrNull ?? [];
+    final script = ref.watch(
+          gameByIdProvider(gameId).select((g) => g.valueOrNull?.script),
+        ) ??
+        Script.troubleBrewing;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -130,6 +135,7 @@ class _NightActionEntry extends ConsumerWidget {
         InfoInputFactory.build(
           character: character,
           players: players,
+          script: script,
           actingPlayerId: player.id,
           onSubmit: (payload) async {
             try {

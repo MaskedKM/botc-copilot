@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:botc_copilot/core/constants/character.dart';
+import 'package:botc_copilot/core/constants/script.dart';
 import 'package:botc_copilot/core/database/app_database.dart';
 import 'package:botc_copilot/core/database/database_provider.dart';
 import 'package:botc_copilot/core/theme/app_text_styles.dart';
@@ -336,6 +337,10 @@ Future<void> handleEndSuggestion(
   GameEndSuggestion suggestion,
 ) async {
   final notifier = ref.read(gameBoardProvider(gameId).notifier);
+  final script = ref.read(
+        gameByIdProvider(gameId).select((g) => g.valueOrNull?.script),
+      ) ??
+      Script.troubleBrewing;
   switch (suggestion) {
     case DemonSuccessionCandidate():
       // 恶魔死亡 → 传承/善良胜确认（issue #89，三路径统一）
@@ -392,6 +397,7 @@ Future<void> handleEndSuggestion(
       final result = await EndGameDialog.showDemonCheck(
         context,
         executedName: executedName,
+        script: script,
       );
       if (result == null || !context.mounted) return;
       if (result.goodWin ?? false) {

@@ -1,4 +1,5 @@
 import 'package:botc_copilot/core/constants/character.dart';
+import 'package:botc_copilot/core/constants/script.dart';
 import 'package:botc_copilot/core/database/app_database.dart';
 import 'package:botc_copilot/feature/reasoning/domain/role_matrix.dart';
 import 'package:botc_copilot/shared/models/enums.dart';
@@ -34,6 +35,7 @@ void main() {
 
   test('基本聚合：列含声明者，行含状态', () {
     final (columns, rows) = RoleMatrixBuilder.build(
+      script: Script.troubleBrewing,
       players: players,
       claims: [
         _claim(1, 1, Character.chef),
@@ -51,6 +53,7 @@ void main() {
 
   test('多人声明同一角色 → hasConflict', () {
     final (columns, _) = RoleMatrixBuilder.build(
+      script: Script.troubleBrewing,
       players: players,
       claims: [
         _claim(1, 1, Character.chef),
@@ -65,6 +68,7 @@ void main() {
 
   test('改口：旧角色 changed，新角色 claimed', () {
     final (columns, rows) = RoleMatrixBuilder.build(
+      script: Script.troubleBrewing,
       players: players,
       claims: [
         _claim(1, 1, Character.chef),
@@ -81,6 +85,7 @@ void main() {
 
   test('死亡揭示 → confirmed，不被改口覆盖', () {
     final (_, rows) = RoleMatrixBuilder.build(
+      script: Script.troubleBrewing,
       players: players,
       claims: [
         _claim(1, 1, Character.virgin, type: ClaimType.revealedOnDeath),
@@ -92,6 +97,7 @@ void main() {
 
   test('Bluff 标记 + 无人声明 isUnclaimed', () {
     final (columns, _) = RoleMatrixBuilder.build(
+      script: Script.troubleBrewing,
       players: players,
       claims: [_claim(1, 1, Character.chef)],
       demonBluffs: [Character.poisoner, Character.spy],
@@ -108,6 +114,7 @@ void main() {
 
   test('空输入：所有列 unclaimed，行全空', () {
     final (columns, rows) = RoleMatrixBuilder.build(
+      script: Script.troubleBrewing,
       players: players,
       claims: [],
       demonBluffs: [],
