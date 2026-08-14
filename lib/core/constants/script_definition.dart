@@ -1,4 +1,5 @@
 import 'package:botc_copilot/core/constants/character.dart';
+import 'package:botc_copilot/core/constants/night_order.dart';
 import 'package:botc_copilot/core/constants/script.dart';
 import 'package:botc_copilot/core/constants/team.dart';
 
@@ -13,13 +14,29 @@ import 'package:botc_copilot/core/constants/team.dart';
 /// 全量查找——那是跨剧本的枚举查找，不是角色池消费。
 class ScriptDefinition {
   /// 创建剧本定义。
-  const ScriptDefinition({required this.script, required this.characters});
+  const ScriptDefinition({
+    required this.script,
+    required this.characters,
+    this.firstNightSteps = const [],
+    this.otherNightSteps = const [],
+  });
 
   /// 剧本标识。
   final Script script;
 
   /// 该剧本的角色池（TB = 全 22 个；BMR/S&V 待 #217 录入，现为空池）。
   final List<Character> characters;
+
+  /// 首夜步骤（含共享开场步骤，#232）。BMR/S&V 待 #217 录入。
+  final List<NightOrderStep> firstNightSteps;
+
+  /// 后续夜步骤（#232）。BMR/S&V 待 #217 录入。
+  final List<NightOrderStep> otherNightSteps;
+
+  /// 当天对应的夜晚步骤：day ≤ 1 首夜，否则后续夜（#232 起 game.script
+  /// 业务分派入口）。
+  List<NightOrderStep> nightStepsFor(int dayNumber) =>
+      dayNumber <= 1 ? firstNightSteps : otherNightSteps;
 
   /// 取剧本定义；未注册剧本（BMR/S&V 角色未录期间）兜底 TB——
   /// 现阶段 setup 已禁用其余剧本，兜底仅为防御脏数据（如换库残留）。
@@ -58,6 +75,8 @@ class ScriptDefinition {
 const scriptDefinitions = <Script, ScriptDefinition>{
   Script.troubleBrewing: ScriptDefinition(
     script: Script.troubleBrewing,
+    firstNightSteps: firstNightSteps,
+    otherNightSteps: otherNightSteps,
     characters: [
       // 镇民 13
       Character.washerwoman,
@@ -97,3 +116,10 @@ const scriptDefinitions = <Script, ScriptDefinition>{
     characters: [],
   ),
 };
+
+/// 当天对应的夜晚步骤（按剧本分派，#232）。
+///
+/// [script] 经 game.script 传入——这是 game.script 首次业务消费点；
+/// 未注册剧本经 [ScriptDefinition.of] 兜底 TB。
+List<NightOrderStep> nightStepsForDay(Script script, int dayNumber) =>
+    ScriptDefinition.of(script).nightStepsFor(dayNumber);

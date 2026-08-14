@@ -1,4 +1,5 @@
 import 'package:botc_copilot/core/constants/character.dart';
+import 'package:botc_copilot/core/constants/night_order.dart';
 import 'package:botc_copilot/core/constants/script.dart';
 import 'package:botc_copilot/core/constants/script_definition.dart';
 import 'package:botc_copilot/core/constants/team.dart';
@@ -77,6 +78,39 @@ void main() {
       // claimedOutsiderDelta 展开取 max，-1 被忽略（保守上界，避免漏报 over）。
       // 现有数据下以空列表模拟「无修正角色」侧断言基线行为。
       expect(ScriptDefinition.claimedOutsiderDelta(const []), 0);
+    });
+  });
+
+  group('夜序入 ScriptDefinition（#232）', () {
+    test('等值：TB 注册表引用与 night_order 常量为同一对象（golden）', () {
+      final def = ScriptDefinition.of(Script.troubleBrewing);
+      expect(identical(def.firstNightSteps, firstNightSteps), isTrue);
+      expect(identical(def.otherNightSteps, otherNightSteps), isTrue);
+      // 首夜含共享开场步骤（identity 同源）
+      expect(identical(openingSteps.first, firstNightSteps.first), isTrue);
+    });
+
+    test('nightStepsForDay(Script, day)：day 1 首夜 / day≥2 后续夜', () {
+      expect(
+        identical(nightStepsForDay(Script.troubleBrewing, 1), firstNightSteps),
+        isTrue,
+      );
+      expect(
+        identical(nightStepsForDay(Script.troubleBrewing, 3), otherNightSteps),
+        isTrue,
+      );
+    });
+
+    test('game.script 分派链路：换剧本分派到各自数据（BMR 空池=仅缺数据）', () {
+      // BMR 已注册但夜序未录入（#217）→ 诚实返回空列表，分派链路本身打通；
+      // 不会误兜底 TB（of() 兜底仅针对未注册剧本防脏数据）。
+      expect(nightStepsForDay(Script.badMoonRising, 1), isEmpty);
+      expect(nightStepsForDay(Script.sectsAndViolets, 2), isEmpty);
+    });
+
+    test('开场步骤为共享全局规则（三步，非剧本专属）', () {
+      expect(openingSteps, hasLength(3));
+      expect(openingSteps.every((s) => s.character == null), isTrue);
     });
   });
 }
