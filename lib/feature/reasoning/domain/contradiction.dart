@@ -32,7 +32,16 @@ enum ContradictionType {
   bluffClaim('声明恶魔 Bluff 角色'),
 
   /// 镇民/爪牙/恶魔声明总数超过配置槽位（issue #212，硬约束）。
-  teamCountOverflow('阵营人数超限');
+  teamCountOverflow('阵营人数超限'),
+
+  /// 开局指认（洗衣妇/调查员/图书管理员）与已确认角色或 Bluff 冲突（#213）。
+  startInfoPingConflict('开局指认与确认冲突'),
+
+  /// 图书管理员「无外来者」信息与已确认外来者冲突（#213）。
+  zeroOutsiderConflict('「无外来者」与确认冲突'),
+
+  /// 厨师计数与邪恶配置/已确认邪恶座位冲突（#213）。
+  chefCountMismatch('厨师计数与邪恶不符');
 
   const ContradictionType(this.nameCn);
 
@@ -146,7 +155,10 @@ abstract final class ContradictionDetector {
         latestClaim,
         playersById,
         dayRecordToDayNumber,
+        confirmedRoles,
         labelOf,
+        myPlayerId: myPlayerId,
+        myRole: myRole,
       ),
       ..._fortuneTellerMismatch(
         declarations,
@@ -158,6 +170,23 @@ abstract final class ContradictionDetector {
       ),
       ..._noDeathNights(days, declarations, dayRecordToDayNumber),
       ..._bluffClaims(latestClaim, demonBluffs, labelOf),
+      ..._startInfoPingConflicts(
+        declarations,
+        confirmedRoles,
+        demonBluffs,
+        labelOf,
+        myPlayerId: myPlayerId,
+        myRole: myRole,
+      ),
+      ..._chefCountMismatch(
+        declarations,
+        confirmedRoles,
+        playersById,
+        setup,
+        labelOf,
+        myPlayerId: myPlayerId,
+        myRole: myRole,
+      ),
     ];
   }
 
@@ -371,9 +400,14 @@ abstract final class ContradictionDetector {
     return result;
   }
 
-  /// 规则 4：Empath 报 N>0 邪恶，但当时存活的邻座都声明好人。
+  /// 规则 4：Empath 读数与邻居声明 / 已确认邪恶交叉验证。
   ///
-  /// 已知局限（#151 S4，可接受）：未建模 Recluse（可登记为邪恶）/ Spy（可登记为
+  /// - 正向：报 N>0 邪恶，但当时存活的邻座都声明好人。
+  /// - 反向（#213）：报 0，但当时存活的邻座已被**死亡揭示 / 真实角色**确认
+  ///   为严格邪恶（非 Spy 的爪牙/恶魔）。清醒 Empath 必读 ≥1 → warning。
+  ///   Spy/Recluse 邻座不触发（登记弹性：Spy 可向善良登记、Recluse 默认善良）。
+  ///
+  /// 已知局限（#151 S4，可接受）：正向未建模 Recluse（可登记为邪恶）/ Spy（可登记为
   /// 好人）的 registration——邻座是 Recluse 时 Empath 合法读出邪恶，可能误报。
   /// 属隐藏信息，App 无法确认真身；该矛盾为 info 级（仅提示），且 Recluse/Spy 在场
   /// 时可靠性 overlay 已降级，误报影响可控。
@@ -382,13 +416,16 @@ abstract final class ContradictionDetector {
     Map<int, RoleClaim> latestClaim,
     Map<int, Player> playersById,
     Map<int, int> dayRecordToDayNumber,
-    String Function(int) labelOf,
-  ) {
+    Map<int, Character> confirmedRoles,
+    String Function(int) labelOf, {
+    int? myPlayerId,
+    Character? myRole,
+  }) {
     final results = <Contradiction>[];
     for (final decl in declarations) {
       if (decl.characterType != Character.empath) continue;
       final value = _payloadValue(decl.payloadJson);
-      if (value == null || value == 0) continue;
+      if (value == null) continue;
       // 公理4：醉/毒 Empath 信息为假，邻座全好人不构成矛盾（#136）。
       // reliability 已由 contradictions_provider 的 effectiveReliability overlay
       // 降级（整局醉 + 按天毒），故此处直接判。
@@ -416,6 +453,62 @@ abstract final class ContradictionDetector {
       final neighbors = _aliveNeighbors(empath, aliveThen);
       if (neighbors.isEmpty) continue;
 
+      // 反向（#213）：0 但当时存活邻座已确认严格邪恶。
+      if (value == 0) {
+        final evilNeighbors = neighbors
+            .where((n) {
+              final c = confirmedRoles[n.id] ??
+                  (n.id == myPlayerId ? myRole : null);
+              return c != null && _strictlyEvil(c);
+            })
+            .toList();
+        if (evilNeighbors.isNotEmpty) {
+          results.add(
+            Contradiction(
+              type: ContradictionType.empathMismatch,
+              playerIds: [
+                decl.playerId,
+                ...evilNeighbors.map((n) => n.id),
+              ],
+              description:
+                  '${labelOf(decl.playerId)} 的 Empath 信息为 0，'
+                  '但邻座 ${evilNeighbors.map((n) => labelOf(n.id)).join('、')} '
+                  '已确认邪恶（死亡揭示/真实角色）。信息必假（醉/毒已滤）。',
+              severity: ContradictionSeverity.warning,
+              dayNumber: day,
+            ),
+          );
+        }
+        continue;
+      }
+
+      // 正向补强（#213 review）：报 >0 但当时存活邻座**全部已确认**善良
+      // （镇民/外来者且非隐士）——无任何可登记为邪恶的邻座（隐士可向邪恶
+      // 登记；Spy 属邪恶队、确认后仍默认按邪恶登记，二者均排除在「确认
+      // 善良」外），读数不可能 → warning。强于下方基于声明的 info 检查，
+      // 触发即短路避免同一 decl 双报。
+      final allConfirmedGoodNonRecluse = neighbors.every((n) {
+        final c =
+            confirmedRoles[n.id] ?? (n.id == myPlayerId ? myRole : null);
+        return c != null && c.team.isGood && c != Character.recluse;
+      });
+      if (allConfirmedGoodNonRecluse) {
+        results.add(
+          Contradiction(
+            type: ContradictionType.empathMismatch,
+            playerIds: [decl.playerId, ...neighbors.map((n) => n.id)],
+            description:
+                '${labelOf(decl.playerId)} 的 Empath 信息为 $value，'
+                '但当时邻座 ${neighbors.map((n) => labelOf(n.id)).join('、')} '
+                '均已确认善良（非隐士）——无人可登记为邪恶，读数必假'
+                '（醉/毒已滤）。',
+            severity: ContradictionSeverity.warning,
+            dayNumber: day,
+          ),
+        );
+        continue;
+      }
+
       // 邻居都声明好人角色（镇民/外来者）
       final allGoodClaims = neighbors.every((n) {
         final claim = latestClaim[n.id];
@@ -423,7 +516,15 @@ abstract final class ContradictionDetector {
             (claim.character.team == Team.townsfolk ||
                 claim.character.team == Team.outsider);
       });
-      if (allGoodClaims) {
+      // #213 review：邻座已确认是隐士/间谍 → 读邪恶合法（登记弹性：隐士
+      // 可向邪恶登记、间谍默认按邪恶登记）。原 #151 S4「隐藏信息不可知」
+      // 局限在**有确认证据**时可精确豁免，不再误报。
+      final registrationExplains = neighbors.any((n) {
+        final c =
+            confirmedRoles[n.id] ?? (n.id == myPlayerId ? myRole : null);
+        return c == Character.recluse || c == Character.spy;
+      });
+      if (allGoodClaims && !registrationExplains) {
         results.add(
           Contradiction(
             type: ContradictionType.empathMismatch,
@@ -535,6 +636,222 @@ abstract final class ContradictionDetector {
       }
     }
     return results;
+  }
+
+  /// 规则 7（#213）：开局指认与已确认角色 / 恶魔 Bluff 交叉验证。
+  ///
+  /// 洗衣妇/调查员/图书管理员「{A,B} 中有一人是 Y」——清醒时必真：一人
+  /// **是** Y，或**登记为** Y。官方 registration 是**单向且可选**（might
+  /// register，说书人决定）：Spy 只能向善良登记（可冒充镇民/外来者）、
+  /// Recluse 只能向邪恶登记（可冒充爪牙/恶魔）。故：
+  /// - 证据 1：Y 已被死亡揭示 / 我座位确认在**第三人**身上 → 唯一性公理下
+  ///   pair 无人是 Y → 只剩登记冒充可解释；
+  /// - 证据 2：Y ∈ 恶魔 Bluff（确定性不在场）→ 同上。
+  /// 逃生舱：善良 Y 仅 Spy、爪牙 Y 仅 Recluse。pair 全员已确认非逃生角色 →
+  /// 无合法解释 → warning；否则 info（可能含未确认的 Spy/Recluse）。
+  static List<Contradiction> _startInfoPingConflicts(
+    List<InfoDeclaration> declarations,
+    Map<int, Character> confirmedRoles,
+    Set<Character> demonBluffs,
+    String Function(int) labelOf, {
+    int? myPlayerId,
+    Character? myRole,
+  }) {
+    final results = <Contradiction>[];
+    // 「确认角色」统一视图：死亡揭示优先；我座位补真实角色（#107 注入同源，
+    // myRole 对非 Drunk 是真相）。
+    Character? confirmedOf(int pid) =>
+        confirmedRoles[pid] ?? (pid == myPlayerId ? myRole : null);
+
+    for (final decl in declarations) {
+      final type = decl.characterType;
+      if (type != Character.washerwoman &&
+          type != Character.investigator &&
+          type != Character.librarian) {
+        continue;
+      }
+      // 公理4：醉/毒的开局信息可能为假（reliability 已 overlay 降级）。
+      if (decl.reliability == Reliability.possiblyTainted ||
+          decl.reliability == Reliability.invalidated) {
+        continue;
+      }
+      final parsed = _parsePingPayload(decl.payloadJson);
+      if (parsed == null) continue;
+      final (pair, y) = parsed;
+
+      // Librarian「无外来者」：任一已确认外来者即证伪（Spy 登记不产生真
+      // 外来者，无逃生舱；Drunk 的 myRole 是镇民 bluff，不会误触发）。
+      if (y == null && pair.isEmpty) {
+        final confirmedOutsiders = <int>[
+          for (final e in confirmedRoles.entries)
+            if (e.value.team == Team.outsider) e.key,
+          if (myPlayerId != null &&
+              myRole != null &&
+              myRole.team == Team.outsider)
+            myPlayerId,
+        ];
+        if (confirmedOutsiders.isNotEmpty) {
+          results.add(
+            Contradiction(
+              type: ContradictionType.zeroOutsiderConflict,
+              playerIds: confirmedOutsiders,
+              description:
+                  '${labelOf(decl.playerId)} 的图书管理员信息为「无外来者在场」，'
+                  '但 ${confirmedOutsiders.map(labelOf).join('、')} 已确认是外来者'
+                  '——信息必假。',
+              severity: ContradictionSeverity.warning,
+            ),
+          );
+        }
+        continue;
+      }
+      if (y == null || pair.length != 2) continue;
+
+      // pair 成员已确认是 Y → ping 自洽（review 修复）：Y 被冲突揭示在多人
+      // 身上时（数据录入冲突，由规则 2 处理），只要 pair 内有确认 Y，本条
+      // ping 就不应误报。
+      final yInPair = pair.any((pid) => confirmedOf(pid) == y);
+      if (yInPair) continue;
+
+      final elsewhere = <int>[
+        for (final e in confirmedRoles.entries)
+          if (e.value == y && !pair.contains(e.key)) e.key,
+        if (myRole == y && myPlayerId != null && !pair.contains(myPlayerId))
+          myPlayerId,
+      ];
+      final isBluff = demonBluffs.contains(y);
+      if (elsewhere.isEmpty && !isBluff) continue;
+
+      final escape = y.team.isGood ? Character.spy : Character.recluse;
+      final escapePossible = pair.any((pid) {
+        final c = confirmedOf(pid);
+        return c == null || c == escape;
+      });
+
+      final evidence = isBluff
+          ? '${y.nameCn} 在恶魔 Bluff 名单中（确定性不在场）'
+          : '${y.nameCn} 已确认在 ${labelOf(elsewhere.first)} 身上';
+      results.add(
+        Contradiction(
+          type: ContradictionType.startInfoPingConflict,
+          playerIds: [decl.playerId, ...pair],
+          description:
+              '${labelOf(decl.playerId)} 的${type.nameCn}信息称 '
+              '${pair.map(labelOf).join('、')} 中有一人是 ${y.nameCn}，'
+              '但 $evidence——信息为假，或其中有人是${escape.nameCn}（登记冒充）。',
+          severity: escapePossible
+              ? ContradictionSeverity.info
+              : ContradictionSeverity.warning,
+        ),
+      );
+    }
+    return results;
+  }
+
+  /// 规则 8（#213）：厨师计数交叉验证。
+  ///
+  /// 厨师得知开局「相邻邪恶对数」（登记语义：Spy 默认邪恶但可向善良登记、
+  /// Recluse 默认善良但可向邪恶登记）。
+  /// - **上界（确定性）**：登记邪恶至多 evilCount + 1 人（邪恶全体 + 1 个
+  ///   Recluse），环形相邻对至多 evilCount → N > evilCount 物理不可能。
+  /// - **下界**：已确认**严格邪恶**（无登记弹性的爪牙/恶魔，即非 Spy）的
+  ///   相邻对必然计入 N → 相邻对数 > N 即矛盾。含 Spy/Recluse 的对不作为
+  ///   下界证据（登记弹性双向开脱）。
+  static List<Contradiction> _chefCountMismatch(
+    List<InfoDeclaration> declarations,
+    Map<int, Character> confirmedRoles,
+    Map<int, Player> playersById,
+    PlayerSetup? setup,
+    String Function(int) labelOf, {
+    int? myPlayerId,
+    Character? myRole,
+  }) {
+    final strictEvil = <int>{
+      for (final e in confirmedRoles.entries)
+        if (_strictlyEvil(e.value)) e.key,
+      if (myPlayerId != null && myRole != null && _strictlyEvil(myRole))
+        myPlayerId,
+    };
+    // 开局全员存活，相邻 = 座位环上紧邻（死亡揭示只是揭示身份，不改变
+    // 开局座位关系）。
+    final sorted = [...playersById.values]
+      ..sort((a, b) => a.seatNumber - b.seatNumber);
+    var adjacentPairs = 0;
+    for (var i = 0; i < sorted.length; i++) {
+      final a = sorted[i];
+      final b = sorted[(i + 1) % sorted.length];
+      if (strictEvil.contains(a.id) && strictEvil.contains(b.id)) {
+        adjacentPairs++;
+      }
+    }
+
+    final results = <Contradiction>[];
+    for (final decl in declarations) {
+      if (decl.characterType != Character.chef) continue;
+      if (decl.reliability == Reliability.possiblyTainted ||
+          decl.reliability == Reliability.invalidated) {
+        continue;
+      }
+      final n = _payloadValue(decl.payloadJson);
+      if (n == null) continue;
+      if (setup != null && n > setup.evilCount) {
+        results.add(
+          Contradiction(
+            type: ContradictionType.chefCountMismatch,
+            playerIds: [decl.playerId],
+            description:
+                '${labelOf(decl.playerId)} 的厨师信息为 $n，'
+                '但 ${setup.playerCount} 人局邪恶仅 ${setup.evilCount} 人'
+                '（含至多 1 个登记为邪恶的隐士），相邻邪恶对至多 '
+                '${setup.evilCount}——信息必假。',
+            severity: ContradictionSeverity.warning,
+          ),
+        );
+      }
+      if (adjacentPairs > n) {
+        results.add(
+          Contradiction(
+            type: ContradictionType.chefCountMismatch,
+            playerIds: [decl.playerId, ...strictEvil],
+            description:
+                '${labelOf(decl.playerId)} 的厨师信息为 $n，'
+                '但已确认邪恶座位中已有 $adjacentPairs 对相邻'
+                '（${strictEvil.map(labelOf).join('、')}）——信息必假或揭示有误。',
+            severity: ContradictionSeverity.warning,
+          ),
+        );
+      }
+    }
+    return results;
+  }
+
+  /// 严格邪恶：非 Spy 的爪牙/恶魔（登记语义无弹性，可作确定性信号）。
+  ///
+  /// Spy「可能登记为善良」、Recluse「可能登记为邪恶」——官方 might register
+  /// 均为说书人可选，故涉及二者的交叉验证不可作为确定结论。
+  static bool _strictlyEvil(Character c) =>
+      (c.team == Team.minion || c.team == Team.demon) && c != Character.spy;
+
+  /// 解析开局指认 payload `{"character": "...", "playerIds": [a, b]}`。
+  ///
+  /// Librarian「无外来者」为 `{"character": null, "playerIds": []}` →
+  /// `([], null)`。损坏 payload 返回 null。
+  static (List<int>, Character?)? _parsePingPayload(String payloadJson) {
+    try {
+      final decoded = jsonDecode(payloadJson);
+      if (decoded is! Map) return null;
+      final ids = decoded['playerIds'];
+      if (ids is! List) return null;
+      final pair = ids.whereType<int>().toList();
+      Character? y;
+      final name = decoded['character'];
+      if (name is String) {
+        y = Character.values.where((c) => c.name == name).firstOrNull;
+      }
+      return (pair, y);
+    } on Object {
+      return null;
+    }
   }
 
   /// 规则 5：无人死亡夜晚 → 列出可能性（仅提示，不涉及具体玩家）。
