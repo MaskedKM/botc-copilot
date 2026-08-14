@@ -363,10 +363,18 @@ Future<void> handleEndSuggestion(
       if (confirmed ?? false) {
         await notifier.endGame(goodWin: false);
       }
+    case GoodWinCandidate(:final aliveCount):
+      // 恶魔确认已死无继 + 2 人存活 → 善良胜（#208，用户终裁）。
+      final confirmed = await EndGameDialog.showGoodWinCandidate(
+        context,
+        aliveCount: aliveCount,
+      );
+      if (confirmed ?? false) {
+        await notifier.endGame(goodWin: true);
+      }
     case DemonExecutionCheck(
         :final executedPlayerId,
         :final executedName,
-        :final aliveCountAfter,
       ):
       // Saint 处决 → 邪恶立即获胜（issue #54）。
       // App 按玩家**声明**提示：声明圣徒被处决时弹出邪恶胜确认。
@@ -434,26 +442,35 @@ Future<void> handleEndSuggestion(
           role: result.revealedRole!,
         );
       }
-      if (context.mounted &&
-          !(result.goodWin ?? false) &&
-          GameEndRules.isEvilWinCandidate(aliveCountAfter)) {
-        await _checkEvilWinAfterExecution(context, notifier, aliveCountAfter);
+      if (context.mounted && !(result.goodWin ?? false)) {
+        await _checkHeadsWinAfterExecution(context, notifier);
       }
   }
 }
 
-/// 处决非恶魔后，若存活 ≤ 2 则级联提示邪恶获胜。
-Future<void> _checkEvilWinAfterExecution(
+/// 处决非恶魔后的级联人头终局检查（#208：统一走 [checkHeadsWin] 门控——
+/// 恶魔确认已死无继时提示善良胜，否则按存活 ≤2 提示邪恶胜）。
+Future<void> _checkHeadsWinAfterExecution(
   BuildContext context,
   GameBoardNotifier notifier,
-  int aliveCount,
 ) async {
-  final confirmed = await EndGameDialog.showEvilCandidate(
-    context,
-    aliveCount: aliveCount,
-  );
-  if (confirmed ?? false) {
-    await notifier.endGame(goodWin: false);
+  final suggestion = await notifier.checkHeadsWin();
+  if (suggestion is EvilWinCandidate) {
+    final confirmed = await EndGameDialog.showEvilCandidate(
+      context,
+      aliveCount: suggestion.aliveCount,
+    );
+    if (confirmed ?? false) {
+      await notifier.endGame(goodWin: false);
+    }
+  } else if (suggestion is GoodWinCandidate) {
+    final confirmed = await EndGameDialog.showGoodWinCandidate(
+      context,
+      aliveCount: suggestion.aliveCount,
+    );
+    if (confirmed ?? false) {
+      await notifier.endGame(goodWin: true);
+    }
   }
 }
 

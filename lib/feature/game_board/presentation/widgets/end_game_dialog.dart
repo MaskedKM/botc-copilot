@@ -9,8 +9,10 @@ import 'package:flutter/material.dart';
 
 /// 对局结束确认 dialog（issue #37）。
 ///
-/// 三种入口：
+/// 四种入口：
 /// - [showEvilCandidate]：存活 ≤ 2 时提示"邪恶获胜？"
+/// - [showGoodWinCandidate]：存活 ≤ 2 且恶魔确认已死无继时提示"善良获胜？"
+///   （issue #208）
 /// - [showDemonCheck]：处决后确认"被处决者是恶魔吗？"，可录入死亡揭示角色
 /// - [showMayorCheck]：3 人存活且无人被处决时确认市长是否在场（issue #88）
 abstract final class EndGameDialog {
@@ -38,6 +40,42 @@ abstract final class EndGameDialog {
             ),
             onPressed: () => Navigator.pop(context, true),
             child: const Text('邪恶获胜'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 恶魔已死无存活继承人 + 存活 ≤ 2（issue #208）。
+  ///
+  /// 官方前提「恶魔活到只剩 2 人」不成立——按记录恶魔已死且无传承，
+  /// 应提示善良胜。返回 true=确认善良获胜，false/null=继续游戏（认知
+  /// 极限兜底：SW 自动继承等未记录事件由用户裁决）。
+  static Future<bool?> showGoodWinCandidate(
+    BuildContext context, {
+    required int aliveCount,
+  }) {
+    return showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('恶魔已死？', style: AppTextStyles.title),
+        content: Text(
+          '场上仅剩 $aliveCount 名存活玩家，且记录显示恶魔已死亡、'
+          '无存活继承人。\n按官方规则，人头邪恶胜的前提是恶魔活到最后——'
+          '此时应为善良阵营获胜。',
+          style: AppTextStyles.body,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('继续游戏'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: context.gameColors.trustConfirmedGood,
+            ),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('善良获胜'),
           ),
         ],
       ),

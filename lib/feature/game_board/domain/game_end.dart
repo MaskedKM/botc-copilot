@@ -4,8 +4,9 @@ import 'package:botc_copilot/shared/models/enums.dart';
 /// 对局结束建议（issue #37）。
 ///
 /// 官方规则：
-/// - 善良胜：恶魔被处决 / 市长特殊胜利（3 人存活且无处决，issue #88）
-/// - 邪恶胜：仅剩 2 名存活玩家
+/// - 善良胜：恶魔被处决 / 市长特殊胜利（3 人存活且无处决，issue #88）/
+///   恶魔已死无继承人时的人头判定（issue #208）
+/// - 邪恶胜：仅剩 2 名存活玩家（前提：恶魔活到此时）
 sealed class GameEndSuggestion {
   const GameEndSuggestion();
 }
@@ -13,6 +14,19 @@ sealed class GameEndSuggestion {
 /// 存活 ≤ 2，邪恶可能获胜。
 class EvilWinCandidate extends GameEndSuggestion {
   const EvilWinCandidate(this.aliveCount);
+
+  /// 当前存活人数。
+  final int aliveCount;
+}
+
+/// 恶魔确认已死且无存活继承人 → 善良胜候选（issue #208）。
+///
+/// 官方「恶魔**活到**只剩 2 人」是人头邪恶胜的前提；当存档事实（死亡
+/// 揭示 / 传承链，见 `DemonStatusResolver`）显示恶魔已死且无继时，2 人
+/// 存活应提示善良胜而非邪恶胜。认知极限：SW 自动继承等未记录事件不可
+/// 知——本候选仅作对话框首选，由用户终裁。
+class GoodWinCandidate extends GameEndSuggestion {
+  const GoodWinCandidate(this.aliveCount);
 
   /// 当前存活人数。
   final int aliveCount;

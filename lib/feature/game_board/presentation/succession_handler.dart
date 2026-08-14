@@ -91,18 +91,26 @@ Future<void> handleSuccession(
         role: reveal,
       );
     }
-    // #149 BUG-1 场景B：传承完成后再判人头邪恶胜（Imp 自杀 + 爪牙传承后
-    // 存活 ≤ 2）。SW 传承必在存活 ≥4 时发生（不误触）；仅普通传位（自杀）
-    // 可能落到 ≤2，此时恶魔仍在场 → 邪恶胜。recordSuccession 不改存活数，
-    // 复用 candidate.aliveCountAfter（恶魔死后存活数）即可。
-    final aliveAfter = candidate.aliveCountAfter;
-    if (context.mounted && GameEndRules.isEvilWinCandidate(aliveAfter)) {
+    // #149 BUG-1 场景B：传承完成后再判人头终局（Imp 自杀 + 爪牙传承后
+    // 存活 ≤ 2）。recordSuccession 不改存活数，复用 checkHeadsWin 重查
+    // （#208：恶魔存活性门控统一入口——刚记录的传承继承人存活 → 邪恶候选）。
+    final heads = await notifier.checkHeadsWin();
+    if (heads is EvilWinCandidate && context.mounted) {
       final evil = await EndGameDialog.showEvilCandidate(
         context,
-        aliveCount: aliveAfter,
+        aliveCount: heads.aliveCount,
       );
       if ((evil ?? false) && context.mounted) {
         await notifier.endGame(goodWin: false);
+      }
+    } else if (heads is GoodWinCandidate && context.mounted) {
+      // 传承已发生但继承人未知 + 无继可判的边缘：按记录提示，用户终裁。
+      final good = await EndGameDialog.showGoodWinCandidate(
+        context,
+        aliveCount: heads.aliveCount,
+      );
+      if ((good ?? false) && context.mounted) {
+        await notifier.endGame(goodWin: true);
       }
     }
   } else {
