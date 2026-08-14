@@ -61,7 +61,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 13;
+  int get schemaVersion => 14;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -131,6 +131,11 @@ class AppDatabase extends _$AppDatabase {
               'CREATE UNIQUE INDEX poison_statuses_unique_idx '
               'ON poison_statuses (game_id, player_id, day_number)',
             );
+          }
+          // v13 → v14：day_records 加 day_confirmed（#156 S2，与 night_confirmed
+          // 对齐：区分「未录」vs「确认无处决」）。
+          if (from < 14) {
+            await m.addColumn(dayRecords, dayRecords.dayConfirmed);
           }
         },
         beforeOpen: (details) async {

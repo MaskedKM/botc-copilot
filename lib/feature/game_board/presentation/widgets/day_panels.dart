@@ -152,8 +152,10 @@ class DayPanel extends ConsumerWidget {
           children: [
             ChoiceChip(
               label: const Text('无处决'),
-              selected:
-                  dayRecord?.dayExecutionPlayerId == null && dayRecord != null,
+              // #156 S2：选中态由显式 dayConfirmed 驱动（与 NightPanel 的
+              // nightConfirmed 对齐），不再「dayRecord 一存在就预选中」。
+              selected: dayRecord?.dayConfirmed == true &&
+                  dayRecord?.dayExecutionPlayerId == null,
               onSelected: ongoing ? (_) => notifier.recordExecution(null) : null,
             ),
             for (final p in players)

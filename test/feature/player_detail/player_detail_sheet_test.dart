@@ -692,6 +692,7 @@ void main() {
           dayNumber: i,
           notes: '',
           nightConfirmed: true,
+          dayConfirmed: true,
         ),
     ];
     await tester.pumpWidget(buildSheet(declarations: decls, dayRecords: days));

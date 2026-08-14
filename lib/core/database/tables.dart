@@ -122,6 +122,15 @@ class DayRecords extends Table {
   IntColumn get dayExecutionPlayerId =>
       integer().nullable().references(Players, #id)();
 
+  /// 白天处决结果是否已确认（issue #156 S2）。
+  ///
+  /// 解决 `dayExecutionPlayerId == null` 的二义性（「尚未录入」vs「确认无
+  /// 处决」），与 [nightConfirmed] 对齐：预建次日记录时为 false；用户确认
+  /// 白天结果（处决某人或点「无处决」）后置 true。DayPanel 的「无处决」chip
+  /// 选中态以此为准，不再「dayRecord 一存在就预选中」。
+  BoolColumn get dayConfirmed =>
+      boolean().withDefault(const Constant(false))();
+
   /// @deprecated 掘墓人报出的被处决者角色。
   ///
   /// **此列在生产环境无写入方**（issue #106）：掘墓人信息实际录入通道是

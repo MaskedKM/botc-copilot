@@ -230,7 +230,11 @@ class GameBoardNotifier extends StateNotifier<GameBoardState> {
       await _revivePreviousDeath(dayId, (d) => d.dayExecutionPlayerId, (d) => d.nightDeathPlayerId, DeathCause.execution);
       await _db.dayRecordsDao.updateDay(
         dayId,
-        DayRecordsCompanion(dayExecutionPlayerId: Value(playerId)),
+        // #156 S2：确认白天结果（处决某人或「无处决」），消除 null 二义性。
+        DayRecordsCompanion(
+          dayExecutionPlayerId: Value(playerId),
+          dayConfirmed: const Value(true),
+        ),
       );
       if (playerId != null) {
         await _db.playersDao.markDead(
@@ -324,17 +328,22 @@ class GameBoardNotifier extends StateNotifier<GameBoardState> {
       // 仅清指向该玩家的字段（另一字段可能指向别人，不动）。
       // 若清的是夜死字段，同步置 nightConfirmed=false（撤销夜死 = 夜晚不再
       // 视为已结算，否则残留 true + 无夜死会被误判「无人死亡夜晚」，#154 review）。
+      // 同理清白天处决字段时置 dayConfirmed=false（#156 S2）。
       final clearedNight = dayRec.nightDeathPlayerId == playerId;
+      final clearedDay = dayRec.dayExecutionPlayerId == playerId;
       await _db.dayRecordsDao.updateDay(
         dayRec.id,
         DayRecordsCompanion(
           nightDeathPlayerId: clearedNight
               ? const Value<int?>(null)
               : const Value<int?>.absent(),
-          dayExecutionPlayerId: dayRec.dayExecutionPlayerId == playerId
+          dayExecutionPlayerId: clearedDay
               ? const Value<int?>(null)
               : const Value<int?>.absent(),
           nightConfirmed: clearedNight
+              ? const Value(false)
+              : const Value<bool>.absent(),
+          dayConfirmed: clearedDay
               ? const Value(false)
               : const Value<bool>.absent(),
         ),
