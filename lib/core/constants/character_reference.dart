@@ -1,5 +1,13 @@
 import 'package:botc_copilot/core/constants/character.dart';
 
+// ── 归属定位（#233 文档化）──────────────────────────────────────
+// 本文件是 **Character 附属数据**（确认路径 + 机械交互，TB 全量 map），
+// 与 character.dart 的角色元数据同族；按 #229 两级实体管理归属 Character
+// 侧（非 ScriptDefinition 聚合——交互多为跨剧本通用机制，仅个别剧本特例
+// 随 #217 分表）。查询语义与消费端 `?? const CharacterReference()` 降级
+// （character_reference_page.dart）不变；Magician/Legion 等 #233 锚点
+// 角色暂无条目 → 走降级空参考，S&V 录入时补。
+
 /// 角色间的一条机械交互规则（官方规则可推导，issue #60 功能2）。
 class CharacterInteraction {
   /// 创建交互。
