@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'package:botc_copilot/feature/game_board/presentation/providers/game_board_provider.dart';
+import 'package:botc_copilot/core/constants/script_definition.dart';
 import 'package:botc_copilot/core/constants/player_setup.dart';
 import 'package:botc_copilot/core/database/app_database.dart';
 import 'package:botc_copilot/core/database/database_provider.dart';
@@ -154,6 +156,77 @@ class MyMinionsSection extends ConsumerWidget {
 /// 更换我的座位（issue #86）：选座 → 二次确认 → 写 myPlayerId。
 ///
 /// 从 MyInfoSheet 迁入（#131 统一入口）。
+/// 修正「我的角色」对话框（#277：myRole 此前开局后不可变——误选或
+/// 传承未联动均无法纠正）。带确认（对话框即二次确认，防误触原则）。
+Future<void> changeMyRoleDialog(
+  BuildContext context,
+  WidgetRef ref,
+  Game game,
+) async {
+  final pool = ScriptDefinition.of(game.script).characters;
+  var picked = game.myRole;
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (ctx) => StatefulBuilder(
+      builder: (ctx, setState) => AlertDialog(
+        title: const Text('修正我的角色'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Wrap(
+              spacing: 8,
+              runSpacing: 4,
+              children: [
+                for (final c in pool)
+                  ChoiceChip(
+                    label: Text(c.nameCn),
+                    selected: picked == c,
+                    onSelected: (_) => setState(() => picked = c),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              '仅用于纠正误选或未联动的传承——角色影响你的信息表单、'
+              '私密名单与推理引擎，改动立即生效。',
+              style: AppTextStyles.caption,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed:
+                picked == null ? null : () => Navigator.pop(ctx, true),
+            child: const Text('确认'),
+          ),
+        ],
+      ),
+    ),
+  );
+  final role = picked;
+  if (confirmed == true && role != null && role != game.myRole) {
+    try {
+      await ref
+          .read(gameBoardProvider(game.id).notifier)
+          .correctMyRole(role);
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('我的角色已修正为「${role.nameCn}」')),
+      );
+    } on Object {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('保存失败，请重试')),
+        );
+      }
+    }
+  }
+}
+
 Future<void> changeSeatDialog(
   BuildContext context,
   WidgetRef ref,

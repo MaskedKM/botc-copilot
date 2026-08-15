@@ -78,6 +78,7 @@ abstract final class TimelineBuilder {
     List<BehaviorNote> behaviorNotes = const [],
     List<Nomination> nominations = const [],
     List<DemonInheritance> successions = const [],
+    int? myPlayerId,
   }) {
     String nameOf(int? playerId) {
       if (playerId == null) return '';
@@ -217,6 +218,7 @@ abstract final class TimelineBuilder {
                 type: TimelineEventType.demonSuccession,
                 summary: s.toPlayerId != null
                     ? '${nameOf(s.fromPlayerId)}（恶魔）→ ${nameOf(s.toPlayerId)} 传承（${s.trigger.nameCn}）'
+                        '${s.toPlayerId == myPlayerId ? '· 你成为新恶魔' : ''}'
                     : '${nameOf(s.fromPlayerId)}（恶魔）传承，继承人未知（${s.trigger.nameCn}）',
                 playerId: s.toPlayerId ?? s.fromPlayerId,
               ),

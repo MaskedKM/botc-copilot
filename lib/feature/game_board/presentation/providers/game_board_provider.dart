@@ -1,4 +1,6 @@
 import 'package:botc_copilot/core/constants/character.dart';
+import 'package:botc_copilot/core/constants/script.dart';
+import 'package:botc_copilot/core/constants/script_definition.dart';
 import 'package:botc_copilot/core/constants/team.dart';
 import 'package:botc_copilot/core/database/app_database.dart';
 import 'package:botc_copilot/core/database/database_provider.dart';
@@ -747,6 +749,29 @@ class GameBoardNotifier extends StateNotifier<GameBoardState> {
     int? toPlayerId,
     required SuccessionTrigger trigger,
   }) async {
+    // #277：继承人是「我」→ myRole 同步为新恶魔（公理5：身份/能力/
+    // 恶魔侧认知随传承转移，新恶魔当晚不行动）。角色 = 死者恶魔侧最新
+    // 声明（starpass 保角色：Imp 传 Imp）；无从判定时仅单恶魔剧本（TB）
+    // 回退该恶魔，多恶魔剧本不盲写（用户可经修正入口手改）。
+    final game = await _db.gamesDao.getById(_gameId);
+    Character? heirRole;
+    if (toPlayerId != null && toPlayerId == game?.myPlayerId) {
+      final claims = await _db.roleClaimsDao.watchByGame(_gameId).first;
+      for (final c in claims) {
+        if (c.playerId == fromPlayerId && c.character.team == Team.demon) {
+          heirRole = c.character; // id 升序，后者覆盖 = 最新
+        }
+      }
+      heirRole ??= () {
+        final demons = ScriptDefinition.of(
+          game?.script ?? Script.troubleBrewing,
+        )
+            .characters
+            .where((c) => c.team == Team.demon)
+            .toList();
+        return demons.length == 1 ? demons.single : null;
+      }();
+    }
     await _db.transaction(() async {
       await _db.demonInheritancesDao.insertSuccession(
         DemonInheritancesCompanion(
@@ -768,8 +793,17 @@ class GameBoardNotifier extends StateNotifier<GameBoardState> {
           ),
         );
       }
+      // myRole 同步与传承事件同生共死（同事务，#277）。
+      if (heirRole != null && game != null) {
+        await _db.gamesDao.updateMyRole(_gameId, heirRole);
+      }
     });
   }
+
+  /// 修正「我的角色」（#277：updateMyRole 此前零调用，myRole 事实上
+  /// 不可变；开局误选/传承未联动均可由此纠正）。带确认的 UI 入口调用。
+  Future<void> correctMyRole(Character role) =>
+      _db.gamesDao.updateMyRole(_gameId, role);
 
   /// 撤销最近一次推进（仅当天为预建的空记录时，issue #87）。
   ///
