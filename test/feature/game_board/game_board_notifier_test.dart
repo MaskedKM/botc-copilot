@@ -51,6 +51,10 @@ void main() {
       container.read(gameBoardProvider(gameId).notifier);
   GameBoardState state() => container.read(gameBoardProvider(gameId));
 
+    Future<bool> tainted(int pid, int day) async =>
+        (await db.poisonStatusesDao.findByPlayerAndDay(pid, day))?.isActive ??
+        false;
+
   test('setNightDeaths：标记玩家死亡 + 写入当日记录', () async {
     await notifier().setNightDeaths([players[2].id]);
 
@@ -339,20 +343,12 @@ void main() {
 
     // 历史 day 1 仍判为中毒
     expect(
-      await poisonRepo.isTainted(
-        gameId: gameId,
-        playerId: players[0].id,
-        dayNumber: 1,
-      ),
+      await tainted(players[0].id, 1),
       isTrue,
     );
     // 新 day 2 自然不中毒（无 day 2 的记录，dayNumber 过滤兜底）
     expect(
-      await poisonRepo.isTainted(
-        gameId: gameId,
-        playerId: players[0].id,
-        dayNumber: 2,
-      ),
+      await tainted(players[0].id, 2),
       isFalse,
     );
   });

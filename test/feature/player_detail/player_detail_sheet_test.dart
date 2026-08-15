@@ -94,14 +94,6 @@ class _FakePoisonRepository implements PoisonRepository {
   }
 
   @override
-  Future<bool> isTainted({
-    required int gameId,
-    required int playerId,
-    required int dayNumber,
-  }) async =>
-      false;
-
-  @override
   Future<void> setMinstrelTide({
     required int gameId,
     required List<int> playerIds,
