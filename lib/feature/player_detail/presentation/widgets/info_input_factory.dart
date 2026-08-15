@@ -58,10 +58,19 @@ abstract final class InfoInputFactory {
           allowNone: true,
           onSubmit: onSubmit,
         ),
-      InfoInputType.characterName =>
-        _CharacterNameInput(characters: pool.characters, onSubmit: onSubmit),
+      // #268 ②：Philosopher「善良角色」——goodCharacterOnly 过滤邪恶
+      //（Undertaker/Courtier 全池，默认 false）。
+      InfoInputType.characterName => _CharacterNameInput(
+          characters: character.goodCharacterOnly
+              ? pool.characters.where((c) => c.isGood).toList()
+              : pool.characters,
+          onSubmit: onSubmit),
+      // #268 ②：Cerenovus/Grandmother「善良角色」（Ravenkeeper/Gambler/
+      // Pit-Hag 全池合法，goodCharacterOnly 默认 false）。
       InfoInputType.playerPlusCharacter => _PlayerPlusCharacterInput(
-          characters: pool.characters,
+          characters: character.goodCharacterOnly
+              ? pool.characters.where((c) => c.isGood).toList()
+              : pool.characters,
           players: players,
           onSubmit: onSubmit,
         ),
@@ -77,9 +86,10 @@ abstract final class InfoInputFactory {
       InfoInputType.twoPlayersNumber => _TwoPlayersNumberInput(
           players: players,
           onSubmit: onSubmit,
-          // 官方规则：Chambermaid「不能选自己」。
+          // 官方规则：Chambermaid「2 名存活玩家（不能是自己）」。
           excludePlayerId:
               character.canTargetSelf ? null : actingPlayerId,
+          aliveOnly: character.requiresAliveTargets,
         ),
       InfoInputType.twoPlayersTarget => _TwoPlayersTargetInput(
           players: players,
@@ -528,12 +538,16 @@ class _TwoPlayersNumberInput extends StatefulWidget {
     required this.players,
     required this.onSubmit,
     this.excludePlayerId,
+    this.aliveOnly = false,
   });
 
   final List<Player> players;
 
   /// 排除的玩家 id（侍女不能选自己；null = 不排除）。
   final int? excludePlayerId;
+
+  /// 只列存活玩家（官方「2 名存活玩家」；默认全列）。
+  final bool aliveOnly;
 
   final void Function(Map<String, Object?>) onSubmit;
 
@@ -555,6 +569,7 @@ class _TwoPlayersNumberInputState extends State<_TwoPlayersNumberInput> {
           players: widget.players,
           selected: _selected,
           excludePlayerId: widget.excludePlayerId,
+          aliveOnly: widget.aliveOnly,
           onChanged: (s) => setState(() {
             _selected
               ..clear()

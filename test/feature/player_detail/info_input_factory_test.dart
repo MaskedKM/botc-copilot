@@ -26,13 +26,14 @@ void main() {
     void Function(Map<String, Object?>) onSubmit, {
     int? actingPlayerId,
     List<Player>? playersOverride,
+    Script script = Script.troubleBrewing,
   }) {
     return MaterialApp(
       theme: AppTheme.dark,
       home: Scaffold(
         body: SingleChildScrollView(
           child: InfoInputFactory.build(
-        script: Script.troubleBrewing,
+        script: script,
             character: character,
             players: playersOverride ?? players,
             actingPlayerId: actingPlayerId,
@@ -315,6 +316,63 @@ void main() {
       expect(Character.pukka.infoInputType, InfoInputType.singlePlayerTarget);
       expect(Character.godfather.infoInputType, InfoInputType.freeText);
       expect(Character.zombuul.infoInputType, InfoInputType.none);
+    });
+  });
+  group('#268 模板选人/选角色约束', () {
+    testWidgets('侍女只列存活玩家（官方 2 名存活玩家）', (tester) async {
+      final withDead = [
+        ...players,
+        Player(
+          id: 8,
+          gameId: 1,
+          name: '亡者',
+          seatNumber: 8,
+          isAlive: false,
+          abilityUsed: false,
+          suspectedDrunk: false,
+          fakeDead: false,
+          deathDay: 2,
+        ),
+      ];
+      await tester.pumpWidget(
+        buildInput(Character.chambermaid, (_) {},
+            actingPlayerId: 1, playersOverride: withDead),
+      );
+      await tester.pump();
+      expect(find.text('2号 玩家2'), findsOneWidget);
+      expect(find.text('8号 亡者'), findsNothing);
+      expect(find.text('1号 玩家1'), findsNothing); // 不能是自己
+    });
+
+    testWidgets('哲学家角色池只列善良（无恶魔）', (tester) async {
+      await tester.pumpWidget(
+        buildInput(Character.philosopher, (_) {},
+            script: Script.sectsAndViolets),
+      );
+      await tester.pump();
+      expect(find.text('涡流'), findsNothing); // 恶魔不可选
+      expect(find.text('方古'), findsNothing);
+      expect(find.text('哲学家'), findsOneWidget); // 善良角色在池
+    });
+
+    testWidgets('洗脑师角色池只列善良（playerPlusCharacter）', (tester) async {
+      await tester.pumpWidget(
+        buildInput(Character.cerenovus, (_) {},
+            script: Script.sectsAndViolets),
+      );
+      await tester.pump();
+      expect(find.text('女巫'), findsNothing); // 爪牙不可选
+      expect(find.text('钟表匠'), findsOneWidget);
+    });
+
+    testWidgets('渡鸦守卫角色池保持全量（goodCharacterOnly=false）',
+        (tester) async {
+      await tester.pumpWidget(
+        buildInput(Character.ravenkeeper, (_) {}),
+      );
+      await tester.pump();
+      // 玩家 chips + 角色 chips 全池（含邪恶）
+      expect(find.text('投毒者'), findsOneWidget);
     });
   });
 }
