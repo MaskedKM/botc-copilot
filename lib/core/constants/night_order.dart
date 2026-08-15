@@ -54,26 +54,16 @@ const openingSteps = <NightOrderStep>[
   ),
 ];
 
-/// TB 首夜步骤（官方顺序）：开场共享步骤 → Poisoner → Spy →
-/// Scarlet Woman → Imp（首夜不杀人）→ Washerwoman → Librarian →
-/// Investigator → Chef → Empath → Fortune Teller → Butler。
+/// TB 首夜步骤（官方 botc-release nightsheet 顺序，#267 勘正）：
+/// 开场共享步骤 → Poisoner → Washerwoman → Librarian → Investigator →
+/// Chef → Empath → Fortune Teller → Butler → Spy。
+/// 首夜无 SW 位与 Imp 行动位（恶魔信息已在开场共享步骤；首夜不杀人）。
 const firstNightSteps = <NightOrderStep>[
   ...openingSteps,
   NightOrderStep(
     character: Character.poisoner,
     action: '投毒',
     note: '当夜 + 次日白天生效，黄昏解除',
-  ),
-  NightOrderStep(character: Character.spy, action: '查看魔典（全局角色 / 状态）'),
-  NightOrderStep(
-    character: Character.scarletWoman,
-    action: '（被动）',
-    note: '恶魔死亡时，若 SW 存活且 ≥5 人存活 → 传位',
-  ),
-  NightOrderStep(
-    character: Character.imp,
-    action: '得知爪牙 / 自己是恶魔',
-    note: '首夜不杀人',
   ),
   NightOrderStep(
     character: Character.washerwoman,
@@ -94,13 +84,14 @@ const firstNightSteps = <NightOrderStep>[
     action: '得知目标是否恶魔（含红鲱鱼登记）',
   ),
   NightOrderStep(character: Character.butler, action: '选择主人'),
+  NightOrderStep(character: Character.spy, action: '查看魔典（全局角色 / 状态）'),
 ];
 
-/// 后续夜行动顺序（TB）。
+/// 后续夜行动顺序（TB，官方 botc-release nightsheet 顺序，#267 勘正）。
 ///
-/// 官方顺序：Poisoner → Monk → Scarlet Woman → Imp（杀人）→ Ravenkeeper →
-/// Undertaker → Empath → Fortune Teller → Spy → Butler。关键时序：Imp 杀人
-/// 在 Ravenkeeper/Undertaker/Empath/FT 之前——被 Imp 杀的读数角色当晚无读数；
+/// Poisoner → Monk → Scarlet Woman → Imp（杀人）→ Ravenkeeper → Empath →
+/// Fortune Teller → Undertaker → Butler → Spy。关键时序：Imp 杀人在
+/// Ravenkeeper/Empath/FT 之前——被 Imp 杀的读数角色当晚无读数；
 /// Ravenkeeper 紧跟 Imp（被杀即醒）。
 const otherNightSteps = <NightOrderStep>[
   NightOrderStep(
@@ -129,20 +120,20 @@ const otherNightSteps = <NightOrderStep>[
     note: '仅当夜被 Imp 杀死时醒来（紧跟 Imp）',
   ),
   NightOrderStep(
-    character: Character.undertaker,
-    action: '得知当日被处决者角色',
-    note: '仅当日有处决',
-  ),
-  NightOrderStep(
     character: Character.empath,
     action: '读存活邻座邪恶人数',
     note: '在 Imp 杀人之后——被杀邻座不再计入',
   ),
   NightOrderStep(character: Character.fortuneTeller, action: '查 2 人是否恶魔'),
-  NightOrderStep(character: Character.spy, action: '查看魔典（全局角色 / 状态）'),
+  NightOrderStep(
+    character: Character.undertaker,
+    action: '得知当日被处决者角色',
+    note: '仅当日有处决',
+  ),
   NightOrderStep(
     character: Character.butler,
     action: '选择主人（次日仅主人投票时可投票）',
   ),
+  NightOrderStep(character: Character.spy, action: '查看魔典（全局角色 / 状态）'),
 ];
 
