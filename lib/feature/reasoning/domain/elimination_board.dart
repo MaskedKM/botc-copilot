@@ -17,6 +17,10 @@ enum DeductionSource {
   /// 恶魔私密爪牙名单（7+ 局官方：恶魔首夜得知全部爪牙）。
   privateMinion('恶魔爪牙名单'),
 
+  /// 爪牙侧私密：我的恶魔 / 我的队友（7+ 局官方：爪牙首夜得知，
+  /// #276）。
+  privateEvil('爪牙私密信息'),
+
   /// 传承记录（用户在传承确认框裁决的继承人）。
   succession('传承记录'),
 
@@ -136,6 +140,8 @@ abstract final class EliminationEngine {
     required Map<int, Character> confirmedRoles,
     List<DemonInheritance> successions = const [],
     Set<int> privateMinionIds = const {},
+    int? privateDemonPlayerId,
+    Set<int> privateEvilTeammateIds = const {},
     List<InfoDeclaration> declarations = const [],
     Map<int, int> dayRecordToDayNumber = const {},
     int? myPlayerId,
@@ -189,6 +195,27 @@ abstract final class EliminationEngine {
         Deduction(
           source: DeductionSource.privateMinion,
           description: '恶魔首夜得知的爪牙（仅你可见）',
+        ),
+      );
+      knownMinions.add(pid);
+    }
+
+    // ---- 确认层 3b：爪牙侧私密（我的恶魔 / 我的队友，#276）----
+    if (privateDemonPlayerId != null) {
+      addEvil(
+        privateDemonPlayerId,
+        const Deduction(
+          source: DeductionSource.privateEvil,
+          description: '爪牙首夜得知的恶魔（仅你可见）',
+        ),
+      );
+    }
+    for (final pid in privateEvilTeammateIds) {
+      addEvil(
+        pid,
+        const Deduction(
+          source: DeductionSource.privateEvil,
+          description: '爪牙首夜得知的队友（仅你可见）',
         ),
       );
       knownMinions.add(pid);

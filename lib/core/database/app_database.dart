@@ -81,7 +81,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 17;
+  int get schemaVersion => 18;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -181,6 +181,13 @@ class AppDatabase extends _$AppDatabase {
           // 官方复活者重获一次性能力 + 新死票，须按周期重置）。
           if (from < 17) {
             await m.addColumn(players, players.revivedDay);
+          }
+          // v17 → v18：games 加爪牙侧私密字段（#276：7+ 局爪牙得知
+          // 恶魔与队友——此前只有恶魔侧存储，邪恶玩家的确定性事实进
+          // 不了推理引擎）。
+          if (from < 18) {
+            await m.addColumn(games, games.myDemonPlayerId);
+            await m.addColumn(games, games.myEvilTeammatesJson);
           }
         },
         beforeOpen: (details) async {

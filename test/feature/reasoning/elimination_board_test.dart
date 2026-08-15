@@ -59,6 +59,19 @@ void main() {
   // 7 人局：TF=5 / 外=0 / 爪=1 / 恶=1（E=2）。
   final setup = PlayerSetup.forCount(7);
   String label(int id) => '$id号';
+  final players7 = <int, Player>{
+    for (var i = 1; i <= 7; i++)
+      i: Player(
+        id: i,
+        gameId: 1,
+        name: '玩家$i',
+        seatNumber: i,
+        isAlive: true,
+        abilityUsed: false,
+        suspectedDrunk: false,
+        fakeDead: false,
+      ),
+  };
 
   EliminationBoard evaluate({
     required Map<int, Player> players,
@@ -481,5 +494,40 @@ void main() {
       },
     );
     expect(board.demonCandidates, [7, 6, 5, 4, 3, 2, 1]);
+  });
+  group('#276 爪牙侧私密确认层', () {
+    test('我的恶魔 → 确定邪恶（privateEvil 来源）', () {
+      final board = EliminationEngine.evaluate(
+        players: players7.values.toList(),
+        setup: setup,
+        confirmedRoles: const {},
+        successions: const [],
+        privateDemonPlayerId: 3,
+        myPlayerId: 1,
+        myRole: Character.poisoner,
+        labelFor: label,
+      );
+      expect(board.confirmedEvil.containsKey(3), isTrue);
+      expect(
+        board.confirmedEvil[3]!
+            .any((d) => d.source == DeductionSource.privateEvil),
+        isTrue,
+      );
+    });
+
+    test('我的队友 → 确定邪恶且不入好人候选', () {
+      final board = EliminationEngine.evaluate(
+        players: players7.values.toList(),
+        setup: setup,
+        confirmedRoles: const {},
+        successions: const [],
+        privateEvilTeammateIds: const {5},
+        myPlayerId: 1,
+        myRole: Character.poisoner,
+        labelFor: label,
+      );
+      expect(board.confirmedEvil.containsKey(5), isTrue);
+      expect(board.knownMinionIds, contains(5));
+    });
   });
 }

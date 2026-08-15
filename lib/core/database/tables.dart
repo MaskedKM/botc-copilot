@@ -40,6 +40,13 @@ class Games extends Table {
   /// 可见（角色矩阵私密标记）。
   TextColumn get myMinionIdsJson => text().nullable()();
 
+  /// 爪牙侧私密：我的恶魔（7+ 人局爪牙首夜得知恶魔是谁，#276）。
+  /// 玩家 id；null = 未录入。与 myMinionIdsJson 同族（仅对我可见）。
+  IntColumn get myDemonPlayerId => integer().nullable()();
+
+  /// 爪牙侧私密：我的邪恶队友（不含我、不含恶魔；JSON 玩家 id 数组）。
+  TextColumn get myEvilTeammatesJson => text().nullable()();
+
   /// 帮助层级（issue #41）。
   TextColumn get helpLevel =>
       textEnum<HelpLevel>().withDefault(const Constant('normal'))();

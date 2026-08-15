@@ -39,3 +39,21 @@ Set<Character> demonBluffsOf(Game game) {
     return {};
   }
 }
+
+
+/// 解析爪牙侧私密：我的恶魔（#276，7+ 人局爪牙首夜得知）。
+int? myDemonPlayerOf(Game game) => game.myDemonPlayerId;
+
+/// 解析爪牙侧私密：我的邪恶队友（不含我/恶魔；损坏 JSON → 空集，
+/// 同 minionIdsOf 守卫 #164 B3/B5）。
+Set<int> evilTeammateIdsOf(Game game) {
+  final json = game.myEvilTeammatesJson;
+  if (json == null) return {};
+  try {
+    final decoded = jsonDecode(json);
+    if (decoded is! List) return {};
+    return decoded.whereType<int>().toSet();
+  } on FormatException {
+    return {};
+  }
+}

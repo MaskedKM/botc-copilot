@@ -156,6 +156,93 @@ class MyMinionsSection extends ConsumerWidget {
 /// 更换我的座位（issue #86）：选座 → 二次确认 → 写 myPlayerId。
 ///
 /// 从 MyInfoSheet 迁入（#131 统一入口）。
+/// 爪牙侧私密区（#276，7+ 人局我=爪牙）：我的恶魔 + 我的队友。
+///
+/// 官方（Rules Explanation）：7+ 人局恶魔与爪牙互相认识——爪牙首夜
+/// 得知恶魔是谁与全部队友。≤6 人局爪牙不知恶魔，不显示。
+/// 队友不含我、不含已选恶魔；恶魔单选（再点取消）。
+class MyEvilInfoSection extends ConsumerWidget {
+  const MyEvilInfoSection({
+    required this.game,
+    required this.players,
+    this.readOnly = false,
+    super.key,
+  });
+
+  final Game game;
+
+  /// 全部玩家（候选）。
+  final List<Player> players;
+
+  /// 只读（复盘）。
+  final bool readOnly;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final gameColors = context.gameColors;
+    final demonId = myDemonPlayerOf(game);
+    final teammates = evilTeammateIdsOf(game);
+    final db = ref.read(appDatabaseProvider);
+    final candidates =
+        players.where((p) => p.id != game.myPlayerId).toList();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          '爪牙私密信息（仅你可见）',
+          style:
+              AppTextStyles.headline.copyWith(color: gameColors.bloodBright),
+        ),
+        const SizedBox(height: 8),
+        Text('我的恶魔', style: AppTextStyles.label),
+        const SizedBox(height: 4),
+        Wrap(
+          spacing: 8,
+          runSpacing: 4,
+          children: [
+            for (final p in candidates)
+              ChoiceChip(
+                label: Text('${p.seatNumber}号 ${p.name}'),
+                selected: demonId == p.id,
+                onSelected: readOnly
+                    ? null
+                    : (_) => db.gamesDao.updateMyDemonPlayerId(
+                          game.id,
+                          demonId == p.id ? null : p.id,
+                        ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Text('我的队友（邪恶，不含恶魔）', style: AppTextStyles.label),
+        const SizedBox(height: 4),
+        Wrap(
+          spacing: 8,
+          runSpacing: 4,
+          children: [
+            for (final p in candidates.where((p) => p.id != demonId))
+              ChoiceChip(
+                label: Text('${p.seatNumber}号 ${p.name}'),
+                selected: teammates.contains(p.id),
+                onSelected: readOnly
+                    ? null
+                    : (_) async {
+                        final next = Set<int>.of(teammates);
+                        if (!next.remove(p.id)) next.add(p.id);
+                        await db.gamesDao.updateMyEvilTeammates(
+                          game.id,
+                          jsonEncode(next.toList()),
+                        );
+                      },
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
 /// 修正「我的角色」对话框（#277：myRole 此前开局后不可变——误选或
 /// 传承未联动均无法纠正）。带确认（对话框即二次确认，防误触原则）。
 Future<void> changeMyRoleDialog(
