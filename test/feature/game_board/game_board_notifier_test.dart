@@ -695,4 +695,66 @@ void main() {
       expect(updated[1].fakeDead, isFalse);
     });
   });
+  group('#277 传承联动 myRole', () {
+    Future<void> makeMeMinion() async {
+      await (db.update(db.games)..where((g) => g.id.equals(gameId))).write(
+        GamesCompanion(
+          myRole: const Value(Character.poisoner),
+          myPlayerId: Value(players[1].id),
+        ),
+      );
+    }
+
+    test('继承人是「我」→ myRole 同步为死者的恶魔角色（starpass 保角色）',
+        () async {
+      await makeMeMinion();
+      // 死者（players[0]）被揭示为小恶魔
+      final dayId = await db.dayRecordsDao.insertDay(
+        DayRecordsCompanion(gameId: Value(gameId), dayNumber: Value(1)),
+      );
+      await db.roleClaimsDao.insertClaim(
+        RoleClaimsCompanion(
+          playerId: Value(players[0].id),
+          dayRecordId: Value(dayId),
+          character: Value(Character.imp),
+          claimType: Value(ClaimType.revealedOnDeath),
+        ),
+      );
+      await notifier().recordSuccession(
+        fromPlayerId: players[0].id,
+        toPlayerId: players[1].id,
+        trigger: SuccessionTrigger.suicideByImp,
+      );
+      final game = await db.gamesDao.getById(gameId);
+      expect(game!.myRole, Character.imp); // 我成为新恶魔
+    });
+
+    test('死者角色未知 + 单恶魔剧本（TB）→ 回退 imp', () async {
+      await makeMeMinion();
+      await notifier().recordSuccession(
+        fromPlayerId: players[0].id,
+        toPlayerId: players[1].id,
+        trigger: SuccessionTrigger.suicideByImp,
+      );
+      final game = await db.gamesDao.getById(gameId);
+      expect(game!.myRole, Character.imp);
+    });
+
+    test('继承人非「我」→ myRole 不动', () async {
+      await makeMeMinion();
+      await notifier().recordSuccession(
+        fromPlayerId: players[0].id,
+        toPlayerId: players[2].id,
+        trigger: SuccessionTrigger.suicideByImp,
+      );
+      final game = await db.gamesDao.getById(gameId);
+      expect(game!.myRole, Character.poisoner); // 不受影响
+    });
+
+    test('修正入口 correctMyRole 直接写库', () async {
+      await notifier().correctMyRole(Character.monk);
+      final game = await db.gamesDao.getById(gameId);
+      expect(game!.myRole, Character.monk);
+    });
+  });
 }

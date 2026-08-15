@@ -80,6 +80,8 @@ final timelineProvider =
       nominations: nominations.valueOrNull ?? [],
       successions:
           ref.watch(_successionsProvider(gameId)).valueOrNull ?? [],
+      myPlayerId:
+          ref.watch(gameByIdProvider(gameId)).valueOrNull?.myPlayerId,
     ),
   );
 });

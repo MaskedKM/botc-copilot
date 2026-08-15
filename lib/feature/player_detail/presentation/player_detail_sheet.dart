@@ -409,7 +409,18 @@ class _PlayerDetailSheetState extends ConsumerState<PlayerDetailSheet> {
                           ),
                         ),
                       ),
-                      if (game?.status == GameStatus.ongoing)
+                      if (game?.status == GameStatus.ongoing) ...[
+                        // #277：myRole 修正入口（误选/传承未联动）。
+                        TextButton.icon(
+                          onPressed: () => changeMyRoleDialog(
+                            context,
+                            ref,
+                            game!,
+                          ),
+                          icon: const Icon(Icons.manage_accounts_outlined,
+                              size: 18),
+                          label: const Text('改角色'),
+                        ),
                         TextButton.icon(
                           onPressed: () => changeSeatDialog(
                             context,
@@ -420,6 +431,7 @@ class _PlayerDetailSheetState extends ConsumerState<PlayerDetailSheet> {
                           icon: const Icon(Icons.swap_horiz, size: 18),
                           label: const Text('换座'),
                         ),
+                      ],
                     ],
                   ),
                 ),
