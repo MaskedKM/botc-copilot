@@ -30,7 +30,9 @@ const _outsiderChars = [
 OutsiderCountAnalysis _analysis({
   required OutsiderDeviation deviation,
   required int claimed,
-  bool baronClaimed = false,
+  List<Character> modifierClaims = const [],
+  List<Character> scriptModifiers = const [Character.baron],
+  int expectedWithClaimed = 2,
   int maxOutsiderDelta = 2,
 }) =>
     OutsiderCountAnalysis(
@@ -50,8 +52,10 @@ OutsiderCountAnalysis _analysis({
             confirmed: i == 1,
           ),
       ],
-      baronClaimed: baronClaimed,
-    maxOutsiderDelta: maxOutsiderDelta,
+      modifierClaims: modifierClaims,
+      scriptModifiers: scriptModifiers,
+      expectedWithClaimed: expectedWithClaimed,
+      maxOutsiderDelta: maxOutsiderDelta,
     );
 
 Widget buildPanel(OutsiderCountAnalysis analysis) {
@@ -85,7 +89,9 @@ void main() {
     // 配置行
     expect(find.textContaining('9 人局'), findsOneWidget);
     expect(find.textContaining('外来者2'), findsOneWidget);
-    expect(find.textContaining('Baron 局：外来者4'), findsOneWidget);
+    // #266②：修正局参照行按剧本修正角色派生（男爵 +2/-2）
+    expect(find.textContaining('「男爵」在场：+2 外来者、-2 镇民'),
+        findsOneWidget);
     // 声明数
     expect(find.textContaining('已声明外来者 3 人'), findsOneWidget);
     // claimer chips：含角色名 + 确认标记
@@ -99,58 +105,79 @@ void main() {
       _analysis(deviation: OutsiderDeviation.partial, claimed: 3),
     ));
     await tester.pump();
-    expect(find.text('介于标准与 Baron 配置'), findsOneWidget);
+    expect(find.text('介于标准与修正配置'), findsOneWidget);
   });
 
-  testWidgets('over 偏差解读（即便 Baron 也超出）', (tester) async {
+  testWidgets('over 偏差解读（超出修正上限）', (tester) async {
     await tester.pumpWidget(buildPanel(
       _analysis(deviation: OutsiderDeviation.over, claimed: 5),
     ));
     await tester.pump();
-    expect(find.textContaining('即便 Baron 在场也超出'), findsOneWidget);
+    expect(find.textContaining('超出修正上限 1'), findsOneWidget);
   });
 
-  testWidgets('standard 偏差解读（无 Baron）', (tester) async {
+  testWidgets('standard 偏差解读（无修正角色声明）', (tester) async {
     await tester.pumpWidget(buildPanel(
       _analysis(deviation: OutsiderDeviation.standard, claimed: 2),
     ));
     await tester.pump();
     expect(find.text('与标准配置一致'), findsOneWidget);
+    expect(find.textContaining('声明 2 = 标准 2'), findsOneWidget);
   });
 
-  testWidgets('standard + baronClaimed → 张力提示（review R1）', (tester) async {
+  // #266①：standard + 修正角色已声明 = 与声明锚点吻合（#151 S3 语义），
+  // 不再渲染「声明 3 = 标准 1。但 Baron 已声明」的字面矛盾句。
+  testWidgets('standard + 男爵已声明 → 与修正后期望吻合（无矛盾文案）', (tester) async {
     await tester.pumpWidget(buildPanel(
       _analysis(
         deviation: OutsiderDeviation.standard,
-        claimed: 2,
-        baronClaimed: true,
+        claimed: 4,
+        modifierClaims: const [Character.baron],
+        expectedWithClaimed: 4,
       ),
     ));
     await tester.pump();
-    // Baron 已声明却只 base 个 → 文本应提示与 Baron 配置不符
-    expect(find.textContaining('但 Baron 已声明'), findsOneWidget);
-    expect(find.text('Baron 已声明'), findsOneWidget); // 徽标
+    expect(find.textContaining('声明 4 = 「男爵」修正后期望 4'), findsOneWidget);
+    expect(find.textContaining('但 Baron 已声明'), findsNothing); // 假文案不再
+    expect(find.text('男爵 已声明'), findsOneWidget); // 徽标按修正角色命名
   });
 
-  testWidgets('under 偏差解读 + 尚未声明提示', (tester) async {
+  // #266①：under 与声明锚点比（男爵已声明、声明 3 → 期望 4 → 差 1），
+  // 不再出现「少于标准配置 0/-1」的负差额。
+  testWidgets('under + 男爵已声明 → 与修正后期望比较', (tester) async {
+    await tester.pumpWidget(buildPanel(
+      _analysis(
+        deviation: OutsiderDeviation.under,
+        claimed: 3,
+        modifierClaims: const [Character.baron],
+        expectedWithClaimed: 4,
+      ),
+    ));
+    await tester.pump();
+    expect(find.text('少于期望配置 1'), findsOneWidget);
+    expect(find.textContaining('若为真应有 4 个'), findsOneWidget);
+  });
+
+  testWidgets('under 偏差解读 + 尚未声明提示（无修正角色）', (tester) async {
     await tester.pumpWidget(buildPanel(
       _analysis(deviation: OutsiderDeviation.under, claimed: 1),
     ));
     await tester.pump();
-    expect(find.textContaining('少于标准配置 1'), findsOneWidget);
+    expect(find.textContaining('少于期望配置 1'), findsOneWidget);
     expect(find.textContaining('尚未全部声明'), findsOneWidget);
   });
 
-  testWidgets('baronClaimed → 显示「Baron 已声明」徽标', (tester) async {
+  testWidgets('baronClaimed → 徽标按修正角色命名（男爵）', (tester) async {
     await tester.pumpWidget(buildPanel(
       _analysis(
         deviation: OutsiderDeviation.baronConsistent,
         claimed: 4,
-        baronClaimed: true,
+        modifierClaims: const [Character.baron],
+        expectedWithClaimed: 4,
       ),
     ));
     await tester.pump();
-    expect(find.text('Baron 已声明'), findsOneWidget);
+    expect(find.text('男爵 已声明'), findsOneWidget);
   });
 
   testWidgets('baronConsistent + baronClaimed → 软化措辞「若声明为真」', (tester) async {
@@ -158,10 +185,47 @@ void main() {
       _analysis(
         deviation: OutsiderDeviation.baronConsistent,
         claimed: 4,
-        baronClaimed: true,
+        modifierClaims: const [Character.baron],
+        expectedWithClaimed: 4,
       ),
     ));
     await tester.pump();
     expect(find.textContaining('若声明为真'), findsOneWidget);
+  });
+
+  // #266②：BMR 教父（±1）声明 → 徽章/差额按教父锚点（base+1）。
+  testWidgets('BMR 教父已声明 → 徽章 + 参照行走教父', (tester) async {
+    await tester.pumpWidget(buildPanel(
+      _analysis(
+        deviation: OutsiderDeviation.under,
+        claimed: 2,
+        modifierClaims: const [Character.godfather],
+        scriptModifiers: const [Character.godfather],
+        expectedWithClaimed: 3, // base 2 + 教父 +1
+        maxOutsiderDelta: 1,
+      ),
+    ));
+    await tester.pump();
+    expect(find.text('教父 已声明'), findsOneWidget);
+    expect(find.textContaining('「教父」在场：±1 外来者'), findsOneWidget);
+    expect(find.text('少于期望配置 1'), findsOneWidget); // 3 - 2
+  });
+
+  // #266②：S&V 双修正角色参照行（方古 +1 / 亡骨魔 -1）。
+  testWidgets('S&V 参照行列出方古与亡骨魔', (tester) async {
+    await tester.pumpWidget(buildPanel(
+      _analysis(
+        deviation: OutsiderDeviation.standard,
+        claimed: 2,
+        scriptModifiers: const [Character.fanggu, Character.vigormortis],
+        expectedWithClaimed: 2,
+        maxOutsiderDelta: 1,
+      ),
+    ));
+    await tester.pump();
+    expect(find.textContaining('「方古」在场：+1 外来者、-1 镇民'),
+        findsOneWidget);
+    expect(find.textContaining('「亡骨魔」在场：-1 外来者、+1 镇民'),
+        findsOneWidget);
   });
 }
