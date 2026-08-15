@@ -191,8 +191,11 @@ const scriptDefinitions = <Script, ScriptDefinition>{
   ),
 };
 
-/// S&V 首夜步骤（官方 nightsheet 顺序：哲学家长于爪牙块前、舞蛇人位于
-/// 爪牙块内；通用爪牙/恶魔信息步骤按 BMR 惯例内联在爪牙块两端）。
+/// S&V 首夜步骤（官方 nightsheet 顺序，#267 勘正）：
+/// philosopher → 爪牙信息 → 恶魔信息 → snakecharmer → eviltwin → witch →
+/// cerenovus → clockmaker → dreamer → seamstress → mathematician。
+/// 恶魔信息紧跟爪牙信息之后（舞蛇人之前）——此前误按「BMR 惯例」内联
+/// 在爪牙块之后，与官方数据不符。
 const _svFirstNightSteps = <NightOrderStep>[
   NightOrderStep(
     character: Character.philosopher,
@@ -203,6 +206,11 @@ const _svFirstNightSteps = <NightOrderStep>[
     label: '爪牙信息',
     action: '爪牙互认识；恶魔向爪牙亮明',
     note: '7+ 人局恶魔亦知爪牙；≤6 人局恶魔不知爪牙',
+  ),
+  NightOrderStep(
+    label: '恶魔信息',
+    action: '恶魔看爪牙 + 3 个不在场好人角色（Bluff）',
+    note: '仅 7+ 人局；≤6 人局恶魔无 Bluff',
   ),
   NightOrderStep(
     character: Character.snakecharmer,
@@ -222,11 +230,6 @@ const _svFirstNightSteps = <NightOrderStep>[
     character: Character.cerenovus,
     action: '选择一名玩家与一个善良角色：其须疯狂证明',
     note: '不疯狂则可能被处决',
-  ),
-  NightOrderStep(
-    label: '恶魔信息',
-    action: '恶魔看爪牙 + 3 个不在场好人角色（Bluff）',
-    note: '仅 7+ 人局；≤6 人局恶魔无 Bluff',
   ),
   NightOrderStep(
     character: Character.clockmaker,

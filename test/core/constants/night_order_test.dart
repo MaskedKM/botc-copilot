@@ -6,11 +6,30 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('首夜顺序（TB，官方数据）', () {
-    test('14 步：开场 醉汉/爪牙信息/恶魔信息 → Poisoner ... → Butler', () {
-      expect(firstNightSteps, hasLength(14));
+    // #267 勘正：官方 botc-release nightsheet——首夜无 SW 位与 Imp 行动位
+    //（恶魔信息在开场共享步骤；首夜不杀人），Spy 与 Butler 居末两位。
+    test('12 步：开场 → Poisoner → WW…FT → Butler → Spy（官方逐位）', () {
+      expect(firstNightSteps, hasLength(12));
       expect(firstNightSteps.first.label, contains('醉汉'));
       expect(firstNightSteps.first.character, isNull); // 说明性步骤
-      expect(firstNightSteps.last.character, Character.butler);
+      expect(firstNightSteps.last.character, Character.spy);
+      expect(firstNightSteps[firstNightSteps.length - 2].character,
+          Character.butler);
+      expect(
+        firstNightSteps.map((s) => s.character).toList(),
+        [
+          null, null, null, // 醉汉/爪牙信息/恶魔信息
+          Character.poisoner,
+          Character.washerwoman,
+          Character.librarian,
+          Character.investigator,
+          Character.chef,
+          Character.empath,
+          Character.fortuneTeller,
+          Character.butler,
+          Character.spy,
+        ],
+      );
     });
 
     test('开场两步为说明性（爪牙信息 / 恶魔信息，character=null）', () {
@@ -21,16 +40,15 @@ void main() {
       expect(firstNightSteps[2].note, contains('Bluff'));
     });
 
-    test('首夜含 Scarlet Woman（#111 称「无」是错的——按权威数据）', () {
+    test('首夜无 SW / Imp 行动位（#267：#111 当时引的来源与官方不符）', () {
       expect(
         firstNightSteps.any((s) => s.character == Character.scarletWoman),
-        isTrue,
+        isFalse,
       );
-    });
-
-    test('Imp 首夜不杀人，位于第 7 位', () {
-      expect(firstNightSteps[6].character, Character.imp);
-      expect(firstNightSteps[6].note, contains('首夜不杀人'));
+      expect(
+        firstNightSteps.any((s) => s.character == Character.imp),
+        isFalse, // 恶魔信息在开场共享步骤；首夜不杀人
+      );
     });
 
     test('Poisomer 投毒 note 含毒时效', () {
@@ -57,10 +75,10 @@ void main() {
   });
 
   group('后续夜顺序（TB，官方数据）', () {
-    test('10 步：Poisoner→Monk→SW→Imp→Ravenkeeper→Undertaker→Empath→FT→Spy→Butler', () {
+    test('10 步：官方逐位 …→Ravenkeeper→Empath→FT→Undertaker→Butler→Spy', () {
       expect(otherNightSteps, hasLength(10));
       expect(otherNightSteps.first.character, Character.poisoner);
-      expect(otherNightSteps.last.character, Character.butler);
+      expect(otherNightSteps.last.character, Character.spy);
       expect(
         otherNightSteps.map((s) => s.character).toList(),
         [
@@ -69,11 +87,11 @@ void main() {
           Character.scarletWoman,
           Character.imp,
           Character.ravenkeeper,
-          Character.undertaker,
           Character.empath,
           Character.fortuneTeller,
-          Character.spy,
+          Character.undertaker,
           Character.butler,
+          Character.spy,
         ],
       );
     });
@@ -94,15 +112,12 @@ void main() {
       expect(otherNightSteps[imp + 1].note, contains('紧跟'));
     });
 
-    test('Undertaker 在 Empath / Fortune Teller 之前', () {
+    test('Undertaker 在 Fortune Teller 之后（#267 勘正）', () {
       final undertaker =
           otherNightSteps.indexWhere((s) => s.character == Character.undertaker);
-      final empath =
-          otherNightSteps.indexWhere((s) => s.character == Character.empath);
       final ft = otherNightSteps
           .indexWhere((s) => s.character == Character.fortuneTeller);
-      expect(undertaker, lessThan(empath));
-      expect(undertaker, lessThan(ft));
+      expect(undertaker, greaterThan(ft));
     });
 
     test('Empath 在 Fortune Teller 之前', () {
@@ -113,15 +128,13 @@ void main() {
       expect(empath, lessThan(ft));
     });
 
-    test('Spy 在 Empath/FT 之后、Butler 之前（#111 称第 3 位是错的）', () {
+    test('Spy 居末位（Butler 之后，官方 Butler → Spy）', () {
       final spy =
           otherNightSteps.indexWhere((s) => s.character == Character.spy);
-      final ft = otherNightSteps
-          .indexWhere((s) => s.character == Character.fortuneTeller);
       final butler =
           otherNightSteps.indexWhere((s) => s.character == Character.butler);
-      expect(spy, greaterThan(ft));
-      expect(spy, lessThan(butler));
+      expect(spy, greaterThan(butler));
+      expect(spy, otherNightSteps.length - 1);
     });
 
     test('含 Scarlet Woman + Butler（#104 旧实现的遗漏，已修正）', () {
