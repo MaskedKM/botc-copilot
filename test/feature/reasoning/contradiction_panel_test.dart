@@ -22,6 +22,35 @@ Player _p(int id, int seat, String name) => Player(
     );
 
 void main() {
+  /// #270⑤：源流未就绪的半加载帧须显示加载态，不能闪「未发现矛盾标记」。
+  testWidgets('源流未就绪 → 加载态而非「未发现矛盾」（#270⑤）', (tester) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          // 全部源流空（永不出数据）→ isLoading 恒真，模拟半加载窗口
+          gameClaimsProvider(1).overrideWith((ref) => const Stream.empty()),
+          gameAllDeclarationsProvider(1)
+              .overrideWith((ref) => const Stream.empty()),
+          gameAllDaysProvider(1).overrideWith((ref) => const Stream.empty()),
+          gameSuccessionsProvider(1)
+              .overrideWith((ref) => const Stream.empty()),
+          gamePlayersProvider(1).overrideWith((ref) => const Stream.empty()),
+          gameByIdProvider(1).overrideWith((ref) => const Stream.empty()),
+        ],
+        child: MaterialApp(
+          theme: AppTheme.dark,
+          home: const Scaffold(
+            body: SingleChildScrollView(child: ContradictionPanel(gameId: 1)),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    expect(find.text('未发现矛盾标记'), findsNothing);
+  });
+
   /// #138 drill-down：矛盾 tile 展开后渲染可点玩家 chip（直达玩家详情）。
   testWidgets('矛盾 tile 展开后显示涉及玩家的可点 chip（#138）', (tester) async {
     final players = [_p(1, 1, 'A'), _p(2, 2, 'B')];

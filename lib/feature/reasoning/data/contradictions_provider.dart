@@ -39,27 +39,49 @@ final gameAllDaysProvider =
 /// 引擎真出 bug 时会**无信号地关闭全部矛盾检测**（注释「不静默」仅在 debug
 /// 成立）。
 class ContradictionResult {
-  const ContradictionResult(this.contradictions, {this.failed = false});
+  const ContradictionResult(
+    this.contradictions, {
+    this.failed = false,
+    this.loading = false,
+  });
 
   /// 检测到的矛盾标记（[failed] 时为空）。
   final List<Contradiction> contradictions;
 
   /// 引擎是否异常兜底。true → UI 展示「推理引擎暂不可用」。
   final bool failed;
+
+  /// 源流是否仍在半加载帧（#270⑤）。true 时 [contradictions] 为空但
+  /// **不代表「无矛盾」**——UI 须显示加载态而非「未发现矛盾标记」。
+  final bool loading;
 }
 
 /// 当前对局的矛盾标记流（issue #38）。
 final contradictionsProvider = Provider.family<ContradictionResult, int>(
   (ref, gameId) {
+    final claims = ref.watch(gameClaimsProvider(gameId));
+    final declarations = ref.watch(gameAllDeclarationsProvider(gameId));
+    final days = ref.watch(gameAllDaysProvider(gameId));
+    final players = ref.watch(gamePlayersProvider(gameId));
+    final game = ref.watch(gameByIdProvider(gameId));
+    final successions = ref.watch(gameSuccessionsProvider(gameId));
+    // #270⑤：任一源流未就绪（首帧窗口）→ 空结果 + loading 标记，避免
+    // claims 先到 / game 未到时闪「外来者最多 0 个」类假矛盾与空成功。
+    if (claims.isLoading ||
+        declarations.isLoading ||
+        days.isLoading ||
+        players.isLoading ||
+        game.isLoading ||
+        successions.isLoading) {
+      return const ContradictionResult([], loading: true);
+    }
     return detectWithOverlay(
-      claims: ref.watch(gameClaimsProvider(gameId)).valueOrNull ?? [],
-      declarations:
-          ref.watch(gameAllDeclarationsProvider(gameId)).valueOrNull ?? [],
-      days: ref.watch(gameAllDaysProvider(gameId)).valueOrNull ?? [],
-      players: ref.watch(gamePlayersProvider(gameId)).valueOrNull ?? [],
-      game: ref.watch(gameByIdProvider(gameId)).valueOrNull,
-      successions:
-          ref.watch(gameSuccessionsProvider(gameId)).valueOrNull ?? const [],
+      claims: claims.valueOrNull ?? [],
+      declarations: declarations.valueOrNull ?? [],
+      days: days.valueOrNull ?? [],
+      players: players.valueOrNull ?? [],
+      game: game.valueOrNull,
+      successions: successions.valueOrNull ?? const [],
     );
   },
 );
@@ -74,16 +96,29 @@ final sandboxContradictionsProvider =
     Provider.autoDispose.family<ContradictionResult, int>((ref, gameId) {
   final sandbox = ref.watch(dependencySandboxProvider(gameId));
   if (sandbox.isEmpty) return const ContradictionResult([]);
+  final claims = ref.watch(gameClaimsProvider(gameId));
+  final declarations = ref.watch(gameAllDeclarationsProvider(gameId));
+  final days = ref.watch(gameAllDaysProvider(gameId));
+  final players = ref.watch(gamePlayersProvider(gameId));
+  final game = ref.watch(gameByIdProvider(gameId));
+  final successions = ref.watch(gameSuccessionsProvider(gameId));
+  // #270⑤：与主 provider 同口径——源流未就绪时标记 loading。
+  if (claims.isLoading ||
+      declarations.isLoading ||
+      days.isLoading ||
+      players.isLoading ||
+      game.isLoading ||
+      successions.isLoading) {
+    return const ContradictionResult([], loading: true);
+  }
   return detectWithOverlay(
-    claims: ref.watch(gameClaimsProvider(gameId)).valueOrNull ?? [],
-    declarations:
-        ref.watch(gameAllDeclarationsProvider(gameId)).valueOrNull ?? [],
-    days: ref.watch(gameAllDaysProvider(gameId)).valueOrNull ?? [],
-    players: ref.watch(gamePlayersProvider(gameId)).valueOrNull ?? [],
-    game: ref.watch(gameByIdProvider(gameId)).valueOrNull,
+    claims: claims.valueOrNull ?? [],
+    declarations: declarations.valueOrNull ?? [],
+    days: days.valueOrNull ?? [],
+    players: players.valueOrNull ?? [],
+    game: game.valueOrNull,
     extraDrunkIds: sandbox,
-    successions:
-        ref.watch(gameSuccessionsProvider(gameId)).valueOrNull ?? const [],
+    successions: successions.valueOrNull ?? const [],
   );
 });
 

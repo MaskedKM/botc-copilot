@@ -126,5 +126,8 @@ class SeatRingPlayer {
     isPoisoned,
     suspectedDrunk,
     hasContradiction,
+    // #270①：== 含 fakeDead 而 hashCode 漏——相等对象落入不同桶，任何
+    // 以此为 key 的 Set/Map 行为未定义。
+    fakeDead,
   );
 }

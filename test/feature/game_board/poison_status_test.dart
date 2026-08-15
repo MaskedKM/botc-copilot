@@ -32,32 +32,35 @@ void main() {
         (await db.poisonStatusesDao.findByPlayerAndDay(pid, day))?.isActive ??
         false;
 
-  test('toggleStatus 标记与取消', () async {
-    await repo.toggleStatus(
+  test('setStatus 标记与取消（set-by-value）', () async {
+    await repo.setStatus(
       gameId: gameId,
       playerId: players[0].id,
       dayNumber: 2,
+      marked: true,
     );
     var statuses = await db.poisonStatusesDao.watchByGame(gameId).first;
     expect(statuses.length, 1);
     expect(statuses[0].isActive, isTrue);
     expect(statuses[0].source, PoisonSource.poisoner);
 
-    // 再切一次 = 取消
-    await repo.toggleStatus(
+    // 再设为 false = 取消
+    await repo.setStatus(
       gameId: gameId,
       playerId: players[0].id,
       dayNumber: 2,
+      marked: false,
     );
     statuses = await db.poisonStatusesDao.watchByGame(gameId).first;
     expect(statuses, isEmpty);
   });
 
   test('isTainted 按天隔离', () async {
-    await repo.toggleStatus(
+    await repo.setStatus(
       gameId: gameId,
       playerId: players[0].id,
       dayNumber: 2,
+      marked: true,
     );
     expect(
       await tainted(players[0].id, 2),
@@ -76,10 +79,11 @@ void main() {
   });
 
   test('deactivate 后不再污染', () async {
-    await repo.toggleStatus(
+    await repo.setStatus(
       gameId: gameId,
       playerId: players[0].id,
       dayNumber: 2,
+      marked: true,
     );
     final statuses = await db.poisonStatusesDao.watchByGame(gameId).first;
     await db.poisonStatusesDao.deactivate(statuses[0].id);
@@ -95,10 +99,11 @@ void main() {
       DayRecordsCompanion(gameId: Value(gameId), dayNumber: const Value(2)),
     );
     // 先标毒
-    await repo.toggleStatus(
+    await repo.setStatus(
       gameId: gameId,
       playerId: players[0].id,
       dayNumber: 2,
+      marked: true,
     );
     // 录入信息
     await detailRepo.declareInfo(
@@ -140,7 +145,7 @@ void main() {
         source: const Value(PoisonSource.poisoner),
       ),
     );
-    // 直接 DAO 插入绕过 toggleStatus，唯一约束应拦截
+    // 直接 DAO 插入绕过 setStatus，唯一约束应拦截
     expect(
       () => db.poisonStatusesDao.insertStatus(
         PoisonStatusesCompanion(
@@ -175,10 +180,11 @@ void main() {
     });
 
     test('已有标毒者不覆盖来源；关 = 清两日醉潮并保留他人标毒', () async {
-      await repo.toggleStatus(
+      await repo.setStatus(
         gameId: gameId,
         playerId: players[0].id,
         dayNumber: 3,
+        marked: true,
       );
       await repo.setMinstrelTide(
         gameId: gameId,
