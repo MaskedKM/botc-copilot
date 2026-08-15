@@ -1,5 +1,6 @@
 import 'package:botc_copilot/core/constants/character.dart';
 import 'package:botc_copilot/core/constants/script.dart';
+import 'package:botc_copilot/core/constants/team.dart';
 import 'package:botc_copilot/core/database/app_database.dart';
 import 'package:botc_copilot/core/router.dart';
 import 'package:botc_copilot/core/theme/app_text_styles.dart';
@@ -59,9 +60,13 @@ class _RoleMatrixPageState extends ConsumerState<RoleMatrixPage> {
       myPlayerId: game?.myPlayerId,
       myRole: game?.myRole,
     );
-    // 我的爪牙（仅我是恶魔时，私密标记，#108）
-    final myMinionIds =
-        game != null && game.myRole == Character.imp ? minionIdsOf(game) : const <int>{};
+    // 我的爪牙（仅我=恶魔（7+ 人局）时，私密标记，#108；门控泛化到
+    // 恶魔阵营 + 人数门与录入区/推理页同口径，#275/#270⑥）
+    final myMinionIds = game != null &&
+            game.myRole?.team == Team.demon &&
+            game.playerCount >= 7
+        ? minionIdsOf(game)
+        : const <int>{};
     // 默认精简：只保留有声明 / Bluff / 有确认的列
     final columns = _showAll
         ? allColumns
