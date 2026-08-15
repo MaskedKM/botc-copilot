@@ -15,8 +15,17 @@ void main() {
     final file = File('${dir.path}/v14.sqlite');
 
     // 手工构造 v14 形态的 day_records（列集与 v14 表定义一致）+
-    // 最小 players 表（后续版本迁移可能 ALTER players，如 v16 假死列）。
+    // 最小 games/players 表（后续版本迁移可能 ALTER，如 v16 假死列 / v18 爪牙侧字段）。
     final raw = sqlite3.sqlite3.open(file.path);
+    raw.execute('''
+      CREATE TABLE games (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        script INTEGER NOT NULL,
+        player_count INTEGER NOT NULL,
+        status INTEGER NOT NULL,
+        created_at INTEGER NOT NULL
+      )
+    ''');
     raw.execute('''
       CREATE TABLE players (
         id INTEGER PRIMARY KEY AUTOINCREMENT,

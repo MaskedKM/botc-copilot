@@ -61,6 +61,15 @@ final eliminationBoardProvider =
           game.playerCount >= 7 && game.myRole?.team == Team.demon
               ? minionIdsOf(game)
               : const <int>{},
+      // #276：爪牙侧私密（同样仅 7+——官方 ≤6 人局爪牙不知恶魔）。
+      privateDemonPlayerId:
+          game.playerCount >= 7 && game.myRole?.team == Team.minion
+              ? myDemonPlayerOf(game)
+              : null,
+      privateEvilTeammateIds:
+          game.playerCount >= 7 && game.myRole?.team == Team.minion
+              ? evilTeammateIdsOf(game)
+              : const <int>{},
       declarations: effectiveDeclarations,
       dayRecordToDayNumber: {for (final d in days) d.id: d.dayNumber},
       myPlayerId: game.myPlayerId,

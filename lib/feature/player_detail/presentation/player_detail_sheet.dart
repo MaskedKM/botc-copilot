@@ -1,4 +1,5 @@
 
+import 'package:botc_copilot/core/constants/team.dart';
 import 'package:botc_copilot/core/constants/character.dart';
 import 'package:botc_copilot/core/constants/script.dart';
 import 'package:botc_copilot/core/database/app_database.dart';
@@ -506,12 +507,23 @@ class _PlayerDetailSheetState extends ConsumerState<PlayerDetailSheet> {
                 authorSuspectedDrunk: displayDrunk,
                 readOnly: readOnly,
               ),
-              // 恶魔私密爪牙名单（7+ 人局，我=恶魔，#108/#131 迁入）
+              // 恶魔私密爪牙名单（7+ 人局，我=恶魔——门控泛化到恶魔阵营，
+              // #275/#276：多恶魔剧本的恶魔同样得知爪牙）
               if (isMe &&
-                  myRole == Character.imp &&
+                  myRole != null &&
+                  myRole.team == Team.demon &&
                   (game?.playerCount ?? 0) >= 7) ...[
                 const SizedBox(height: 16),
                 MyMinionsSection(game: game!, players: players, readOnly: readOnly),
+              ],
+              // 爪牙侧私密：我的恶魔/队友（7+ 人局我=爪牙，#276）
+              if (isMe &&
+                  myRole != null &&
+                  myRole.team == Team.minion &&
+                  (game?.playerCount ?? 0) >= 7) ...[
+                const SizedBox(height: 16),
+                MyEvilInfoSection(
+                    game: game!, players: players, readOnly: readOnly),
               ],
               const SizedBox(height: 16),
               PoisonSection(

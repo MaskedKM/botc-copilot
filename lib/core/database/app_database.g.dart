@@ -103,6 +103,28 @@ class $GamesTable extends Games with TableInfo<$GamesTable, Game> {
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _myDemonPlayerIdMeta = const VerificationMeta(
+    'myDemonPlayerId',
+  );
+  @override
+  late final GeneratedColumn<int> myDemonPlayerId = GeneratedColumn<int>(
+    'my_demon_player_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _myEvilTeammatesJsonMeta =
+      const VerificationMeta('myEvilTeammatesJson');
+  @override
+  late final GeneratedColumn<String> myEvilTeammatesJson =
+      GeneratedColumn<String>(
+        'my_evil_teammates_json',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
   @override
   late final GeneratedColumnWithTypeConverter<HelpLevel, String> helpLevel =
       GeneratedColumn<String>(
@@ -124,6 +146,8 @@ class $GamesTable extends Games with TableInfo<$GamesTable, Game> {
     myPlayerId,
     demonBluffsJson,
     myMinionIdsJson,
+    myDemonPlayerId,
+    myEvilTeammatesJson,
     helpLevel,
   ];
   @override
@@ -187,6 +211,24 @@ class $GamesTable extends Games with TableInfo<$GamesTable, Game> {
         ),
       );
     }
+    if (data.containsKey('my_demon_player_id')) {
+      context.handle(
+        _myDemonPlayerIdMeta,
+        myDemonPlayerId.isAcceptableOrUnknown(
+          data['my_demon_player_id']!,
+          _myDemonPlayerIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('my_evil_teammates_json')) {
+      context.handle(
+        _myEvilTeammatesJsonMeta,
+        myEvilTeammatesJson.isAcceptableOrUnknown(
+          data['my_evil_teammates_json']!,
+          _myEvilTeammatesJsonMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -237,6 +279,14 @@ class $GamesTable extends Games with TableInfo<$GamesTable, Game> {
       myMinionIdsJson: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}my_minion_ids_json'],
+      ),
+      myDemonPlayerId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}my_demon_player_id'],
+      ),
+      myEvilTeammatesJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}my_evil_teammates_json'],
       ),
       helpLevel: $GamesTable.$converterhelpLevel.fromSql(
         attachedDatabase.typeMapping.read(
@@ -300,6 +350,13 @@ class Game extends DataClass implements Insertable<Game> {
   /// 可见（角色矩阵私密标记）。
   final String? myMinionIdsJson;
 
+  /// 爪牙侧私密：我的恶魔（7+ 人局爪牙首夜得知恶魔是谁，#276）。
+  /// 玩家 id；null = 未录入。与 myMinionIdsJson 同族（仅对我可见）。
+  final int? myDemonPlayerId;
+
+  /// 爪牙侧私密：我的邪恶队友（不含我、不含恶魔；JSON 玩家 id 数组）。
+  final String? myEvilTeammatesJson;
+
   /// 帮助层级（issue #41）。
   final HelpLevel helpLevel;
   const Game({
@@ -312,6 +369,8 @@ class Game extends DataClass implements Insertable<Game> {
     this.myPlayerId,
     this.demonBluffsJson,
     this.myMinionIdsJson,
+    this.myDemonPlayerId,
+    this.myEvilTeammatesJson,
     required this.helpLevel,
   });
   @override
@@ -342,6 +401,12 @@ class Game extends DataClass implements Insertable<Game> {
     if (!nullToAbsent || myMinionIdsJson != null) {
       map['my_minion_ids_json'] = Variable<String>(myMinionIdsJson);
     }
+    if (!nullToAbsent || myDemonPlayerId != null) {
+      map['my_demon_player_id'] = Variable<int>(myDemonPlayerId);
+    }
+    if (!nullToAbsent || myEvilTeammatesJson != null) {
+      map['my_evil_teammates_json'] = Variable<String>(myEvilTeammatesJson);
+    }
     {
       map['help_level'] = Variable<String>(
         $GamesTable.$converterhelpLevel.toSql(helpLevel),
@@ -369,6 +434,12 @@ class Game extends DataClass implements Insertable<Game> {
       myMinionIdsJson: myMinionIdsJson == null && nullToAbsent
           ? const Value.absent()
           : Value(myMinionIdsJson),
+      myDemonPlayerId: myDemonPlayerId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(myDemonPlayerId),
+      myEvilTeammatesJson: myEvilTeammatesJson == null && nullToAbsent
+          ? const Value.absent()
+          : Value(myEvilTeammatesJson),
       helpLevel: Value(helpLevel),
     );
   }
@@ -394,6 +465,10 @@ class Game extends DataClass implements Insertable<Game> {
       myPlayerId: serializer.fromJson<int?>(json['myPlayerId']),
       demonBluffsJson: serializer.fromJson<String?>(json['demonBluffsJson']),
       myMinionIdsJson: serializer.fromJson<String?>(json['myMinionIdsJson']),
+      myDemonPlayerId: serializer.fromJson<int?>(json['myDemonPlayerId']),
+      myEvilTeammatesJson: serializer.fromJson<String?>(
+        json['myEvilTeammatesJson'],
+      ),
       helpLevel: $GamesTable.$converterhelpLevel.fromJson(
         serializer.fromJson<String>(json['helpLevel']),
       ),
@@ -418,6 +493,8 @@ class Game extends DataClass implements Insertable<Game> {
       'myPlayerId': serializer.toJson<int?>(myPlayerId),
       'demonBluffsJson': serializer.toJson<String?>(demonBluffsJson),
       'myMinionIdsJson': serializer.toJson<String?>(myMinionIdsJson),
+      'myDemonPlayerId': serializer.toJson<int?>(myDemonPlayerId),
+      'myEvilTeammatesJson': serializer.toJson<String?>(myEvilTeammatesJson),
       'helpLevel': serializer.toJson<String>(
         $GamesTable.$converterhelpLevel.toJson(helpLevel),
       ),
@@ -434,6 +511,8 @@ class Game extends DataClass implements Insertable<Game> {
     Value<int?> myPlayerId = const Value.absent(),
     Value<String?> demonBluffsJson = const Value.absent(),
     Value<String?> myMinionIdsJson = const Value.absent(),
+    Value<int?> myDemonPlayerId = const Value.absent(),
+    Value<String?> myEvilTeammatesJson = const Value.absent(),
     HelpLevel? helpLevel,
   }) => Game(
     id: id ?? this.id,
@@ -449,6 +528,12 @@ class Game extends DataClass implements Insertable<Game> {
     myMinionIdsJson: myMinionIdsJson.present
         ? myMinionIdsJson.value
         : this.myMinionIdsJson,
+    myDemonPlayerId: myDemonPlayerId.present
+        ? myDemonPlayerId.value
+        : this.myDemonPlayerId,
+    myEvilTeammatesJson: myEvilTeammatesJson.present
+        ? myEvilTeammatesJson.value
+        : this.myEvilTeammatesJson,
     helpLevel: helpLevel ?? this.helpLevel,
   );
   Game copyWithCompanion(GamesCompanion data) {
@@ -470,6 +555,12 @@ class Game extends DataClass implements Insertable<Game> {
       myMinionIdsJson: data.myMinionIdsJson.present
           ? data.myMinionIdsJson.value
           : this.myMinionIdsJson,
+      myDemonPlayerId: data.myDemonPlayerId.present
+          ? data.myDemonPlayerId.value
+          : this.myDemonPlayerId,
+      myEvilTeammatesJson: data.myEvilTeammatesJson.present
+          ? data.myEvilTeammatesJson.value
+          : this.myEvilTeammatesJson,
       helpLevel: data.helpLevel.present ? data.helpLevel.value : this.helpLevel,
     );
   }
@@ -486,6 +577,8 @@ class Game extends DataClass implements Insertable<Game> {
           ..write('myPlayerId: $myPlayerId, ')
           ..write('demonBluffsJson: $demonBluffsJson, ')
           ..write('myMinionIdsJson: $myMinionIdsJson, ')
+          ..write('myDemonPlayerId: $myDemonPlayerId, ')
+          ..write('myEvilTeammatesJson: $myEvilTeammatesJson, ')
           ..write('helpLevel: $helpLevel')
           ..write(')'))
         .toString();
@@ -502,6 +595,8 @@ class Game extends DataClass implements Insertable<Game> {
     myPlayerId,
     demonBluffsJson,
     myMinionIdsJson,
+    myDemonPlayerId,
+    myEvilTeammatesJson,
     helpLevel,
   );
   @override
@@ -517,6 +612,8 @@ class Game extends DataClass implements Insertable<Game> {
           other.myPlayerId == this.myPlayerId &&
           other.demonBluffsJson == this.demonBluffsJson &&
           other.myMinionIdsJson == this.myMinionIdsJson &&
+          other.myDemonPlayerId == this.myDemonPlayerId &&
+          other.myEvilTeammatesJson == this.myEvilTeammatesJson &&
           other.helpLevel == this.helpLevel);
 }
 
@@ -530,6 +627,8 @@ class GamesCompanion extends UpdateCompanion<Game> {
   final Value<int?> myPlayerId;
   final Value<String?> demonBluffsJson;
   final Value<String?> myMinionIdsJson;
+  final Value<int?> myDemonPlayerId;
+  final Value<String?> myEvilTeammatesJson;
   final Value<HelpLevel> helpLevel;
   const GamesCompanion({
     this.id = const Value.absent(),
@@ -541,6 +640,8 @@ class GamesCompanion extends UpdateCompanion<Game> {
     this.myPlayerId = const Value.absent(),
     this.demonBluffsJson = const Value.absent(),
     this.myMinionIdsJson = const Value.absent(),
+    this.myDemonPlayerId = const Value.absent(),
+    this.myEvilTeammatesJson = const Value.absent(),
     this.helpLevel = const Value.absent(),
   });
   GamesCompanion.insert({
@@ -553,6 +654,8 @@ class GamesCompanion extends UpdateCompanion<Game> {
     this.myPlayerId = const Value.absent(),
     this.demonBluffsJson = const Value.absent(),
     this.myMinionIdsJson = const Value.absent(),
+    this.myDemonPlayerId = const Value.absent(),
+    this.myEvilTeammatesJson = const Value.absent(),
     this.helpLevel = const Value.absent(),
   }) : script = Value(script),
        playerCount = Value(playerCount),
@@ -568,6 +671,8 @@ class GamesCompanion extends UpdateCompanion<Game> {
     Expression<int>? myPlayerId,
     Expression<String>? demonBluffsJson,
     Expression<String>? myMinionIdsJson,
+    Expression<int>? myDemonPlayerId,
+    Expression<String>? myEvilTeammatesJson,
     Expression<String>? helpLevel,
   }) {
     return RawValuesInsertable({
@@ -580,6 +685,9 @@ class GamesCompanion extends UpdateCompanion<Game> {
       if (myPlayerId != null) 'my_player_id': myPlayerId,
       if (demonBluffsJson != null) 'demon_bluffs_json': demonBluffsJson,
       if (myMinionIdsJson != null) 'my_minion_ids_json': myMinionIdsJson,
+      if (myDemonPlayerId != null) 'my_demon_player_id': myDemonPlayerId,
+      if (myEvilTeammatesJson != null)
+        'my_evil_teammates_json': myEvilTeammatesJson,
       if (helpLevel != null) 'help_level': helpLevel,
     });
   }
@@ -594,6 +702,8 @@ class GamesCompanion extends UpdateCompanion<Game> {
     Value<int?>? myPlayerId,
     Value<String?>? demonBluffsJson,
     Value<String?>? myMinionIdsJson,
+    Value<int?>? myDemonPlayerId,
+    Value<String?>? myEvilTeammatesJson,
     Value<HelpLevel>? helpLevel,
   }) {
     return GamesCompanion(
@@ -606,6 +716,8 @@ class GamesCompanion extends UpdateCompanion<Game> {
       myPlayerId: myPlayerId ?? this.myPlayerId,
       demonBluffsJson: demonBluffsJson ?? this.demonBluffsJson,
       myMinionIdsJson: myMinionIdsJson ?? this.myMinionIdsJson,
+      myDemonPlayerId: myDemonPlayerId ?? this.myDemonPlayerId,
+      myEvilTeammatesJson: myEvilTeammatesJson ?? this.myEvilTeammatesJson,
       helpLevel: helpLevel ?? this.helpLevel,
     );
   }
@@ -646,6 +758,14 @@ class GamesCompanion extends UpdateCompanion<Game> {
     if (myMinionIdsJson.present) {
       map['my_minion_ids_json'] = Variable<String>(myMinionIdsJson.value);
     }
+    if (myDemonPlayerId.present) {
+      map['my_demon_player_id'] = Variable<int>(myDemonPlayerId.value);
+    }
+    if (myEvilTeammatesJson.present) {
+      map['my_evil_teammates_json'] = Variable<String>(
+        myEvilTeammatesJson.value,
+      );
+    }
     if (helpLevel.present) {
       map['help_level'] = Variable<String>(
         $GamesTable.$converterhelpLevel.toSql(helpLevel.value),
@@ -666,6 +786,8 @@ class GamesCompanion extends UpdateCompanion<Game> {
           ..write('myPlayerId: $myPlayerId, ')
           ..write('demonBluffsJson: $demonBluffsJson, ')
           ..write('myMinionIdsJson: $myMinionIdsJson, ')
+          ..write('myDemonPlayerId: $myDemonPlayerId, ')
+          ..write('myEvilTeammatesJson: $myEvilTeammatesJson, ')
           ..write('helpLevel: $helpLevel')
           ..write(')'))
         .toString();
@@ -5357,6 +5479,8 @@ typedef $$GamesTableCreateCompanionBuilder =
       Value<int?> myPlayerId,
       Value<String?> demonBluffsJson,
       Value<String?> myMinionIdsJson,
+      Value<int?> myDemonPlayerId,
+      Value<String?> myEvilTeammatesJson,
       Value<HelpLevel> helpLevel,
     });
 typedef $$GamesTableUpdateCompanionBuilder =
@@ -5370,6 +5494,8 @@ typedef $$GamesTableUpdateCompanionBuilder =
       Value<int?> myPlayerId,
       Value<String?> demonBluffsJson,
       Value<String?> myMinionIdsJson,
+      Value<int?> myDemonPlayerId,
+      Value<String?> myEvilTeammatesJson,
       Value<HelpLevel> helpLevel,
     });
 
@@ -5561,6 +5687,16 @@ class $$GamesTableFilterComposer extends Composer<_$AppDatabase, $GamesTable> {
 
   ColumnFilters<String> get myMinionIdsJson => $composableBuilder(
     column: $table.myMinionIdsJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get myDemonPlayerId => $composableBuilder(
+    column: $table.myDemonPlayerId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get myEvilTeammatesJson => $composableBuilder(
+    column: $table.myEvilTeammatesJson,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -5800,6 +5936,16 @@ class $$GamesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get myDemonPlayerId => $composableBuilder(
+    column: $table.myDemonPlayerId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get myEvilTeammatesJson => $composableBuilder(
+    column: $table.myEvilTeammatesJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get helpLevel => $composableBuilder(
     column: $table.helpLevel,
     builder: (column) => ColumnOrderings(column),
@@ -5847,6 +5993,16 @@ class $$GamesTableAnnotationComposer
 
   GeneratedColumn<String> get myMinionIdsJson => $composableBuilder(
     column: $table.myMinionIdsJson,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get myDemonPlayerId => $composableBuilder(
+    column: $table.myDemonPlayerId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get myEvilTeammatesJson => $composableBuilder(
+    column: $table.myEvilTeammatesJson,
     builder: (column) => column,
   );
 
@@ -6075,6 +6231,8 @@ class $$GamesTableTableManager
                 Value<int?> myPlayerId = const Value.absent(),
                 Value<String?> demonBluffsJson = const Value.absent(),
                 Value<String?> myMinionIdsJson = const Value.absent(),
+                Value<int?> myDemonPlayerId = const Value.absent(),
+                Value<String?> myEvilTeammatesJson = const Value.absent(),
                 Value<HelpLevel> helpLevel = const Value.absent(),
               }) => GamesCompanion(
                 id: id,
@@ -6086,6 +6244,8 @@ class $$GamesTableTableManager
                 myPlayerId: myPlayerId,
                 demonBluffsJson: demonBluffsJson,
                 myMinionIdsJson: myMinionIdsJson,
+                myDemonPlayerId: myDemonPlayerId,
+                myEvilTeammatesJson: myEvilTeammatesJson,
                 helpLevel: helpLevel,
               ),
           createCompanionCallback:
@@ -6099,6 +6259,8 @@ class $$GamesTableTableManager
                 Value<int?> myPlayerId = const Value.absent(),
                 Value<String?> demonBluffsJson = const Value.absent(),
                 Value<String?> myMinionIdsJson = const Value.absent(),
+                Value<int?> myDemonPlayerId = const Value.absent(),
+                Value<String?> myEvilTeammatesJson = const Value.absent(),
                 Value<HelpLevel> helpLevel = const Value.absent(),
               }) => GamesCompanion.insert(
                 id: id,
@@ -6110,6 +6272,8 @@ class $$GamesTableTableManager
                 myPlayerId: myPlayerId,
                 demonBluffsJson: demonBluffsJson,
                 myMinionIdsJson: myMinionIdsJson,
+                myDemonPlayerId: myDemonPlayerId,
+                myEvilTeammatesJson: myEvilTeammatesJson,
                 helpLevel: helpLevel,
               ),
           withReferenceMapper: (p0) => p0

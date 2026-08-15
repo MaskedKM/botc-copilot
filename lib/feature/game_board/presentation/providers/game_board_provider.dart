@@ -793,17 +793,34 @@ class GameBoardNotifier extends StateNotifier<GameBoardState> {
           ),
         );
       }
-      // myRole 同步与传承事件同生共死（同事务，#277）。
+      // myRole 同步与传承事件同生共死（同事务，#277）；同步清爪牙侧
+      // 私密（#276）——我已从爪牙成为新恶魔，「我的恶魔/队友」是旧身份
+      // 的认知，保留会污染推理（新恶魔的爪牙名单另行录入）。
       if (heirRole != null && game != null) {
         await _db.gamesDao.updateMyRole(_gameId, heirRole);
+        await _db.gamesDao.updateMyDemonPlayerId(_gameId, null);
+        await _db.gamesDao.updateMyEvilTeammates(_gameId, null);
       }
     });
   }
 
   /// 修正「我的角色」（#277：updateMyRole 此前零调用，myRole 事实上
   /// 不可变；开局误选/传承未联动均可由此纠正）。带确认的 UI 入口调用。
-  Future<void> correctMyRole(Character role) =>
-      _db.gamesDao.updateMyRole(_gameId, role);
+  ///
+  /// 阵营不匹配的私密数据同步清理（#276）：恶魔侧爪牙名单只属于恶魔，
+  /// 爪牙侧恶魔/队友只属于爪牙——角色改到另一阵营时旧认知作废。
+  Future<void> correctMyRole(Character role) async {
+    await _db.transaction(() async {
+      await _db.gamesDao.updateMyRole(_gameId, role);
+      if (role.team != Team.demon) {
+        await _db.gamesDao.updateMyMinionIds(_gameId, null);
+      }
+      if (role.team != Team.minion) {
+        await _db.gamesDao.updateMyDemonPlayerId(_gameId, null);
+        await _db.gamesDao.updateMyEvilTeammates(_gameId, null);
+      }
+    });
+  }
 
   /// 撤销最近一次推进（仅当天为预建的空记录时，issue #87）。
   ///
