@@ -14,11 +14,92 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('SuccessionRules 纯函数', () {
-    test('isDemonDeath：仅 Imp 触发', () {
-      expect(SuccessionRules.isDemonDeath(Character.imp), isTrue);
-      expect(SuccessionRules.isDemonDeath(Character.soldier), isFalse);
-      expect(SuccessionRules.isDemonDeath(Character.scarletWoman), isFalse);
-      expect(SuccessionRules.isDemonDeath(null), isFalse);
+    test('isDemonDeath：按剧本恶魔池判定（#275）', () {
+      // TB：仅 Imp
+      expect(
+        SuccessionRules.isDemonDeath(Character.imp,
+            script: Script.troubleBrewing),
+        isTrue,
+      );
+      expect(
+        SuccessionRules.isDemonDeath(
+          Character.zombuul,
+          script: Script.troubleBrewing,
+        ),
+        isFalse, // 不在 TB 池 → bluff
+      );
+      expect(
+        SuccessionRules.isDemonDeath(Character.soldier,
+            script: Script.troubleBrewing),
+        isFalse,
+      );
+      // BMR：四恶魔
+      for (final d in [
+        Character.zombuul,
+        Character.po,
+        Character.pukka,
+        Character.shabaloth,
+      ]) {
+        expect(
+          SuccessionRules.isDemonDeath(d, script: Script.badMoonRising),
+          isTrue,
+          reason: 'BMR 恶魔 $d 应触发',
+        );
+      }
+      expect(
+        SuccessionRules.isDemonDeath(Character.imp,
+            script: Script.badMoonRising),
+        isFalse, // Imp 不在 BMR 池
+      );
+      // S&V：四恶魔
+      for (final d in [
+        Character.vortox,
+        Character.fanggu,
+        Character.nodashii,
+        Character.vigormortis,
+      ]) {
+        expect(
+          SuccessionRules.isDemonDeath(d, script: Script.sectsAndViolets),
+          isTrue,
+          reason: 'S&V 恶魔 $d 应触发',
+        );
+      }
+      expect(SuccessionRules.isDemonDeath(null, script: Script.troubleBrewing),
+          isFalse);
+    });
+
+    test('minionClaimCandidates：按剧本爪牙池派生（#275）', () {
+      expect(
+        SuccessionRules.minionClaimCandidates(Script.troubleBrewing),
+        containsAll([
+          Character.poisoner,
+          Character.spy,
+          Character.scarletWoman,
+          Character.baron,
+        ]),
+      );
+      expect(
+        SuccessionRules.minionClaimCandidates(Script.troubleBrewing),
+        isNot(contains(Character.godfather)),
+      );
+      expect(
+        SuccessionRules.minionClaimCandidates(Script.badMoonRising),
+        containsAll([
+          Character.godfather,
+          Character.devilsAdvocate,
+          Character.assassin,
+          Character.mastermind,
+        ]),
+      );
+      expect(
+        SuccessionRules.minionClaimCandidates(Script.sectsAndViolets),
+        containsAll([
+          Character.eviltwin,
+          Character.witch,
+          Character.cerenovus,
+          Character.pithag,
+        ]),
+      );
     });
 
     test('isScarletWomanThreshold：死后存活 ≥4（死前 ≥5）触发', () {
@@ -220,6 +301,75 @@ void main() {
       expect(suggestion, isA<DemonSuccessionCandidate>());
       final updated = await db.playersDao.watchByGame(gameId).first;
       expect(updated[0].isAlive, isFalse);
+    });
+  });
+
+  // #275：BMR 局传承链路不再按 TB 硬编码失效。
+  group('恶魔传承集成（BMR，#275 跨剧本）', () {
+    late AppDatabase db;
+    late ProviderContainer container;
+    late int gameId;
+
+    GameBoardNotifier notifier() =>
+        container.read(gameBoardProvider(gameId).notifier);
+
+    Future<void> claimRole(int playerId, Character c) async {
+      final dayId = await notifier().ensureCurrentDayRecord();
+      await db.roleClaimsDao.insertClaim(
+        RoleClaimsCompanion(
+          playerId: Value(playerId),
+          dayRecordId: Value(dayId),
+          character: Value(c),
+          claimType: const Value(ClaimType.firstClaim),
+        ),
+      );
+    }
+
+    setUp(() async {
+      db = AppDatabase.forTesting(NativeDatabase.memory());
+      container = ProviderContainer(
+        overrides: [appDatabaseProvider.overrideWithValue(db)],
+      );
+      gameId = await SetupRepository(db).createGame(
+        script: Script.badMoonRising,
+        names: ['A', 'B', 'C', 'D', 'E', 'F', 'G'],
+        myRole: Character.grandmother,
+      );
+    });
+
+    tearDown(() async {
+      container.dispose();
+      await db.close();
+    });
+
+    test('BMR 夜死 Zombuul 声明 → 传承候选触发（suicide）', () async {
+      final players = await db.playersDao.watchByGame(gameId).first;
+      await claimRole(players[0].id, Character.zombuul);
+      final suggestion = await notifier().setNightDeaths([players[0].id]);
+      expect(suggestion, isA<DemonSuccessionCandidate>());
+      final cand = suggestion! as DemonSuccessionCandidate;
+      expect(cand.way, DeathWay.suicide);
+      expect(cand.scarletWomanEligible, isFalse); // BMR 无 SW
+    });
+
+    test('BMR 夜死 Imp 声明（不在池）→ 不触发传承', () async {
+      final players = await db.playersDao.watchByGame(gameId).first;
+      await claimRole(players[0].id, Character.imp);
+      final suggestion = await notifier().setNightDeaths([players[0].id]);
+      expect(suggestion, isNull); // Imp 不在 BMR 池 → bluff，非恶魔死亡
+    });
+
+    test('BMR 处决恶魔 + SW 声明（不在池）→ null（善良胜）', () async {
+      final players = await db.playersDao.watchByGame(gameId).first;
+      // SW 声明在 BMR 是 bluff，不应触发 SW 自动继承
+      await claimRole(players[1].id, Character.scarletWoman);
+      await claimRole(players[0].id, Character.po);
+      await db.playersDao.markDead(players[0].id, 1, DeathCause.execution);
+      final suggestion = await notifier().checkDemonDeath(
+        players[0].id,
+        way: DeathWay.execution,
+      );
+      expect(suggestion, isNull); // 无 SW 在池 → 处决恶魔即善良胜
     });
   });
 }

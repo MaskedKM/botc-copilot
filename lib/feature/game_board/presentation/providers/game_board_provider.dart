@@ -227,7 +227,7 @@ class GameBoardNotifier extends StateNotifier<GameBoardState> {
     // Imp 自杀且无爪牙时误判邪恶胜（应善良胜），取消则卡死。
     for (final id in addedIds) {
       final claimed = await _effectiveCharacter(id);
-      if (SuccessionRules.isDemonDeath(claimed) ||
+      if (await _isScriptDemonDeath(claimed) ||
           await _isDemonCandidate(id)) {
         return checkDemonDeath(id, way: DeathWay.suicide);
       }
@@ -549,7 +549,7 @@ class GameBoardNotifier extends StateNotifier<GameBoardState> {
       final claimed = await _effectiveCharacter(player.id);
       final isToday = deathDay == null || deathDay == state.currentDay;
       if (isToday &&
-          (SuccessionRules.isDemonDeath(claimed) ||
+          (await _isScriptDemonDeath(claimed) ||
               await _isDemonCandidate(player.id))) {
         return checkDemonDeath(player.id, way: DeathWay.suicide);
       }
@@ -638,6 +638,19 @@ class GameBoardNotifier extends StateNotifier<GameBoardState> {
     return claims.isNotEmpty ? claims.last.character : null;
   }
 
+  /// 有效角色是否为**本剧本**恶魔池成员（#275 数据驱动泛化）。
+  ///
+  /// 此前硬编码 `== Character.imp`，BMR/S&V 恶魔（Zombuul/Po/Vortox…）
+  /// 死亡不触发传承检测；现按 [SuccessionRules.isDemonDeath] 以
+  /// game.script 的剧本池判定。
+  Future<bool> _isScriptDemonDeath(Character? effectiveCharacter) async {
+    final game = await _db.gamesDao.getById(_gameId);
+    return SuccessionRules.isDemonDeath(
+      effectiveCharacter,
+      script: game?.script ?? Script.troubleBrewing,
+    );
+  }
+
   /// 玩家是否被标记为恶魔候选（夜死传承触发的兜底）。
   ///
   /// 好人视角下真恶魔不会声明 Imp，单靠声明/真身会漏判；信任度被标为
@@ -701,6 +714,14 @@ class GameBoardNotifier extends StateNotifier<GameBoardState> {
   /// 活跃毒（Poisoner）——仅作提示，App 不能确认真身毒/醉。
   Future<({int playerId, bool tainted})?> _scarletWomanInPlay() async {
     final game = await _db.gamesDao.getById(_gameId);
+    // #275：SW 仅在其所在的剧本（TB）可能为真——BMR/S&V 池无 SW，
+    // 其声明必为 bluff（恶魔 bluff 只来自本剧本好人池），不触发 SW
+    // 自动继承候选，处决/击杀恶魔直接按善良胜处理。
+    if (!ScriptDefinition.of(game?.script ?? Script.troubleBrewing)
+        .characters
+        .contains(Character.scarletWoman)) {
+      return null;
+    }
     final players = await _db.playersDao.watchByGame(_gameId).first;
     final byId = {for (final p in players) p.id: p};
     // 我是 SW 且存活

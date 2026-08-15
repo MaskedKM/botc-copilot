@@ -1,5 +1,6 @@
 import 'package:botc_copilot/core/constants/character.dart';
 import 'package:botc_copilot/core/constants/script.dart';
+import 'package:botc_copilot/core/constants/team.dart';
 import 'package:botc_copilot/core/database/database_provider.dart';
 import 'package:botc_copilot/feature/game_board/domain/game_end.dart';
 import 'package:botc_copilot/feature/game_board/domain/succession.dart';
@@ -42,15 +43,23 @@ Future<void> handleSuccession(
   if (candidate.scarletWomanPlayerId != null) {
     heirSet.add(candidate.scarletWomanPlayerId!);
   } else if (candidate.way == DeathWay.suicide) {
-    final isDemonMe = game?.myRole == Character.imp &&
-        game?.myPlayerId == candidate.demonPlayerId;
-    if (isDemonMe && game != null) {
+    // #275：门控泛化到恶魔阵营（多恶魔剧本自杀同适用）；≤6 人局恶魔
+    // 不知爪牙（官方规则），私密名单无效 → 走声明候选。
+    final isDemonMe = game != null &&
+        game.playerCount >= 7 &&
+        game.myRole?.team == Team.demon &&
+        game.myPlayerId == candidate.demonPlayerId;
+    if (isDemonMe) {
       for (final id in minionIdsOf(game)) {
         if (players.any((p) => p.id == id && p.isAlive)) heirSet.add(id);
       }
     } else {
+      // #275：继承人候选从剧本爪牙池派生（此前硬编码 TB 四爪牙）。
+      final minionClaims = SuccessionRules.minionClaimCandidates(
+        game?.script ?? Script.troubleBrewing,
+      );
       for (final p in players.where((p) => p.isAlive)) {
-        if (SuccessionRules.minionClaimCandidates.contains(latest[p.id])) {
+        if (minionClaims.contains(latest[p.id])) {
           heirSet.add(p.id);
         }
       }

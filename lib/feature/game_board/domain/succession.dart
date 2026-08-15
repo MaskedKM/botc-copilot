@@ -1,4 +1,7 @@
 import 'package:botc_copilot/core/constants/character.dart';
+import 'package:botc_copilot/core/constants/script.dart';
+import 'package:botc_copilot/core/constants/script_definition.dart';
+import 'package:botc_copilot/core/constants/team.dart';
 
 /// 恶魔传承规则（issue #89 公理5，纯函数，可测试）。
 ///
@@ -8,12 +11,22 @@ import 'package:botc_copilot/core/constants/character.dart';
 /// - **Imp 自杀普通传位**：无 SW 时，恶魔/说书人选一名存活爪牙继承。
 /// - **处决/Slayer 杀恶魔 + 无 SW**：善良胜（不传位）。
 abstract final class SuccessionRules {
-  /// 死者是否疑似恶魔（触发传承提示）。
+  /// 死者是否疑似**本剧本**恶魔（触发传承提示，#275 跨剧本泛化）。
   ///
   /// App 按玩家**有效角色**判定：「我」的座位取 myRole（真身），他人取
-  /// 最新公开声明（可能是 bluff，由用户在确认框裁决）。
-  static bool isDemonDeath(Character? effectiveCharacter) =>
-      effectiveCharacter == Character.imp;
+  /// 最新公开声明（可能是 bluff，由用户在确认框裁决）。恶魔集合从
+  /// [ScriptDefinition] 剧本池派生——TB=Imp；BMR=Zombuul/Po/Pukka/
+  /// Shabaloth；S&V=Vortox/Fang Gu/No Dashii/Vigormortis。不在本剧本
+  /// 池的恶魔声明必为 bluff（恶魔 bluff 只来自本剧本的好人池）。
+  static bool isDemonDeath(
+    Character? effectiveCharacter, {
+    required Script script,
+  }) {
+    if (effectiveCharacter == null) return false;
+    return ScriptDefinition.of(script).byTeam(Team.demon).contains(
+          effectiveCharacter,
+        );
+  }
 
   /// SW 自动继承的人数阈值：**死前** ≥5 存活（等价死后 ≥4）。
   ///
@@ -21,13 +34,11 @@ abstract final class SuccessionRules {
   /// [aliveAfter] 为恶魔死后的存活数，死前 = aliveAfter + 1。
   static bool isScarletWomanThreshold(int aliveAfter) => aliveAfter + 1 >= 5;
 
-  /// 好人视角的继承人候选角色（声明爪牙角色的存活玩家）。
+  /// 好人视角的继承人候选角色（声明**本剧本**爪牙角色的存活玩家）。
   ///
-  /// 我不是恶魔时无法确知真实爪牙，只能按公开声明推断继承人候选。
-  static const List<Character> minionClaimCandidates = [
-    Character.poisoner,
-    Character.spy,
-    Character.scarletWoman,
-    Character.baron,
-  ];
+  /// 我不是恶魔时无法确知真实爪牙，只能按公开声明推断继承人候选；
+  /// 爪牙集合同样从 [ScriptDefinition] 剧本池派生（#275：此前硬编码 TB
+  /// 四爪牙，BMR/S&V 局爪牙声明的玩家无法被选为继承人）。
+  static List<Character> minionClaimCandidates(Script script) =>
+      ScriptDefinition.of(script).byTeam(Team.minion);
 }
