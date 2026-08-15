@@ -46,7 +46,11 @@ enum ContradictionType {
   chefCountMismatch('厨师计数与邪恶不符'),
 
   /// 传承记录确认的新恶魔与死亡揭示角色冲突（#215）。
-  successionRevealConflict('传承与死亡揭示冲突');
+  successionRevealConflict('传承与死亡揭示冲突'),
+
+  /// 掘墓人录入的处决者与处决记录不符（#285：显式锚点对不上——
+  /// 录错或谎报，本身是推理信号）。
+  undertakerTargetMismatch('掘墓人目标与处决不符');
 
   const ContradictionType(this.nameCn);
 
@@ -177,6 +181,40 @@ abstract final class ContradictionDetector {
         : name;
   }
 
+  /// 掘墓人显式锚与处决记录不符（#285）：录的处决者在声明日前
+  /// 无处决记录 → info 级疑点（录错或谎报，均为推理信号）。
+  static List<Contradiction> _ruleUndertakerTargetMismatch(
+    ContradictionFacts f,
+  ) {
+    final results = <Contradiction>[];
+    for (final decl in f.declarations) {
+      if (decl.characterType != Character.undertaker) continue;
+      final explicit = _payloadPlayerId(decl.payloadJson);
+      if (explicit == null) continue; // 旧 payload：无锚不判
+      final reported = InfoPayloadFormatter.characterOf(decl);
+      if (reported == null) continue;
+      final declDay = f.dayRecordToDayNumber[decl.dayRecordId];
+      if (declDay == null) continue;
+      final executedBefore = f.days.any(
+        (d) => d.dayNumber < declDay && d.dayExecutionPlayerId == explicit,
+      );
+      if (executedBefore) continue; // 锚上了：合法
+      results.add(
+        Contradiction(
+          type: ContradictionType.undertakerTargetMismatch,
+          severity: ContradictionSeverity.info,
+          playerIds: [explicit],
+          description:
+              '掘墓人记录「${_labelOf(f.latestClaim, f.playersById, explicit)} '
+              '被处决为 ${reported.nameCn}」，但该玩家在声明日前无处决记录——'
+              '录入有误或掘墓人在谎报。',
+          dayNumber: declDay,
+        ),
+      );
+    }
+    return results;
+  }
+
   /// 规则 3：外来者声明数即便 Baron 在场（+2）也无法解释 → 必有假报（机制层适配）。
   static List<Contradiction> _ruleOutsiderCount(ContradictionFacts f) =>
       _outsiderCountAnomaly(
@@ -299,6 +337,10 @@ abstract final class ContradictionDetector {
 
   static const _tbRules = <ContradictionRule>[
     ContradictionRule(id: 'empath-mismatch', run: _ruleEmpath),
+    ContradictionRule(
+      id: 'undertaker-target-mismatch',
+      run: _ruleUndertakerTargetMismatch,
+    ),
     ContradictionRule(id: 'fortune-teller-mismatch', run: _ruleFortuneTeller),
     ContradictionRule(id: 'start-info-ping', run: _ruleStartInfoPing),
     ContradictionRule(id: 'chef-count', run: _ruleChefCount),
@@ -1092,6 +1134,19 @@ abstract final class ContradictionDetector {
     ];
   }
 
+  /// 解析 payload 的显式玩家锚（掘墓人新 payload 的 playerId，#285）。
+  static int? _payloadPlayerId(String payloadJson) {
+    try {
+      final decoded = jsonDecode(payloadJson);
+      if (decoded is Map && decoded['playerId'] is int) {
+        return decoded['playerId'] as int;
+      }
+      return null;
+    } on FormatException {
+      return null;
+    }
+  }
+
   static int? _payloadValue(String payloadJson) {
     try {
       final decoded = jsonDecode(payloadJson);
@@ -1143,6 +1198,13 @@ abstract final class ContradictionDetector {
       if (reported == null) continue;
       final declDay = dayRecordToDayNumber[decl.dayRecordId];
       if (declDay == null) continue;
+      // #285：新 payload 带显式处决者锚（playerId）——直接关联；
+      // 旧 payload（仅角色）回落到「声明日前最近一次处决」推断。
+      final explicit = _payloadPlayerId(decl.payloadJson);
+      if (explicit != null) {
+        roles[explicit] = reported;
+        continue;
+      }
       // 声明日之前最近一次处决（掘墓人在次夜得知前日处决）。
       DayRecord? latestExec;
       for (final d in sortedDays) {

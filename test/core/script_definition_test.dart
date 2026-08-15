@@ -227,6 +227,7 @@ void main() {
         contradictionRulesFor(Script.troubleBrewing).map((r) => r.id),
         [
           'empath-mismatch',
+          'undertaker-target-mismatch',
           'fortune-teller-mismatch',
           'start-info-ping',
           'chef-count',

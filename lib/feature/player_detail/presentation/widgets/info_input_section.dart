@@ -93,6 +93,11 @@ class InfoInputSection extends ConsumerWidget {
           players: players,
           script: script,
           actingPlayerId: playerId,
+          // #285：掘墓人预填「最近一次被处决者」（夜 N 报昼 N-1 的处决；
+          // 隔日补报取更早处决时用户可改选）。其余角色无预填。
+          initialPlayerId: character == Character.undertaker
+              ? _latestExecutedPlayerId(ref, gameId, day)
+              : null,
           onSubmit: (payload) async {
             // 先落库草稿声明（非己且选了 chip 时），再录信息（#134）。
             // 声明写失败则中止——避免信息无对应声明成孤儿（#164 B9 review）。
@@ -158,4 +163,17 @@ class InfoInputSection extends ConsumerWidget {
       ],
     );
   }
+}
+
+
+/// 声明日（[day]）之前最近一次处决的玩家 id（无则 null，#285）。
+int? _latestExecutedPlayerId(WidgetRef ref, int gameId, int day) {
+  final days =
+      ref.watch(gameDayRecordsProvider(gameId)).valueOrNull ?? [];
+  DayRecord? latest;
+  for (final d in days) {
+    if (d.dayNumber >= day) break;
+    if (d.dayExecutionPlayerId != null) latest = d;
+  }
+  return latest?.dayExecutionPlayerId;
 }

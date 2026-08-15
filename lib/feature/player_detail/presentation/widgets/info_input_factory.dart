@@ -25,6 +25,7 @@ abstract final class InfoInputFactory {
     required void Function(Map<String, Object?> payload) onSubmit,
     required Script script,
     int? actingPlayerId,
+    int? initialPlayerId,
   }) {
     // 剧本角色池（#230）：多剧本后角色 chips 只列本局剧本的角色。
     final pool = ScriptDefinition.of(script);
@@ -73,6 +74,8 @@ abstract final class InfoInputFactory {
               : pool.characters,
           players: players,
           onSubmit: onSubmit,
+          // #285：掘墓人预填「声明日前最近一次处决」的玩家（调用方解析）。
+          initialPlayerId: initialPlayerId,
         ),
       InfoInputType.singlePlayerTarget => _SinglePlayerInput(
           players: players,
@@ -355,11 +358,16 @@ class _PlayerPlusCharacterInput extends StatefulWidget {
     required this.characters,
     required this.players,
     required this.onSubmit,
+    this.initialPlayerId,
   });
 
   /// 剧本角色池（#230）。
   final List<Character> characters;
   final List<Player> players;
+
+  /// 预填玩家（#285：掘墓人=最近被处决者；null = 无预填）。
+  final int? initialPlayerId;
+
   final void Function(Map<String, Object?>) onSubmit;
 
   @override
@@ -371,6 +379,13 @@ class _PlayerPlusCharacterInputState
     extends State<_PlayerPlusCharacterInput> {
   int? _playerId;
   Character? _character;
+
+  @override
+  void initState() {
+    super.initState();
+    // #285：掘墓人预填处决者锚。
+    _playerId = widget.initialPlayerId;
+  }
 
   @override
   Widget build(BuildContext context) {

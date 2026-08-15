@@ -27,6 +27,7 @@ void main() {
     int? actingPlayerId,
     List<Player>? playersOverride,
     Script script = Script.troubleBrewing,
+    int? initialPlayerId,
   }) {
     return MaterialApp(
       theme: AppTheme.dark,
@@ -35,6 +36,7 @@ void main() {
           child: InfoInputFactory.build(
         script: script,
             character: character,
+            initialPlayerId: initialPlayerId,
             players: playersOverride ?? players,
             actingPlayerId: actingPlayerId,
             onSubmit: onSubmit,
@@ -122,16 +124,25 @@ void main() {
     expect(result, {'character': null, 'playerIds': <int>[]});
   });
 
-  testWidgets('Undertaker：单选角色名', (tester) async {
+  testWidgets('Undertaker：处决者锚 + 角色（#285），可预填', (tester) async {
     Map<String, Object?>? result;
-    await tester
-        .pumpWidget(buildInput(Character.undertaker, (p) => result = p));
-
+    await tester.pumpWidget(buildInput(
+      Character.undertaker,
+      (p) => result = p,
+      initialPlayerId: players[2].id,
+    ));
+    await tester.pump();
+    // 预填的处决者 chip 呈选中态
+    expect(
+      tester.widget<ChoiceChip>(
+        find.widgetWithText(ChoiceChip, '3号 玩家3'),
+      ).selected,
+      isTrue,
+    );
     await tester.tap(find.text('投毒者'));
     await tester.pump();
     await tester.tap(find.text('记录'));
-
-    expect(result, {'character': 'poisoner'});
+    expect(result, {'playerId': players[2].id, 'character': 'poisoner'});
   });
 
   testWidgets('Ravenkeeper：选玩家 + 选角色', (tester) async {
