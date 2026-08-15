@@ -638,13 +638,18 @@ class _MinstrelTideCard extends ConsumerWidget {
       (r) =>
           r.dayNumber == day && r.source == PoisonSource.minstrel,
     );
+    // 「其余所有玩家」不含吟游诗人本人（#263 ②：按最新声明排除其座位；
+    // 声明不可靠时由用户自行关掉开关纠偏）。
+    final claims =
+        ref.watch(gameClaimsProvider(gameId)).valueOrNull ?? [];
+    final latest = latestCharacterByPlayer(claims);
     final gameColors = context.gameColors;
     return Card(
       child: SwitchListTile(
-        title: const Text('和平主义者醉潮（当日全员）'),
+        title: const Text('吟游诗人醉潮（当日+次日）'),
         subtitle: Text(
-          '官方：爪牙被处决时，其余所有玩家醉至次日黄昏——当天全员信息'
-          '按可能不可靠处理。',
+          '官方（吟游诗人）：爪牙被处决时，其余所有玩家醉至次日黄昏——'
+          '今明两天除吟游诗人外的信息按可能不可靠处理。',
           style: AppTextStyles.caption.copyWith(color: gameColors.inkViolet),
         ),
         value: isOn,
@@ -653,7 +658,10 @@ class _MinstrelTideCard extends ConsumerWidget {
             ? (v) =>
                 ref.read(poisonRepositoryProvider).setMinstrelTide(
                   gameId: gameId,
-                  playerIds: [for (final p in players) p.id],
+                  playerIds: [
+                    for (final p in players)
+                      if (latest[p.id] != Character.minstrel) p.id,
+                  ],
                   dayNumber: day,
                   on: v,
                 )

@@ -28,6 +28,10 @@ void main() {
 
   tearDown(() => db.close());
 
+    Future<bool> tainted(int pid, int day) async =>
+        (await db.poisonStatusesDao.findByPlayerAndDay(pid, day))?.isActive ??
+        false;
+
   test('toggleStatus 标记与取消', () async {
     await repo.toggleStatus(
       gameId: gameId,
@@ -56,29 +60,17 @@ void main() {
       dayNumber: 2,
     );
     expect(
-      await repo.isTainted(
-        gameId: gameId,
-        playerId: players[0].id,
-        dayNumber: 2,
-      ),
+      await tainted(players[0].id, 2),
       isTrue,
     );
     // 其他天不污染
     expect(
-      await repo.isTainted(
-        gameId: gameId,
-        playerId: players[0].id,
-        dayNumber: 3,
-      ),
+      await tainted(players[0].id, 3),
       isFalse,
     );
     // 其他玩家不污染
     expect(
-      await repo.isTainted(
-        gameId: gameId,
-        playerId: players[1].id,
-        dayNumber: 2,
-      ),
+      await tainted(players[1].id, 2),
       isFalse,
     );
   });
@@ -92,11 +84,7 @@ void main() {
     final statuses = await db.poisonStatusesDao.watchByGame(gameId).first;
     await db.poisonStatusesDao.deactivate(statuses[0].id);
     expect(
-      await repo.isTainted(
-        gameId: gameId,
-        playerId: players[0].id,
-        dayNumber: 2,
-      ),
+      await tainted(players[0].id, 2),
       isFalse,
     );
   });
@@ -166,8 +154,8 @@ void main() {
     );
   });
 
-  group('#217 增量4C：和平主义者醉潮', () {
-    test('开 = 全员当日醉潮记录（source=minstrel）', () async {
+  group('#263 吟游诗人醉潮（两日窗口）', () {
+    test('开 = 触发日 + 次日各全员醉潮行（source=minstrel）', () async {
       await repo.setMinstrelTide(
         gameId: gameId,
         playerIds: [for (final p in players) p.id],
@@ -175,11 +163,18 @@ void main() {
         on: true,
       );
       final statuses = await db.poisonStatusesDao.watchByGame(gameId).first;
-      expect(statuses.length, players.length);
-      expect(statuses.every((s) => s.source == PoisonSource.minstrel), isTrue);
+      expect(statuses.length, players.length * 2); // day 3 + day 4
+      expect(
+        statuses.every((s) => s.source == PoisonSource.minstrel),
+        isTrue,
+      );
+      expect(
+        statuses.every((s) => s.dayNumber == 3 || s.dayNumber == 4),
+        isTrue,
+      );
     });
 
-    test('已有标毒者不覆盖来源；关 = 清醉潮并保留他人标毒', () async {
+    test('已有标毒者不覆盖来源；关 = 清两日醉潮并保留他人标毒', () async {
       await repo.toggleStatus(
         gameId: gameId,
         playerId: players[0].id,
@@ -192,7 +187,7 @@ void main() {
         on: true,
       );
       var statuses = await db.poisonStatusesDao.watchByGame(gameId).first;
-      expect(statuses.length, players.length);
+      expect(statuses.length, players.length * 2);
       expect(
         statuses.firstWhere((s) => s.playerId == players[0].id).source,
         PoisonSource.poisoner, // 不覆盖
@@ -204,7 +199,27 @@ void main() {
         on: false,
       );
       statuses = await db.poisonStatusesDao.watchByGame(gameId).first;
-      expect(statuses.length, 1); // 仅剩 players[0] 的标毒
+      expect(statuses.length, 1); // 仅剩 players[0] day3 的标毒
+      expect(statuses.single.dayNumber, 3);
+    });
+
+    test('排除名单由调用方传入（吟游诗人本座不污染，UI 层职责）', () async {
+      final ids = [
+        for (final p in players)
+          if (p != players[2]) p.id,
+      ];
+      await repo.setMinstrelTide(
+        gameId: gameId,
+        playerIds: ids,
+        dayNumber: 3,
+        on: true,
+      );
+      final statuses = await db.poisonStatusesDao.watchByGame(gameId).first;
+      expect(
+        statuses.any((s) => s.playerId == players[2].id),
+        isFalse,
+      );
+      expect(statuses.length, (players.length - 1) * 2);
     });
   });
 }

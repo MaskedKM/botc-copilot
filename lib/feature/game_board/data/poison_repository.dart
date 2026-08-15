@@ -67,9 +67,16 @@ class PoisonRepository {
 
   /// 和平主义者醉潮（BMR，#217 增量4C）当日批量开关。
   ///
-  /// 官方：爪牙被处决时，其余所有玩家（除旅行者）醉至次日黄昏。
-  /// 开 = 为所有尚无醉/毒标记的玩家补一条 [PoisonSource.minstrel] 记录
-  /// （已有标记者不覆盖来源）；关 = 删除当日全部醉潮记录并按 #122 对称
+  /// 吟游诗人醉潮（BMR，#263 勘正）当日开关。
+  ///
+  /// 官方（现行 Wiki 与 botc-release 一致，勘正旧「all but 3」文本）：
+  /// 爪牙被处决时，**其余所有玩家**（除旅行者）醉至**次日黄昏**——
+  /// 污染窗口 = 触发日 N（处决后的当日声明）+ 次日 N+1（夜 N+1 信息与
+  /// 日 N+1 声明），对称 #122 投毒者「当夜 + 次日白天」先例。
+  /// 「其余所有玩家」不含吟游诗人本人——排除由调用方完成（按声明）。
+  ///
+  /// 开 = 为窗口两天各补 [PoisonSource.minstrel] 行（已有标记者不覆盖
+  /// 来源）+ 回溯降级已录声明；关 = 删窗口内全部醉潮行并按 #122 对称
   /// 恢复（无其他毒源时）。整体事务（#150 R1 同理）。
   Future<void> setMinstrelTide({
     required int gameId,
@@ -78,65 +85,53 @@ class PoisonRepository {
     required bool on,
   }) async {
     await _db.transaction(() async {
-      final all = await _db.poisonStatusesDao.watchByGame(gameId).first;
-      final dayRows =
-          all.where((p) => p.dayNumber == dayNumber).toList();
-      final dayRecord =
-          await _db.dayRecordsDao.getByGameAndDay(gameId, dayNumber);
-      if (on) {
-        final marked = dayRows.map((p) => p.playerId).toSet();
-        for (final pid in playerIds.where((id) => !marked.contains(id))) {
-          await _db.poisonStatusesDao.insertStatus(
-            PoisonStatusesCompanion(
-              gameId: Value(gameId),
-              playerId: Value(pid),
-              dayNumber: Value(dayNumber),
-              source: Value(PoisonSource.minstrel),
-            ),
-          );
-        }
-        if (dayRecord != null) {
-          // 回溯（#122）：当日已录信息全部降级（醉=毒，公理4）。
-          for (final pid in playerIds) {
-            await _db.infoDeclarationsDao
-                .taintPlayerDeclarations(dayRecord.id, pid);
+      const windowDays = [0, 1]; // 触发日 + 次日（至次日黄昏，官方窗口）
+      for (final offset in windowDays) {
+        final day = dayNumber + offset;
+        final all = await _db.poisonStatusesDao.watchByGame(gameId).first;
+        final dayRows = all.where((p) => p.dayNumber == day).toList();
+        final dayRecord =
+            await _db.dayRecordsDao.getByGameAndDay(gameId, day);
+        if (on) {
+          final marked = dayRows.map((p) => p.playerId).toSet();
+          for (final pid in playerIds.where((id) => !marked.contains(id))) {
+            await _db.poisonStatusesDao.insertStatus(
+              PoisonStatusesCompanion(
+                gameId: Value(gameId),
+                playerId: Value(pid),
+                dayNumber: Value(day),
+                source: Value(PoisonSource.minstrel),
+              ),
+            );
           }
-        }
-      } else {
-        final tideRows = dayRows
-            .where((p) => p.source == PoisonSource.minstrel)
-            .toList();
-        for (final row in tideRows) {
-          await _db.poisonStatusesDao.deleteStatus(row.id);
-        }
-        if (dayRecord != null) {
+          if (dayRecord != null) {
+            // 回溯（#122）：窗口内已录信息降级（醉=毒，公理4）。次日记录
+            // 尚未预建时不回溯——未来录入时按行快照降级。
+            for (final pid in playerIds) {
+              await _db.infoDeclarationsDao
+                  .taintPlayerDeclarations(dayRecord.id, pid);
+            }
+          }
+        } else {
+          final tideRows =
+              dayRows.where((p) => p.source == PoisonSource.minstrel).toList();
           for (final row in tideRows) {
-            if (!await _db.infoDeclarationsDao
-                .isPlayerPoisonedFromSources(dayRecord.id, row.playerId)) {
-              await _db.infoDeclarationsDao.restorePlayerDeclarations(
-                dayRecord.id,
-                row.playerId,
-              );
+            await _db.poisonStatusesDao.deleteStatus(row.id);
+          }
+          if (dayRecord != null) {
+            for (final row in tideRows) {
+              if (!await _db.infoDeclarationsDao
+                  .isPlayerPoisonedFromSources(dayRecord.id, row.playerId)) {
+                await _db.infoDeclarationsDao.restorePlayerDeclarations(
+                  dayRecord.id,
+                  row.playerId,
+                );
+              }
             }
           }
         }
       }
     });
-  }
-
-  /// 某玩家当天是否有生效的醉/毒标记（供录入信息时自动降级可靠性）。
-  Future<bool> isTainted({
-    required int gameId,
-    required int playerId,
-    required int dayNumber,
-  }) async {
-    final all = await _db.poisonStatusesDao.watchByGame(gameId).first;
-    return all.any(
-      (p) =>
-          p.playerId == playerId &&
-          p.dayNumber == dayNumber &&
-          p.isActive,
-    );
   }
 }
 
