@@ -1685,4 +1685,41 @@ void main() {
       );
     });
   });
+  group('#262 跨剧本通用公理（BMR/S&V 不再零规则）', () {
+    test('BMR：两人声明同一镇民角色 → duplicateRoleClaim', () {
+      final result = ContradictionDetector.detect(
+        claims: [
+          _claim(1, Character.chambermaid),
+          _claim(2, Character.chambermaid),
+        ],
+        declarations: [],
+        days: [],
+        playersById: players,
+        dayRecordToDayNumber: {},
+        expectedOutsiders: 0,
+        script: Script.badMoonRising,
+      );
+      expect(
+        result.where((c) => c.type == ContradictionType.duplicateRoleClaim),
+        hasLength(1),
+      );
+    });
+
+    test('S&V：Bluff 角色声明 → bluffClaim（公理3 跨剧本）', () {
+      final result = ContradictionDetector.detect(
+        claims: [_claim(3, Character.dreamer)],
+        declarations: [],
+        days: [],
+        playersById: players,
+        dayRecordToDayNumber: {},
+        expectedOutsiders: 0,
+        script: Script.sectsAndViolets,
+        demonBluffs: {Character.dreamer},
+      );
+      expect(
+        result.where((c) => c.type == ContradictionType.bluffClaim),
+        hasLength(1),
+      );
+    });
+  });
 }

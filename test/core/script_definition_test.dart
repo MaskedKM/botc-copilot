@@ -203,28 +203,35 @@ void main() {
       expect(Character.magician.mayRegisterAsGood, isFalse); // 锚点无修饰
     });
 
-    test('TB 矛盾规则注册表：10 条剧本规则 + 通用规则（#215）', () {
-      final rules = contradictionRulesFor(Script.troubleBrewing);
-      expect(rules.map((r) => r.id), [
+    test('规则注册表两层：通用公理（#262）+ 剧本角色规则', () {
+      // 通用层（顺序固定）：三官方剧本共有公理 + #215 传承
+      const universal = [
         'duplicate-role-claim',
         'confirmed-role-conflict',
         'outsider-count-anomaly',
         'team-count-overflow',
-        'empath-mismatch',
-        'fortune-teller-mismatch',
         'no-death-night',
         'bluff-claim',
-        'start-info-ping',
-        'chef-count',
-        // 跨剧本通用（#215：传承 × 死亡揭示）
         'succession_reveal_conflict',
-      ]);
-    });
-
-    test('S&V 规则集仅含跨剧本通用规则（#215）', () {
+      ];
+      expect(
+        contradictionRulesFor(Script.badMoonRising).map((r) => r.id),
+        universal,
+      );
       expect(
         contradictionRulesFor(Script.sectsAndViolets).map((r) => r.id),
-        ['succession_reveal_conflict'],
+        universal,
+      );
+      // TB = 通用 + TB 角色规则
+      expect(
+        contradictionRulesFor(Script.troubleBrewing).map((r) => r.id),
+        [
+          'empath-mismatch',
+          'fortune-teller-mismatch',
+          'start-info-ping',
+          'chef-count',
+          ...universal,
+        ],
       );
     });
   });
