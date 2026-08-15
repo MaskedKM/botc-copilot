@@ -259,6 +259,7 @@ enum Character {
     infoInputType: InfoInputType.twoPlayersNumber,
     // 官方：choose 2 alive players (not yourself)。
     canTargetSelf: false,
+    requiresAliveTargets: true,
     script: Script.badMoonRising,
   ),
 
@@ -322,6 +323,7 @@ enum Character {
     ability: '开局得知一名好人玩家及其角色。若恶魔杀死该玩家，'
         '你也死亡。',
     infoInputType: InfoInputType.playerPlusCharacter,
+    goodCharacterOnly: true,
     script: Script.badMoonRising,
   ),
 
@@ -618,6 +620,7 @@ enum Character {
     ability: '每局限一次，在夜晚选择一个善良角色：你获得该角色的能力。若该角色在场，'
         '其玩家醉酒。',
     infoInputType: InfoInputType.characterName,
+    goodCharacterOnly: true,
     script: Script.sectsAndViolets,
   ),
   /// 艺术家（S&V 镇民）。
@@ -712,6 +715,7 @@ enum Character {
         '选择一名玩家和一个善良角色：其明天白天和夜晚须「疯狂」地证明自己是该角色，'
         '否则可能被处决。',
     infoInputType: InfoInputType.playerPlusCharacter,
+    goodCharacterOnly: true,
     script: Script.sectsAndViolets,
   ),
   /// 麻脸巫婆（S&V 爪牙）。
@@ -779,6 +783,12 @@ enum Character {
     this.canTargetSelf = true,
     // 官方规则：Professor 的复活目标须为已死玩家（其余夜间目标为存活者）。
     this.requiresDeadTarget = false,
+    // 官方规则：目标须为存活玩家（Chambermaid「2 名存活玩家」；
+    // Innkeeper 等可任选，默认 false）。
+    this.requiresAliveTargets = false,
+    // 官方规则：选角色仅限善良（Philosopher/Cerenovus/Grandmother
+    // 「善良角色」；Ravenkeeper/Gambler/Pit-Hag 全池，默认 false）。
+    this.goodCharacterOnly = false,
     // #231：setup 修正角色的外来者增量模型。固定增量为单元素（Baron [2]）；
     // 「说书人选」型为多元素（BMR Godfather [-1,1]、S&V Balloonist [0,1]，
     // 随 #217 录入）。外来者增减由镇民反向补偿。
@@ -815,6 +825,12 @@ enum Character {
 
   /// 目标须为已死玩家（Professor 复活；其余默认存活目标）。
   final bool requiresDeadTarget;
+
+  /// 目标须为存活玩家（Chambermaid；Innkeeper 可任选，默认 false）。
+  final bool requiresAliveTargets;
+
+  /// 选角色仅限善良阵营（Philosopher/Cerenovus/Grandmother）。
+  final bool goodCharacterOnly;
 
   /// setup 外来者增量候选（空 = 非修正角色；「或」型含多个可能值）。
   final List<int> setupOutsiderDeltas;
