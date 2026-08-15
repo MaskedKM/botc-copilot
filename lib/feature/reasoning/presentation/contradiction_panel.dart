@@ -1,3 +1,4 @@
+import 'package:botc_copilot/core/constants/script.dart';
 import 'package:botc_copilot/core/database/app_database.dart';
 import 'package:botc_copilot/core/theme/app_text_styles.dart';
 import 'package:botc_copilot/core/theme/game_colors.dart';
@@ -20,6 +21,12 @@ class ContradictionPanel extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final script = ref.watch(
+          gameByIdProvider(gameId).select((g) => g.valueOrNull?.script),
+        ) ??
+        Script.troubleBrewing;
+    final scriptRulesSupported =
+        contradictionRulesFor(script).isNotEmpty;
     final result = ref.watch(contradictionsProvider(gameId));
     final contradictions = result.contradictions;
     final gameColors = context.gameColors;
@@ -67,7 +74,11 @@ class ContradictionPanel extends ConsumerWidget {
             padding: const EdgeInsets.symmetric(vertical: 24),
             child: Center(
               child: Text(
-                '未发现矛盾标记',
+                // #262：规则未注册的剧本不能自信地宣称「无矛盾」——
+                // 三官方剧本均有通用公理规则，此分支留给未来自定义剧本。
+                scriptRulesSupported
+                    ? '未发现矛盾标记'
+                    : '该剧本的推理规则尚未支持，暂不进行矛盾检测',
                 style: AppTextStyles.caption
                     .copyWith(color: gameColors.inkViolet),
               ),

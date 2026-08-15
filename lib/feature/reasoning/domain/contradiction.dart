@@ -298,18 +298,8 @@ abstract final class ContradictionDetector {
   }
 
   static const _tbRules = <ContradictionRule>[
-    ContradictionRule(id: 'duplicate-role-claim', run: _ruleDuplicate),
-    ContradictionRule(id: 'confirmed-role-conflict', run: _ruleConfirmedConflict),
-    ContradictionRule(id: 'outsider-count-anomaly', run: _ruleOutsiderCount),
-    ContradictionRule(
-      id: 'team-count-overflow',
-      applies: _needsSetup,
-      run: _ruleTeamCountOverflow,
-    ),
     ContradictionRule(id: 'empath-mismatch', run: _ruleEmpath),
     ContradictionRule(id: 'fortune-teller-mismatch', run: _ruleFortuneTeller),
-    ContradictionRule(id: 'no-death-night', run: _ruleNoDeathNight),
-    ContradictionRule(id: 'bluff-claim', run: _ruleBluffClaim),
     ContradictionRule(id: 'start-info-ping', run: _ruleStartInfoPing),
     ContradictionRule(id: 'chef-count', run: _ruleChefCount),
   ];
@@ -1249,8 +1239,24 @@ List<ContradictionRule> contradictionRulesFor(Script script) => [
       ..._universalRules,
     ];
 
-/// 跨剧本通用矛盾规则（#215）。
+/// 跨剧本通用矛盾规则（#262 收编 + #215）。
+///
+/// 角色唯一 / 队伍槽位 / 外来者数量（修正角色增量已数据驱动 #231）/
+/// 恶魔 Bluff 不在场（公理3）/ 无死亡夜 / 与已确认角色冲突（死亡揭示）
+/// 均为三官方剧本共有公理（官方 Wiki Rules Explanation），全剧本生效。
+/// TB 特有角色规则（Empath/FT/开局指认/厨师）与 registration 逃脱舱
+/// 留在剧本表——BMR/S&V 无此角色与修饰者时天然不适用。
 const _universalRules = <ContradictionRule>[
+  ContradictionRule(id: 'duplicate-role-claim', run: ContradictionDetector._ruleDuplicate),
+  ContradictionRule(id: 'confirmed-role-conflict', run: ContradictionDetector._ruleConfirmedConflict),
+  ContradictionRule(id: 'outsider-count-anomaly', run: ContradictionDetector._ruleOutsiderCount),
+  ContradictionRule(
+    id: 'team-count-overflow',
+    run: ContradictionDetector._ruleTeamCountOverflow,
+    applies: ContradictionDetector._needsSetup,
+  ),
+  ContradictionRule(id: 'no-death-night', run: ContradictionDetector._ruleNoDeathNight),
+  ContradictionRule(id: 'bluff-claim', run: ContradictionDetector._ruleBluffClaim),
   ContradictionRule(
     id: 'succession_reveal_conflict',
     run: ContradictionDetector._successionRevealConflicts,
