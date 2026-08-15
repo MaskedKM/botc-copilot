@@ -69,7 +69,8 @@ class _FakePlayerDetailRepository implements PlayerDetailRepository {
 
   @override
   @override
-  Future<int> setFakeDead(int playerId, {required bool fake}) async {
+  Future<int> setFakeDead(int playerId,
+      {required bool fake, required int day}) async {
     return 1;
   }
 

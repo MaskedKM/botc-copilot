@@ -81,7 +81,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 16;
+  int get schemaVersion => 17;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -176,6 +176,11 @@ class AppDatabase extends _$AppDatabase {
           // 登记为死但活着：isAlive 保持 true，deathDay/Cause 照常落库）。
           if (from < 16) {
             await m.addColumn(players, players.fakeDead);
+          }
+          // v16 → v17：players 加 revived_day（#264：复活周期锚点——
+          // 官方复活者重获一次性能力 + 新死票，须按周期重置）。
+          if (from < 17) {
+            await m.addColumn(players, players.revivedDay);
           }
         },
         beforeOpen: (details) async {

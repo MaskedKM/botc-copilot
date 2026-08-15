@@ -567,7 +567,7 @@ class _PlayerDetailSheetState extends ConsumerState<PlayerDetailSheet> {
                     try {
                       await ref
                           .read(playerDetailRepositoryProvider)
-                          .setFakeDead(widget.player.id, fake: v);
+                          .setFakeDead(widget.player.id, fake: v, day: day);
                     } on Object {
                       if (mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(

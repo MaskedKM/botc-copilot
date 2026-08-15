@@ -85,6 +85,11 @@ class Players extends Table {
   BoolColumn get suspectedDrunk =>
       boolean().withDefault(const Constant(false))();
 
+  /// 最近一次复活发生的天数（#264：官方「复活者重获能力 + 新死票」的
+  /// 周期锚点；null = 未复活过）。撤销误标（revive）不盖章——撤销语义
+  /// = 死亡从未发生，而非死而复生。
+  IntColumn get revivedDay => integer().nullable()();
+
   /// 僵怖假死（BMR，#217 增量4B）：该玩家首次「死亡」登记为死但活着——
   /// `isAlive` 保持 true（存活计数/投票/终局按存活算），`deathDay/Cause`
   /// 照常落库（邻座收缩/Empath 按死亡重建时自动排除）。再死一次为真死。

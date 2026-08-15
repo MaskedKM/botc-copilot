@@ -148,6 +148,7 @@ class InfoInputSection extends ConsumerWidget {
                         professorId: playerId,
                         targetId: target.id,
                         resurrected: resurrected,
+                        day: day,
                       );
                 }
               }

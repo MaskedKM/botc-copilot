@@ -172,6 +172,33 @@ class AbilitySectionState extends ConsumerState<AbilitySection> {
   }
 
   Future<void> _submitSlayer() async {
+    // 僵怖假死裁决（#264 ②）：官方「第一次死亡时你活着但登记为死」覆盖
+    // 一切死亡来源——击中恶魔时先问目标是否假死（用户按目标后续表现判定）。
+    var targetFakeDied = false;
+    if (_targetIsDemon && !_wasPoisoned && mounted) {
+      final fake = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('僵怖首次死亡？'),
+          content: const Text(
+            '官方：僵怖第一次死亡时（无论处决还是能力击杀）活着但登记为死。\n'
+            '目标是僵怖且为首次死亡吗？',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('真死亡'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('假死（登记为死）'),
+            ),
+          ],
+        ),
+      );
+      if (fake == null) return; // 取消提交
+      targetFakeDied = fake;
+    }
     setState(() => _submitting = true);
     final SlayerGuessResult result;
     try {
@@ -181,6 +208,7 @@ class AbilitySectionState extends ConsumerState<AbilitySection> {
             targetIsDemon: _targetIsDemon,
             wasPoisoned: _wasPoisoned,
             day: widget.day,
+            targetFakeDied: targetFakeDied,
           );
     } on Object {
       // #164 B9：recordSlayerGuess 已事务化（#150 R4），失败则能力未消耗。
@@ -195,6 +223,13 @@ class AbilitySectionState extends ConsumerState<AbilitySection> {
     setState(() => _submitting = false);
     // recordSlayerGuess 仅在 targetIsDemon && !wasPoisoned 时返回 killed。
     if (result == SlayerGuessResult.killed) {
+      if (targetFakeDied) {
+        // 僵怖假死：恶魔未死——无传承/终局，对局继续（#264 ②）。
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('目标为僵怖首次死亡：登记为死但活着，对局继续')),
+        );
+        return;
+      }
       // 击中恶魔 → 查 SW 传承（在场则不终局），否则善良胜（issue #89）
       final notifier = ref.read(gameBoardProvider(widget.gameId).notifier);
       final succ = await notifier.checkDemonDeath(

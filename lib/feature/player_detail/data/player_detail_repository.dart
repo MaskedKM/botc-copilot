@@ -124,8 +124,12 @@ class PlayerDetailRepository {
       _db.playersDao.markSuspectedDrunk(playerId, suspected: suspected);
 
   /// 标记/清除僵怖假死（BMR，#217 增量4B；详情页即时落库）。
-  Future<int> setFakeDead(int playerId, {required bool fake}) =>
-      _db.playersDao.setFakeDeadFlag(playerId, fake: fake);
+  Future<int> setFakeDead(
+    int playerId, {
+    required bool fake,
+    required int day,
+  }) =>
+      _db.playersDao.setFakeDeadFlag(playerId, fake: fake, day: day);
 
   /// 删除一条信息声明（误录纠错，issue #83）。
   ///

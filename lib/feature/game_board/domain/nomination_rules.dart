@@ -73,12 +73,24 @@ abstract final class NominationRules {
   ) =>
       todayNominations.any((n) => n.nomineePlayerId == playerId);
 
-  /// 某死亡玩家的死票是否已在本局用过。
+  /// 某死亡玩家的死票是否已在**当前死亡周期**内用过（#264 ①）。
+  ///
+  /// 官方（Glossary「Resurrected」）：复活者再死获得全新死票——
+  /// [deadVoteResetAfterDay] 为该玩家最近复活天（null = 未复活过，
+  /// 全局计），早于该天的死票消耗不计。
   static bool deadVoteUsed(
     List<Nomination> allNominations,
-    int playerId,
-  ) {
+    int playerId, {
+    int? deadVoteResetAfterDay,
+    Map<int, int> dayRecordToDayNumber = const {},
+  }) {
     for (final n in allNominations) {
+      if (deadVoteResetAfterDay != null) {
+        final day = dayRecordToDayNumber[n.dayRecordId];
+        if (day != null && day < deadVoteResetAfterDay) {
+          continue; // 上一死亡周期的消耗：复活已重置
+        }
+      }
       final votes = decodeVotes(n.voteResultJson);
       if (votes.any((v) => v.playerId == playerId && v.isDeadVote)) {
         return true;
