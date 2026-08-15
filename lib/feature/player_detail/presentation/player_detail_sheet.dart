@@ -515,6 +515,9 @@ class _PlayerDetailSheetState extends ConsumerState<PlayerDetailSheet> {
                   (game?.playerCount ?? 0) >= 7) ...[
                 const SizedBox(height: 16),
                 MyMinionsSection(game: game!, players: players, readOnly: readOnly),
+                // #281：Bluff 补录（漏录不静默失效）。
+                const SizedBox(height: 16),
+                MyBluffsSection(game: game, readOnly: readOnly),
               ],
               // 爪牙侧私密：我的恶魔/队友（7+ 人局我=爪牙，#276）
               if (isMe &&

@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:botc_copilot/feature/game_board/presentation/providers/game_board_provider.dart';
+import 'package:botc_copilot/core/constants/character.dart';
 import 'package:botc_copilot/core/constants/script_definition.dart';
 import 'package:botc_copilot/core/constants/player_setup.dart';
 import 'package:botc_copilot/core/database/app_database.dart';
@@ -156,6 +157,87 @@ class MyMinionsSection extends ConsumerWidget {
 /// 更换我的座位（issue #86）：选座 → 二次确认 → 写 myPlayerId。
 ///
 /// 从 MyInfoSheet 迁入（#131 统一入口）。
+/// 恶魔 Bluff 补录/修改区（#281，7+ 人局我=恶魔）。
+///
+/// Bluff（3 个不在场好人角色）是排除法关键约束，此前仅 setup 可录、
+/// `updateDemonBluffs` 零调用——漏录则 Bluff 声明检测静默失效。此区
+/// 与爪牙名单同族（即时落库，矛盾引擎即时消费）。
+class MyBluffsSection extends ConsumerWidget {
+  const MyBluffsSection({
+    required this.game,
+    this.readOnly = false,
+    super.key,
+  });
+
+  final Game game;
+
+  /// 只读（复盘）。
+  final bool readOnly;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final gameColors = context.gameColors;
+    final selected = demonBluffsOf(game);
+    final pool = ScriptDefinition.of(game.script)
+        .characters
+        .where((c) => c.isGood)
+        .toList();
+    final db = ref.read(appDatabaseProvider);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          '恶魔 Bluff（私密，选 3 个不在场好人角色）',
+          style:
+              AppTextStyles.headline.copyWith(color: gameColors.bloodBright),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          '说书人给你的 3 个不在场角色——这是排除法的关键约束。',
+          style: AppTextStyles.caption.copyWith(color: gameColors.inkViolet),
+        ),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 4,
+          children: [
+            for (final c in pool)
+              ChoiceChip(
+                label: Text(c.nameCn),
+                selected: selected.contains(c),
+                onSelected: readOnly
+                    ? null
+                    : (_) async {
+                        final next = Set<Character>.of(selected);
+                        if (!next.remove(c)) {
+                          // #152 BUG-1 同款：恒为 3 个
+                          if (next.length >= 3) {
+                            if (!context.mounted) return;
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Bluff 恰为 3 个，先取消一个')),
+                            );
+                            return;
+                          }
+                          next.add(c);
+                        }
+                        await db.gamesDao.updateDemonBluffs(
+                          game.id,
+                          next.isEmpty
+                              ? null
+                              : jsonEncode(
+                                  next.map((x) => x.name).toList(),
+                                ),
+                        );
+                      },
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
 /// 爪牙侧私密区（#276，7+ 人局我=爪牙）：我的恶魔 + 我的队友。
 ///
 /// 官方（Rules Explanation）：7+ 人局恶魔与爪牙互相认识——爪牙首夜

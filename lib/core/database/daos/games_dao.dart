@@ -70,7 +70,7 @@ class GamesDao extends DatabaseAccessor<AppDatabase> with _$GamesDaoMixin {
           .write(GamesCompanion(helpLevel: Value(level)));
 
   /// 设置恶魔 Bluff（JSON 字符串）。
-  Future<int> updateDemonBluffs(int id, String bluffsJson) =>
+  Future<int> updateDemonBluffs(int id, String? bluffsJson) =>
       (update(games)..where((g) => g.id.equals(id)))
           .write(GamesCompanion(demonBluffsJson: Value(bluffsJson)));
 

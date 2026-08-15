@@ -1,3 +1,5 @@
+import 'package:botc_copilot/core/constants/team.dart';
+import 'package:botc_copilot/shared/game_private.dart';
 import 'package:botc_copilot/core/constants/script.dart';
 import 'package:botc_copilot/core/database/app_database.dart';
 import 'package:botc_copilot/core/theme/app_text_styles.dart';
@@ -69,6 +71,28 @@ class ContradictionPanel extends ConsumerWidget {
         const SizedBox(height: 12),
         if (result.failed)
           _DegradedBanner(gameColors: gameColors)
+        else if (_bluffsMissing(ref, gameId)) ...[
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.info_outline,
+                    size: 16, color: gameColors.bloodBright),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    // #281：漏录不静默失效——Bluff 声明检测不可用提示。
+                    '你是恶魔但 Bluff 未录入（3 个不在场好人角色）——'
+                    'Bluff 声明检测暂不可用，可在你的座位详情补录。',
+                    style: AppTextStyles.caption
+                        .copyWith(color: gameColors.bloodBright),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ]
         else if (contradictions.isEmpty)
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 24),
@@ -219,4 +243,15 @@ class _DegradedBanner extends StatelessWidget {
       ),
     );
   }
+}
+
+
+/// 恶魔 7+ 局 Bluff 是否漏录（#281 提示用）。
+bool _bluffsMissing(WidgetRef ref, int gameId) {
+  final game = ref.watch(gameByIdProvider(gameId)).valueOrNull;
+  return game != null &&
+      game.myRole != null &&
+      game.myRole!.team == Team.demon &&
+      game.playerCount >= 7 &&
+      demonBluffsOf(game).isEmpty;
 }
