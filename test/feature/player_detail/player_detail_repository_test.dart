@@ -221,10 +221,11 @@ void main() {
         payload: {'value': 0},
       );
       // 手动标毒（与 Poisoner 声明来源不同，对称回溯）
-      await poisonRepo.toggleStatus(
+      await poisonRepo.setStatus(
         gameId: gameId,
         playerId: targetId,
         dayNumber: 1,
+        marked: true,
       );
       final decls = await db.infoDeclarationsDao.watchByDay(dayRecordId).first;
       expect(
@@ -274,10 +275,11 @@ void main() {
         character: Character.poisoner,
         payload: {'playerId': targetId},
       );
-      await poisonRepo.toggleStatus(
+      await poisonRepo.setStatus(
         gameId: gameId,
         playerId: targetId,
         dayNumber: 1,
+        marked: true,
       );
       await repo.declareInfo(
         playerId: targetId,
@@ -307,15 +309,17 @@ void main() {
         character: Character.empath,
         payload: {'value': 0},
       );
-      await poisonRepo.toggleStatus(
+      await poisonRepo.setStatus(
         gameId: gameId,
         playerId: targetId,
         dayNumber: 1,
+        marked: true,
       ); // 标毒 → tainted
-      await poisonRepo.toggleStatus(
+      await poisonRepo.setStatus(
         gameId: gameId,
         playerId: targetId,
         dayNumber: 1,
+        marked: false,
       ); // 取消 → 恢复
       final decls = await db.infoDeclarationsDao.watchByDay(dayRecordId).first;
       expect(

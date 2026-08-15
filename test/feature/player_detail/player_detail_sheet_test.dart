@@ -93,16 +93,24 @@ class _FakePlayerDetailRepository implements PlayerDetailRepository {
 }
 
 class _FakePoisonRepository implements PoisonRepository {
-  int toggleCalls = 0;
+  int setCalls = 0;
+
+  /// #270②：下一次 setStatus 抛异常（失败注入，测 UI 回滚）。
+  bool failNext = false;
 
   @override
-  Future<void> toggleStatus({
+  Future<void> setStatus({
     required int gameId,
     required int playerId,
     required int dayNumber,
+    required bool marked,
     PoisonSource source = PoisonSource.poisoner,
   }) async {
-    toggleCalls++;
+    if (failNext) {
+      failNext = false;
+      throw Exception('boom');
+    }
+    setCalls++;
   }
 
   @override
@@ -166,7 +174,7 @@ void main() {
       ..lastDeclareIsMine = null
       ..drunkCalls = 0
       ..lastSuspectedDrunk = null;
-    poisonRepo.toggleCalls = 0;
+    poisonRepo.setCalls = 0;
   });
 
   /// 放大测试表面：弹层内容是一个长 ListView（懒构建），
@@ -197,6 +205,7 @@ void main() {
     List<RoleClaim> claims = const [],
     List<BehaviorNote> notes = const [],
     List<DayRecord> dayRecords = const [],
+    List<PoisonStatus> poisonStatuses = const [],
     bool enableChain = false,
     int day = 1,
   }) {
@@ -224,7 +233,7 @@ void main() {
         latestTrustLevelsProvider(1)
             .overrideWith((ref) => Stream.value(const <int, TrustLevel>{})),
         gamePoisonStatusesProvider(1)
-            .overrideWith((ref) => Stream.value(const <PoisonStatus>[])),
+            .overrideWith((ref) => Stream.value(poisonStatuses)),
         // #71：备注区改取该玩家全部备注（今日+历史）；信息行解析 dayRecordId→天。
         playerBehaviorNotesProvider(1)
             .overrideWith((ref) => Stream.value(notes)),
@@ -288,7 +297,7 @@ void main() {
     expect(detailRepo.claimCalls, 0);
     expect(detailRepo.trustCalls, 1);
     expect(detailRepo.trustLevel, TrustLevel.confirmedGood);
-    expect(poisonRepo.toggleCalls, 1);
+    expect(poisonRepo.setCalls, 1);
 
     await tester.tap(find.text('保存'));
     await tester.pump(); // _save 的 async 间隙
@@ -298,8 +307,72 @@ void main() {
     expect(detailRepo.claimCalls, 1);
     expect(detailRepo.claimedRole, Character.empath);
     expect(detailRepo.trustCalls, 1);
-    expect(poisonRepo.toggleCalls, 1);
+    expect(poisonRepo.setCalls, 1);
     expect(find.text('已保存'), findsOneWidget);
+  });
+
+  // #270②：乐观 toggle 写库失败 → 显示回滚 + SnackBar，界面不停在假状态。
+  testWidgets('毒标记写库失败 → 开关回滚 + 失败提示（#270②）', (tester) async {
+    useTallSurface(tester);
+    poisonRepo.failNext = true;
+    await tester.pumpWidget(buildSheet());
+    await tester.pump();
+
+    final poisonTile = find.ancestor(
+      of: find.text('标记为可能被毒（第 1 天）'),
+      matching: find.byType(SwitchListTile),
+    );
+    expect(tester.widget<SwitchListTile>(poisonTile).value, isFalse);
+
+    await tester.tap(find.text('标记为可能被毒（第 1 天）'));
+    await tester.pump(); // 乐观 setState（draft = true）
+    await tester.pump(); // 写库抛异常 → 回滚 + SnackBar
+
+    expect(find.text('保存失败，请重试'), findsOneWidget);
+    // 回滚：开关回到关——不再停在「已标毒」的假状态（流无事件不会纠正）
+    expect(tester.widget<SwitchListTile>(poisonTile).value, isFalse);
+    // 未计入成功写入；再点一次（fake 已复位）方向仍正确（set-by-value）
+    await tester.tap(find.text('标记为可能被毒（第 1 天）'));
+    await tester.pump();
+    await tester.pump();
+    expect(poisonRepo.setCalls, 1);
+    expect(tester.widget<SwitchListTile>(poisonTile).value, isTrue);
+  });
+
+  // #270②：首触失败回滚到「点击前的显示值」——库中已有标记（初始毒=true）
+  // 时关掉失败，回滚应回到 true 而非草稿字段初值 false。
+  testWidgets('已有毒标记：取消失败 → 回滚到开（而非草稿初值，#270②）', (tester) async {
+    useTallSurface(tester);
+    poisonRepo.failNext = true;
+    await tester.pumpWidget(
+      buildSheet(
+        poisonStatuses: [
+          PoisonStatus(
+            id: 1,
+            gameId: 1,
+            playerId: me.id,
+            dayNumber: 1,
+            source: PoisonSource.poisoner,
+            isActive: true,
+          ),
+        ],
+      ),
+    );
+    await tester.pump();
+
+    final poisonTile = find.ancestor(
+      of: find.text('标记为可能被毒（第 1 天）'),
+      matching: find.byType(SwitchListTile),
+    );
+    expect(tester.widget<SwitchListTile>(poisonTile).value, isTrue);
+
+    await tester.tap(find.text('标记为可能被毒（第 1 天）'));
+    await tester.pump(); // 乐观关
+    await tester.pump(); // 失败 → 回滚
+
+    expect(find.text('保存失败，请重试'), findsOneWidget);
+    // 回滚到点击前的显示值 true（草稿字段初值是 false，回滚到它仍是假状态）
+    expect(tester.widget<SwitchListTile>(poisonTile).value, isTrue);
   });
 
   testWidgets('未保存修改时返回 → 弹丢弃确认', (tester) async {

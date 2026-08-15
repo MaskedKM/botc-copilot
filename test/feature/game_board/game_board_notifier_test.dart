@@ -328,10 +328,11 @@ void main() {
   // （过去天数会被错误地显示为「未中毒」）。
   test('advanceDay 不清除毒标记：跨天过期由 dayNumber 过滤保证', () async {
     final poisonRepo = PoisonRepository(db);
-    await poisonRepo.toggleStatus(
+    await poisonRepo.setStatus(
       gameId: gameId,
       playerId: players[0].id,
       dayNumber: 1,
+      marked: true,
     );
 
     await notifier().advanceDay(); // → 第 2 天

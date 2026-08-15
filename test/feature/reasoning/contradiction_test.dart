@@ -271,10 +271,33 @@ void main() {
       playersById: players,
       dayRecordToDayNumber: {},
       expectedOutsiders: 0,
+      // #270③：规则现按 setup 门控（半加载帧不闪假矛盾），测试须显式就绪
+      setup: PlayerSetup.forCount(7),
     );
     expect(result, hasLength(1));
     expect(result[0].type, ContradictionType.outsiderCountAnomaly);
     expect(result[0].description, contains('修正角色'));
+  });
+
+  test('规则3：setup 未就绪（game 流半加载帧）→ 不闪假矛盾（#270③）', () {
+    // 同上数据，但 game 未加载（setup null、expectedOutsiders 兜底 0）——
+    // claims 流先到的窗口内不应报「最多 0 个外来者」的假矛盾
+    final result = ContradictionDetector.detect(
+      claims: [
+        _claim(1, Character.butler),
+        _claim(2, Character.saint),
+        _claim(3, Character.drunk),
+      ],
+      declarations: [],
+      days: [],
+      playersById: players,
+      dayRecordToDayNumber: {},
+      expectedOutsiders: 0,
+    );
+    expect(
+      result.where((c) => c.type == ContradictionType.outsiderCountAnomaly),
+      isEmpty,
+    );
   });
 
   test('规则3：声明数 == base+2（Baron 局一致）→ 不报警（#59 收紧）', () {
@@ -286,6 +309,7 @@ void main() {
       playersById: players,
       dayRecordToDayNumber: {},
       expectedOutsiders: 0,
+      setup: PlayerSetup.forCount(7), // #270③：边界测试须 setup 就绪
     );
     expect(result, isEmpty);
   });
@@ -298,6 +322,7 @@ void main() {
       playersById: players,
       dayRecordToDayNumber: {},
       expectedOutsiders: 2,
+      setup: PlayerSetup.forCount(9), // #270③：同上（9 人局 base=2 对齐）
     );
     expect(result, isEmpty);
   });
@@ -1576,6 +1601,34 @@ void main() {
         result.where((c) => c.type == ContradictionType.successionRevealConflict),
         isEmpty,
       );
+    });
+
+    test('同一继承人重复死亡揭示 → 只出一条（取最新，#270④）', () {
+      final result = detect215(
+        successions: [inh(1, 2, 3)],
+        extraClaims: [
+          RoleClaim(
+            id: 10,
+            playerId: 3,
+            dayRecordId: 1,
+            character: Character.chef,
+            claimType: ClaimType.revealedOnDeath,
+          ),
+          RoleClaim(
+            id: 11,
+            playerId: 3,
+            dayRecordId: 1,
+            character: Character.monk,
+            claimType: ClaimType.revealedOnDeath,
+          ),
+        ],
+      );
+      final hit = result.where(
+        (c) => c.type == ContradictionType.successionRevealConflict,
+      ).toList();
+      // 旧实现扫原始 claims 各发一条（2 条重复）；现按玩家去重取最新揭示
+      expect(hit, hasLength(1));
+      expect(hit.single.description, contains('僧侣')); // 最新揭示入文案
     });
 
     test('S&V 剧本同样适用（跨剧本通用）', () {

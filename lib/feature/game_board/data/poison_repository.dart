@@ -17,33 +17,25 @@ class PoisonRepository {
 
   final AppDatabase _db;
 
-  /// 切换某玩家当天的醉/毒标记：已存在则删除，不存在则插入。
+  /// 按目标值设置某玩家当天的醉/毒标记（#270②：set-by-value，替代
+  /// delta 型 toggle——toggle 的实际方向依赖库态，与 UI 草稿失同步后
+  /// 下一次点击方向就反）。
   ///
-  /// 整体包事务（#150 R1）：read hit → delete/insert + restore/taint 派生写
-  /// 须原子，否则快速连点 / TOCTOU 可插重复行（叠加 #150 B1 唯一约束兜底）。
-  Future<void> toggleStatus({
+  /// 已是目标态则 no-op；变化时 read hit → delete/insert + restore/taint
+  /// 派生写须原子，整体包事务（#150 R1），否则快速连点 / TOCTOU 可插
+  /// 重复行（叠加 #150 B1 唯一约束兜底）。
+  Future<void> setStatus({
     required int gameId,
     required int playerId,
     required int dayNumber,
+    required bool marked,
     PoisonSource source = PoisonSource.poisoner,
   }) async {
     await _db.transaction(() async {
       final hit =
           await _db.poisonStatusesDao.findByPlayerAndDay(playerId, dayNumber);
-      if (hit != null) {
-        await _db.poisonStatusesDao.deleteStatus(hit.id);
-        // 取消标毒 → 若无残留毒源（Poisoner 声明）则恢复该玩家当夜信息（#122 对称）
-        final dayRecord =
-            await _db.dayRecordsDao.getByGameAndDay(gameId, dayNumber);
-        if (dayRecord != null &&
-            !await _db.infoDeclarationsDao
-                .isPlayerPoisonedFromSources(dayRecord.id, playerId)) {
-          await _db.infoDeclarationsDao.restorePlayerDeclarations(
-            dayRecord.id,
-            playerId,
-          );
-        }
-      } else {
+      if (marked) {
+        if (hit != null) return; // 已标记 → no-op
         await _db.poisonStatusesDao.insertStatus(
           PoisonStatusesCompanion(
             gameId: Value(gameId),
@@ -57,6 +49,20 @@ class PoisonRepository {
             await _db.dayRecordsDao.getByGameAndDay(gameId, dayNumber);
         if (dayRecord != null) {
           await _db.infoDeclarationsDao.taintPlayerDeclarations(
+            dayRecord.id,
+            playerId,
+          );
+        }
+      } else {
+        if (hit == null) return; // 未标记 → no-op
+        await _db.poisonStatusesDao.deleteStatus(hit.id);
+        // 取消标毒 → 若无残留毒源（Poisoner 声明）则恢复该玩家当夜信息（#122 对称）
+        final dayRecord =
+            await _db.dayRecordsDao.getByGameAndDay(gameId, dayNumber);
+        if (dayRecord != null &&
+            !await _db.infoDeclarationsDao
+                .isPlayerPoisonedFromSources(dayRecord.id, playerId)) {
+          await _db.infoDeclarationsDao.restorePlayerDeclarations(
             dayRecord.id,
             playerId,
           );

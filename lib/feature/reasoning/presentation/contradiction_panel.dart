@@ -71,51 +71,66 @@ class ContradictionPanel extends ConsumerWidget {
         const SizedBox(height: 12),
         if (result.failed)
           _DegradedBanner(gameColors: gameColors)
-        else if (_bluffsMissing(ref, gameId)) ...[
-          Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Icon(Icons.info_outline,
-                    size: 16, color: gameColors.bloodBright),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Text(
-                    // #281：漏录不静默失效——Bluff 声明检测不可用提示。
-                    '你是恶魔但 Bluff 未录入（3 个不在场好人角色）——'
-                    'Bluff 声明检测暂不可用，可在你的座位详情补录。',
-                    style: AppTextStyles.caption
-                        .copyWith(color: gameColors.bloodBright),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ]
-        else if (contradictions.isEmpty)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 24),
+        else if (result.loading)
+          // #270⑤：源流半加载帧显示加载态，不渲染「未发现矛盾标记」
+          // （loading 由 provider 统一计算，避免面板直连六个源流）。
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 24),
             child: Center(
-              child: Text(
-                // #262：规则未注册的剧本不能自信地宣称「无矛盾」——
-                // 三官方剧本均有通用公理规则，此分支留给未来自定义剧本。
-                scriptRulesSupported
-                    ? '未发现矛盾标记'
-                    : '该剧本的推理规则尚未支持，暂不进行矛盾检测',
-                style: AppTextStyles.caption
-                    .copyWith(color: gameColors.inkViolet),
+              child: SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2),
               ),
             ),
           )
-        else
-          ...contradictions.map(
-            (c) => _ContradictionTile(
-              contradiction: c,
-              gameId: gameId,
-              playersById: playersById,
+        else ...[
+          // #281：漏录不静默失效——提示横幅。#270⑤ 复核：改加法（原 else-if
+          // 链会把其余矛盾 tile 全部遮掉，漏录 Bluff 不应隐藏其他检测）。
+          if (_bluffsMissing(ref, gameId))
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(Icons.info_outline,
+                      size: 16, color: gameColors.bloodBright),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      '你是恶魔但 Bluff 未录入（3 个不在场好人角色）——'
+                      'Bluff 声明检测暂不可用，可在你的座位详情补录。',
+                      style: AppTextStyles.caption
+                          .copyWith(color: gameColors.bloodBright),
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
+          if (contradictions.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 24),
+              child: Center(
+                child: Text(
+                  // #262：规则未注册的剧本不能自信地宣称「无矛盾」——
+                  // 三官方剧本均有通用公理规则，此分支留给未来自定义剧本。
+                  scriptRulesSupported
+                      ? '未发现矛盾标记'
+                      : '该剧本的推理规则尚未支持，暂不进行矛盾检测',
+                  style: AppTextStyles.caption
+                      .copyWith(color: gameColors.inkViolet),
+                ),
+              ),
+            )
+          else
+            ...contradictions.map(
+              (c) => _ContradictionTile(
+                contradiction: c,
+                gameId: gameId,
+                playersById: playersById,
+              ),
+            ),
+        ],
       ],
     );
   }

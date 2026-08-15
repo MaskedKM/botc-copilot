@@ -109,5 +109,21 @@ void main() {
       expect(base, base.copyWith()); // copyWith 默认保留 suspectedDrunk
       expect(drunk, drunk.copyWith());
     });
+
+    test('== / hashCode 契约：fakeDead 相等对象必同桶（#270①）', () {
+      final a = SeatRingPlayer(
+        id: 1, name: 'x', seatNumber: 1, isAlive: true, fakeDead: true,
+      );
+      final b = a.copyWith(); // 相等（含 fakeDead: true）
+      expect(a == b, isTrue);
+      // 契约：相等 ⇒ hashCode 相等——此前 == 含 fakeDead 而 hashCode 漏，
+      // 相等对象会落入不同桶
+      expect(a.hashCode, b.hashCode);
+      // 同桶行为验证：以 a 为 key，b 可命中（Set/Map 语义恢复确定）
+      expect({a: 'hit'}[b], 'hit');
+      expect({a}.contains(b), isTrue);
+      // fakeDead 参与相等性
+      expect(a == a.copyWith(fakeDead: false), isFalse);
+    });
   });
 }

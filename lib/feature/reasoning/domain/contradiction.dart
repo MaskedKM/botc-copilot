@@ -314,17 +314,24 @@ abstract final class ContradictionDetector {
   /// 揭示却为非恶魔角色 → warning（误记传承 or 误记揭示，必有一假）。
   ///
   /// 只对村规确认的 revealedOnDeath 判定——恶魔生前 bluff 好人角色
-  /// 完全合法，声明不构成证据。每继承人至多一条（取任一揭示即证伪）。
+  /// 完全合法，声明不构成证据。**每继承人至多一条**（取其最新揭示即
+  /// 证伪；#270④：此前扫原始 claims，同一玩家重复揭示产生重复矛盾）。
   static List<Contradiction> _successionRevealConflicts(
     ContradictionFacts f,
   ) {
+    // 每玩家最新死亡揭示（与 confirmedRoles 同「last-wins」口径，但保留
+    // dayRecordId 供 dayNumber 定位）。
+    final revealByPlayer = <int, RoleClaim>{};
+    for (final c in f.claims) {
+      if (c.claimType == ClaimType.revealedOnDeath) {
+        revealByPlayer[c.playerId] = c;
+      }
+    }
     return [
       for (final s in f.successions)
         if (s.toPlayerId != null)
-          for (final c in f.claims)
-            if (c.playerId == s.toPlayerId &&
-                c.claimType == ClaimType.revealedOnDeath &&
-                c.character.team != Team.demon)
+          if (revealByPlayer[s.toPlayerId!] case final c?)
+            if (c.character.team != Team.demon)
               Contradiction(
                 type: ContradictionType.successionRevealConflict,
                 severity: ContradictionSeverity.warning,
@@ -1475,7 +1482,13 @@ List<ContradictionRule> contradictionRulesFor(Script script) => [
 const _universalRules = <ContradictionRule>[
   ContradictionRule(id: 'duplicate-role-claim', run: ContradictionDetector._ruleDuplicate),
   ContradictionRule(id: 'confirmed-role-conflict', run: ContradictionDetector._ruleConfirmedConflict),
-  ContradictionRule(id: 'outsider-count-anomaly', run: ContradictionDetector._ruleOutsiderCount),
+  ContradictionRule(
+    id: 'outsider-count-anomaly',
+    run: ContradictionDetector._ruleOutsiderCount,
+    // #270③：setup 未加载（game 流半加载帧）时 expectedOutsiders 兜底 0，
+    // claims 先到会闪「最多 0 个外来者」假矛盾——与 team-count 对称门控。
+    applies: ContradictionDetector._needsSetup,
+  ),
   ContradictionRule(
     id: 'team-count-overflow',
     run: ContradictionDetector._ruleTeamCountOverflow,

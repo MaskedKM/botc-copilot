@@ -97,6 +97,28 @@ class _PlayerDetailSheetState extends ConsumerState<PlayerDetailSheet> {
   /// 行为备注草稿是否有未提交文本（PopScope 守卫，#160 #5）。
   bool _noteDraftDirty = false;
 
+  /// 乐观 toggle 统一落库（#270②）：调用前 draft 已 setState，写库失败时
+  /// 执行 [rollback] 回滚显示并提示——否则界面停在假状态（流无新事件
+  /// 不会自行纠正）。
+  ///
+  /// [rollback] 应回滚到点击前的**显示值**（touched ? draft : 来源值），
+  /// 而非草稿字段初值——首触且库中已有标记时，草稿初值（false/unknown）
+  /// 与真值相反，回滚到它仍是假状态。
+  Future<void> _persistDraft(
+    Future<void> Function() persist,
+    VoidCallback rollback,
+  ) async {
+    try {
+      await persist();
+    } on Object {
+      if (mounted) {
+        setState(rollback);
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('保存失败，请重试')));
+      }
+    }
+  }
+
   /// 信息提交前确保草稿声明已落库（#134 解耦）。
   ///
   /// 非己玩家选了角色 chip 但尚未保存时直接录信息会造成「孤儿信息」——
@@ -533,48 +555,42 @@ class _PlayerDetailSheetState extends ConsumerState<PlayerDetailSheet> {
                 day: day,
                 marked: displayPoison,
                 readOnly: readOnly,
-                // #138：毒标记即时落库（与信息/备注一致），不再等「保存」。
+                // #138：毒标记即时落库；#270②：set-by-value（传入的 v 即
+                // 目标态，toggle 方向依赖库态会反转）+ 失败回滚。
                 onChanged: (v) async {
+                  final prev = displayPoison;
                   setState(() {
                     _poisonTouched = true;
                     _draftPoison = v;
                   });
-                  try {
-                    await ref.read(poisonRepositoryProvider).toggleStatus(
+                  await _persistDraft(
+                    () => ref.read(poisonRepositoryProvider).setStatus(
                           gameId: widget.gameId,
                           playerId: widget.player.id,
                           dayNumber: day,
-                        );
-                  } on Object {
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('保存失败，请重试')),
-                      );
-                    }
-                  }
+                          marked: v,
+                        ),
+                    () => _draftPoison = prev,
+                  );
                 },
               ),
               const SizedBox(height: 16),
               DrunkSuspicionSection(
                 marked: displayDrunk,
                 readOnly: readOnly,
-                // #138：疑似醉汉即时落库（整局身份），不再等「保存」。
+                // #138：疑似醉汉即时落库；#270②：失败回滚。
                 onChanged: (v) async {
+                  final prev = displayDrunk;
                   setState(() {
                     _drunkTouched = true;
                     _draftDrunk = v;
                   });
-                  try {
-                    await ref
+                  await _persistDraft(
+                    () => ref
                         .read(playerDetailRepositoryProvider)
-                        .setSuspectedDrunk(widget.player.id, suspected: v);
-                  } on Object {
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('保存失败，请重试')),
-                      );
-                    }
-                  }
+                        .setSuspectedDrunk(widget.player.id, suspected: v),
+                    () => _draftDrunk = prev,
+                  );
                 },
               ),
               // 僵怖假死（#217 增量4B）：仅 BMR 对局显示；即时落库。
@@ -587,21 +603,19 @@ class _PlayerDetailSheetState extends ConsumerState<PlayerDetailSheet> {
                       : (widget.player.fakeDead),
                   readOnly: readOnly,
                   onChanged: (v) async {
+                    final prev = _fakeTouched
+                        ? _draftFake
+                        : (widget.player.fakeDead);
                     setState(() {
                       _fakeTouched = true;
                       _draftFake = v;
                     });
-                    try {
-                      await ref
+                    await _persistDraft(
+                      () => ref
                           .read(playerDetailRepositoryProvider)
-                          .setFakeDead(widget.player.id, fake: v, day: day);
-                    } on Object {
-                      if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('保存失败，请重试')),
-                        );
-                      }
-                    }
+                          .setFakeDead(widget.player.id, fake: v, day: day),
+                      () => _draftFake = prev,
+                    );
                   },
                 ),
               ],
@@ -622,26 +636,22 @@ class _PlayerDetailSheetState extends ConsumerState<PlayerDetailSheet> {
               TrustSection(
                 current: displayTrust,
                 readOnly: readOnly,
-                // #138：信任度即时落库（与信息/备注一致），不再等「保存」。
+                // #138：信任度即时落库；#270②：失败回滚。
                 onSelect: (l) async {
+                  final prev = displayTrust;
                   setState(() {
                     _trustTouched = true;
                     _draftTrust = l;
                   });
-                  try {
-                    await ref.read(playerDetailRepositoryProvider).setTrustLevel(
+                  await _persistDraft(
+                    () => ref.read(playerDetailRepositoryProvider).setTrustLevel(
                           gameId: widget.gameId,
                           playerId: widget.player.id,
                           day: day,
                           level: l,
-                        );
-                  } on Object {
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('保存失败，请重试')),
-                      );
-                    }
-                  }
+                        ),
+                    () => _draftTrust = prev,
+                  );
                 },
               ),
               // 保存按钮仅进行中显示（复盘只读，#134）
