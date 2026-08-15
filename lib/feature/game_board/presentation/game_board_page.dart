@@ -174,6 +174,10 @@ class _GameBoardBodyState extends ConsumerState<_GameBoardBody> {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
                         content: Text('已推进到第 $advancedDay 天'),
+                        // #287：Flutter 3.41 起「带 action 默认 persist」——
+                        // 不显式 false 则永不消失。8s 撤销窗口。
+                        persist: false,
+                        duration: const Duration(seconds: 8),
                         action: SnackBarAction(
                           label: '撤销',
                           onPressed: () async {
@@ -533,6 +537,8 @@ class _GameBoardBodyState extends ConsumerState<_GameBoardBody> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('${player.seatNumber}号 ${player.name} 已标记死亡'),
+          // #287：同上——persist:false 恢复 10s 到时自动消失。
+          persist: false,
           action: SnackBarAction(
             label: '撤销',
             onPressed: () {
