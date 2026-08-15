@@ -98,6 +98,10 @@ class InfoInputSection extends ConsumerWidget {
           initialPlayerId: character == Character.undertaker
               ? _latestExecutedPlayerId(ref, gameId, day)
               : null,
+          // #284：共情者预填当夜环邻座（存活环上作者两侧）。
+          initialPairIds: character == Character.empath
+              ? _ringNeighborIds(players, playerId)
+              : null,
           onSubmit: (payload) async {
             // 先落库草稿声明（非己且选了 chip 时），再录信息（#134）。
             // 声明写失败则中止——避免信息无对应声明成孤儿（#164 B9 review）。
@@ -176,4 +180,18 @@ int? _latestExecutedPlayerId(WidgetRef ref, int gameId, int day) {
     if (d.dayExecutionPlayerId != null) latest = d;
   }
   return latest?.dayExecutionPlayerId;
+}
+
+
+/// 存活环上 [playerId] 的两侧邻座 id（#284 预填；按座位序跳过死亡者，
+/// 公理 2 座位收缩；不足 2 人返回 null）。
+Set<int>? _ringNeighborIds(List<Player> players, int playerId) {
+  final alive = [...players.where((p) => p.isAlive)]
+    ..sort((a, b) => a.seatNumber - b.seatNumber);
+  final idx = alive.indexWhere((p) => p.id == playerId);
+  if (idx < 0 || alive.length < 3) return null;
+  return {
+    alive[(idx - 1 + alive.length) % alive.length].id,
+    alive[(idx + 1) % alive.length].id,
+  };
 }

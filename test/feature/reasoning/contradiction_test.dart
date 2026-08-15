@@ -1805,4 +1805,116 @@ void main() {
       );
     });
   });
+  group('#284 共情者显式邻座对', () {
+    DayRecord rec(int id, int day, {List<int> nightDeaths = const []}) =>
+        DayRecord(
+          id: id,
+          gameId: 1,
+          dayNumber: day,
+          nightDeathPlayerIds:
+              nightDeaths.isEmpty ? null : jsonEncode(nightDeaths),
+          nightConfirmed: true,
+          dayExecutionPlayerId: null,
+          dayConfirmed: false,
+          notes: '',
+        );
+    InfoDeclaration em(String payload, {int dayRecordId = 30}) =>
+        InfoDeclaration(
+          id: 1,
+          playerId: 2, // 2 号共情者，环邻座 = 1/3 号
+          dayRecordId: dayRecordId,
+          characterType: Character.empath,
+          payloadJson: payload,
+          reliability: Reliability.unverified,
+          isMine: false,
+        );
+
+    test('补报：day3 录夜1 读数，按声明对（非 day3 邻座）校验', () {
+      // 夜 2 死了 3 号 → day3 环邻座收缩为 1/4…；但 payload 对 = 1/3（夜1 合法）
+      final result = ContradictionDetector.detect(
+        claims: [
+          _claim(2, Character.empath),
+          _claim(1, Character.washerwoman),
+          _claim(3, Character.monk),
+        ],
+        declarations: [em('{"playerIds": [1, 3], "value": 1}')],
+        days: [rec(20, 1), rec(30, 2), rec(40, 3, nightDeaths: [3])],
+        playersById: players,
+        dayRecordToDayNumber: {30: 3},
+        expectedOutsiders: 0,
+      );
+      // 对 1/3 都声明好人 → 报 1 邪恶 = info 矛盾（按声明对，不因收缩漏检）
+      expect(
+        result.where((c) => c.type == ContradictionType.empathMismatch),
+        isNotEmpty,
+      );
+      expect(
+        result
+            .where((c) => c.type == ContradictionType.empathIllegalPair),
+        isEmpty,
+      );
+    });
+
+    test('非法对：任何读数夜都不是作者环邻座 → info 疑点', () {
+      // 4/5 号在 7 人环上不是 2 号的邻座
+      final result = ContradictionDetector.detect(
+        claims: [_claim(2, Character.empath)],
+        declarations: [em('{"playerIds": [4, 5], "value": 1}')],
+        days: [rec(20, 1), rec(30, 2)],
+        playersById: players,
+        dayRecordToDayNumber: {30: 2},
+        expectedOutsiders: 0,
+      );
+      expect(
+        result.where((c) => c.type == ContradictionType.empathIllegalPair),
+        hasLength(1),
+      );
+    });
+
+    test('反向：报 0 但对内成员已确认严格邪恶 → warning', () {
+      final result = ContradictionDetector.detect(
+        claims: [
+          _claim(2, Character.empath),
+          RoleClaim(
+            id: 9,
+            playerId: 1,
+            dayRecordId: 1,
+            character: Character.imp,
+            claimType: ClaimType.revealedOnDeath,
+          ),
+        ],
+        declarations: [em('{"playerIds": [1, 3], "value": 0}')],
+        days: [rec(20, 1), rec(30, 2)],
+        playersById: players,
+        dayRecordToDayNumber: {30: 2},
+        expectedOutsiders: 0,
+      );
+      expect(
+        result
+            .where((c) => c.type == ContradictionType.empathMismatch)
+            .first
+            .severity,
+        ContradictionSeverity.warning,
+      );
+    });
+
+    test('旧 payload（裸数字）：按录入日重建，不误报', () {
+      final result = ContradictionDetector.detect(
+        claims: [
+          _claim(2, Character.empath),
+          _claim(1, Character.washerwoman),
+          _claim(3, Character.monk),
+        ],
+        declarations: [em('{"value": 1}')],
+        days: [rec(20, 1), rec(30, 2)],
+        playersById: players,
+        dayRecordToDayNumber: {30: 2},
+        expectedOutsiders: 0,
+      );
+      expect(
+        result.where((c) => c.type == ContradictionType.empathMismatch),
+        isNotEmpty,
+      );
+    });
+  });
 }

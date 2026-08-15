@@ -35,12 +35,12 @@ abstract final class InfoPayloadFormatter {
       }
 
       return switch (character.infoInputType) {
-        // {"playerIds": [a,b], "value": n}（BMR 侍女）
+        // {"playerIds": [a,b], "value": n}（BMR 侍女 / TB 共情者 #284）
         _ when payload.containsKey('playerIds') &&
             payload.containsKey('value') =>
           '${character.nameCn}：'
               '${(payload['playerIds'] as List).map((id) => playerLabel(id as int)).join(' + ')}'
-              ' → ${payload['value']} 人醒来',
+              ' → ${payload['value']}${character == Character.empath ? '' : ' 人醒来'}',
         // {"playerIds": [a,b], "answer": bool}
         _ when payload.containsKey('answer') =>
           '${character.nameCn}：${(payload['playerIds'] as List).map((id) => playerLabel(id as int)).join(' + ')}'
