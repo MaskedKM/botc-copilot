@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:botc_copilot/shared/game_private.dart';
 import 'package:botc_copilot/core/constants/character.dart';
 import 'package:botc_copilot/core/constants/script.dart';
 import 'package:botc_copilot/core/database/app_database.dart';
@@ -348,6 +349,25 @@ void main() {
       // game2 的声明不受影响（仍 isMine）。
       final g2decls = await db.infoDeclarationsDao.watchByGame(game2).first;
       expect(g2decls.single.isMine, isTrue);
+    });
+  });
+  group('#281 Bluff 补录', () {
+    test('updateDemonBluffs 写入/清空轮换（与 demonBluffsOf 对齐）', () async {
+      final (gameId, _) = await seedGame();
+      await db.gamesDao.updateDemonBluffs(
+        gameId,
+        jsonEncode(['poisoner', 'monk', 'chef']),
+      );
+      var game = await db.gamesDao.getById(gameId);
+      expect(
+        demonBluffsOf(game!),
+        {Character.poisoner, Character.monk, Character.chef},
+      );
+      // 清空（null）
+      await db.gamesDao.updateDemonBluffs(gameId, null);
+      game = await db.gamesDao.getById(gameId);
+      expect(game!.demonBluffsJson, isNull);
+      expect(demonBluffsOf(game), isEmpty);
     });
   });
 }

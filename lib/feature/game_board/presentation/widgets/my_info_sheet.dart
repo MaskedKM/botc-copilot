@@ -1,3 +1,5 @@
+import 'package:botc_copilot/core/constants/team.dart';
+import 'package:botc_copilot/shared/game_private.dart';
 import 'package:botc_copilot/core/database/app_database.dart';
 import 'package:botc_copilot/core/database/database_provider.dart';
 import 'package:botc_copilot/core/theme/app_text_styles.dart';
@@ -51,6 +53,18 @@ class MyInfoSheet extends ConsumerWidget {
             '确认后即可在玩家详情中录入你的夜间信息，后续也可在那里更换座位。',
             style: AppTextStyles.caption.copyWith(color: gameColors.inkViolet),
           ),
+          // #281：恶魔 7+ 漏录 Bluff 引导（漏录则排除法约束静默失效）。
+          if (game.myRole != null &&
+              game.myRole!.team == Team.demon &&
+              game.playerCount >= 7 &&
+              demonBluffsOf(game).isEmpty) ...[
+            const SizedBox(height: 8),
+            Text(
+              '你是恶魔：确认座位后，请在玩家详情录入 3 个 Bluff 角色'
+              '（不在场好人）——排除法依赖它。',
+              style: AppTextStyles.caption.copyWith(color: gameColors.bloodBright),
+            ),
+          ],
           const SizedBox(height: 16),
           Wrap(
             spacing: 8,
