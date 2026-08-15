@@ -26,6 +26,7 @@ abstract final class InfoInputFactory {
     required Script script,
     int? actingPlayerId,
     int? initialPlayerId,
+    Set<int>? initialPairIds,
   }) {
     // 剧本角色池（#230）：多剧本后角色 chips 只列本局剧本的角色。
     final pool = ScriptDefinition.of(script);
@@ -93,6 +94,8 @@ abstract final class InfoInputFactory {
           excludePlayerId:
               character.canTargetSelf ? null : actingPlayerId,
           aliveOnly: character.requiresAliveTargets,
+          // #284：共情者预填当夜环邻座（调用方按存活环计算）。
+          initialSelected: initialPairIds,
         ),
       InfoInputType.twoPlayersTarget => _TwoPlayersTargetInput(
           players: players,
@@ -554,6 +557,7 @@ class _TwoPlayersNumberInput extends StatefulWidget {
     required this.onSubmit,
     this.excludePlayerId,
     this.aliveOnly = false,
+    this.initialSelected,
   });
 
   final List<Player> players;
@@ -564,6 +568,9 @@ class _TwoPlayersNumberInput extends StatefulWidget {
   /// 只列存活玩家（官方「2 名存活玩家」；默认全列）。
   final bool aliveOnly;
 
+  /// 预填选中对（#284 共情者环邻座；null = 空）。
+  final Set<int>? initialSelected;
+
   final void Function(Map<String, Object?>) onSubmit;
 
   @override
@@ -571,8 +578,16 @@ class _TwoPlayersNumberInput extends StatefulWidget {
 }
 
 class _TwoPlayersNumberInputState extends State<_TwoPlayersNumberInput> {
-  final Set<int> _selected = {};
+  Set<int> _selected = {};
   int? _value;
+
+  @override
+  void initState() {
+    super.initState();
+    // #284：共情者预填当夜邻座对。
+    final init = widget.initialSelected;
+    if (init != null && init.length <= 2) _selected = Set<int>.of(init);
+  }
 
   @override
   Widget build(BuildContext context) {

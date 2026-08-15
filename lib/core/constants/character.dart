@@ -52,7 +52,7 @@ enum Character {
     nameEn: 'Empath',
     team: Team.townsfolk,
     ability: '每个夜晚，你会得知与你相邻的两名最近存活玩家中有多少名邪恶玩家（0-2）。',
-    infoInputType: InfoInputType.numberZeroToTwo,
+    infoInputType: InfoInputType.twoPlayersNumber,
   ),
 
   /// 占卜师：每晚选两名玩家，得知其中是否有恶魔。

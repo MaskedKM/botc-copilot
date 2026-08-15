@@ -28,6 +28,7 @@ void main() {
     List<Player>? playersOverride,
     Script script = Script.troubleBrewing,
     int? initialPlayerId,
+    Set<int>? initialPairIds,
   }) {
     return MaterialApp(
       theme: AppTheme.dark,
@@ -37,6 +38,7 @@ void main() {
         script: script,
             character: character,
             initialPlayerId: initialPlayerId,
+            initialPairIds: initialPairIds,
             players: playersOverride ?? players,
             actingPlayerId: actingPlayerId,
             onSubmit: onSubmit,
@@ -60,15 +62,28 @@ void main() {
     expect(result, {'value': 2});
   });
 
-  testWidgets('Empath：上限为 2', (tester) async {
-    await tester.pumpWidget(buildInput(Character.empath, (_) {}));
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.tap(find.byIcon(Icons.add));
+  testWidgets('Empath：邻座对 + 0-2 数字（#284），可预填', (tester) async {
+    Map<String, Object?>? result;
+    await tester.pumpWidget(buildInput(
+      Character.empath,
+      (p) => result = p,
+      initialPairIds: {players[0].id, players[2].id},
+    ));
     await tester.pump();
-    // 第三次 + 按钮应禁用
-    await tester.tap(find.byIcon(Icons.add));
+    // 预填邻座对呈选中态
+    expect(
+      tester.widget<ChoiceChip>(
+        find.widgetWithText(ChoiceChip, '1号 玩家1'),
+      ).selected,
+      isTrue,
+    );
+    await tester.tap(find.text('1 人'));
     await tester.pump();
-    expect(find.text('2'), findsOneWidget);
+    await tester.tap(find.text('记录'));
+    expect(result, {
+      'playerIds': [players[0].id, players[2].id],
+      'value': 1,
+    });
   });
 
   testWidgets('FortuneTeller：选 2 人 + 是/否', (tester) async {

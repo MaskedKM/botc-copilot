@@ -50,7 +50,10 @@ enum ContradictionType {
 
   /// 掘墓人录入的处决者与处决记录不符（#285：显式锚点对不上——
   /// 录错或谎报，本身是推理信号）。
-  undertakerTargetMismatch('掘墓人目标与处决不符');
+  undertakerTargetMismatch('掘墓人目标与处决不符'),
+
+  /// 共情者声明的邻座对在任何可能读数夜都不是其环邻座（#284）。
+  empathIllegalPair('共情者邻座对不符');
 
   const ContradictionType(this.nameCn);
 
@@ -586,6 +589,15 @@ abstract final class ContradictionDetector {
     List<DayRecord> days = const [],
   }) {
     final results = <Contradiction>[];
+
+    // 夜 N 的存活集合（#264 ④ 语义）：当前 deathDay + day-record 历史
+    /// 死亡标记（复活/撤销不清）+ revivedDay 周期。供旧 payload 的
+    /// 「按录入日重建」与 #284 显式对的「读数夜合法性」共用。
+    Set<int> aliveIdsOn(int night) => {
+          for (final p in playersById.values)
+            if (_aliveOn(p, night, days)) p.id,
+        };
+
     for (final decl in declarations) {
       if (decl.characterType != Character.empath) continue;
       final value = _payloadValue(decl.payloadJson);
@@ -601,41 +613,34 @@ abstract final class ContradictionDetector {
       final empath = playersById[decl.playerId];
       if (day == null || empath == null) continue;
 
-      // 当天存活者的座位集合（deathDay 为空或 > 当天）。
-      // Empath 在当夜读取（早于该日所有白天事件）：同日**非夜杀**死亡者
-      // （处决 / Slayer 击杀 / 长按标死，均为白天）读取时仍存活，算邻居；
-      // 同日夜杀者读取前已死，不算——issue #78 / #151 C1。
-      //
-      // 复活者（#264 ④）：resurrect 会清 deathDay，但其历史死亡保留在
-      // day-record（夜死名单/处决字段）——夜 D 死、夜 D' 复活者在
-      // D ≤ day < D' 期间仍是死邻居。aliveOn 交叉核对 day-record 标记
-      // 与 revivedDay 周期。假死者（fakeDead）deathDay 已 stamp，
-      // 天然被排除。
-      bool aliveOn(Player p) {
-        // 复活周期内：revivedDay ≤ day 起按存活重算（历史死亡标记失效）。
-        if (p.revivedDay != null && day >= p.revivedDay!) {
-          return true;
-        }
-        // 历史死亡标记（复活/撤销不清 day-record）：夜死当晚不算存活。
-        for (final d in days) {
-          if (d.dayNumber > day) continue;
-          final nightDead = nightDeathIdsOf(d).contains(p.id);
-          final executed = d.dayExecutionPlayerId == p.id;
-          if (d.dayNumber == day) {
-            if (nightDead) return false; // 当夜读取前已死
-            // 当日处决 = 白天事件，读取时仍存活
-          } else if (nightDead || executed) {
-            return false; // 此前已死且未见复活
-          }
-        }
-        // 当前 deathDay（未复活/未撤销）
-        return p.deathDay == null ||
-            p.deathDay! > day ||
-            (p.deathDay == day && p.deathCause != DeathCause.nightKill);
+      // #284：新 payload 带显式邻座对——按声明对校验，补报不随录入日
+      // 错位；对本身合法性单独验证（存在某读数夜 D ≤ day 使该对恰为
+      // 作者环邻座）。
+      final pair = _payloadPair(decl.payloadJson);
+      if (pair != null) {
+        results.addAll(
+          _empathPairChecks(
+            decl: decl,
+            value: value,
+            pair: pair,
+            maxNight: day,
+            empathId: empath.id,
+            aliveIdsOn: aliveIdsOn,
+            latestClaim: latestClaim,
+            playersById: playersById,
+            confirmedRoles: confirmedRoles,
+            labelOf: labelOf,
+            myPlayerId: myPlayerId,
+            myRole: myRole,
+          ),
+        );
+        continue;
       }
 
-      final aliveThen =
-          playersById.values.where(aliveOn).toList();
+      // 旧 payload（裸数字，#284 降级路径）：按录入日重建环邻座。
+      final aliveThen = playersById.values
+          .where((p) => aliveIdsOn(day).contains(p.id))
+          .toList();
       final neighbors = _aliveNeighbors(empath, aliveThen);
       if (neighbors.isEmpty) continue;
 
@@ -1132,6 +1137,165 @@ abstract final class ContradictionDetector {
       sorted[(idx - 1 + sorted.length) % sorted.length],
       sorted[(idx + 1) % sorted.length],
     ];
+  }
+
+  /// 玩家在夜 [night] 是否存活（#264 ④ 语义，供共情路径共用）。
+  static bool _aliveOn(Player p, int night, List<DayRecord> days) {
+    if (p.revivedDay != null && night >= p.revivedDay!) return true;
+    for (final d in days) {
+      if (d.dayNumber > night) continue;
+      final nightDead = nightDeathIdsOf(d).contains(p.id);
+      final executed = d.dayExecutionPlayerId == p.id;
+      if (d.dayNumber == night) {
+        if (nightDead) return false; // 当夜读取前已死
+      } else if (nightDead || executed) {
+        return false;
+      }
+    }
+    return p.deathDay == null ||
+        p.deathDay! > night ||
+        (p.deathDay == night && p.deathCause != DeathCause.nightKill);
+  }
+
+  /// 解析共情者新 payload 的显式邻座对 `{"playerIds": [a, b], ...}`
+  ///（#284；长度非 2 或损坏 → null，走旧降级路径）。
+  static List<int>? _payloadPair(String payloadJson) {
+    try {
+      final decoded = jsonDecode(payloadJson);
+      if (decoded is! Map) return null;
+      final ids = decoded['playerIds'];
+      if (ids is! List || ids.length != 2) return null;
+      final a = ids[0], b = ids[1];
+      if (a is! int || b is! int || a == b) return null;
+      return [a, b];
+    } on FormatException {
+      return null;
+    }
+  }
+
+  /// 共情者显式对校验（#284）：对合法性（读数夜存在性）+ 正反向数字
+  /// 校验（#213 语义保持，邻座集合来自声明对而非环推断）。
+  static List<Contradiction> _empathPairChecks({
+    required InfoDeclaration decl,
+    required int value,
+    required List<int> pair,
+    required int maxNight,
+    required int empathId,
+    required Set<int> Function(int) aliveIdsOn,
+    required Map<int, RoleClaim> latestClaim,
+    required Map<int, Player> playersById,
+    required Map<int, Character> confirmedRoles,
+    required String Function(int) labelOf,
+    int? myPlayerId,
+    Character? myRole,
+  }) {
+    final results = <Contradiction>[];
+    final empath = playersById[empathId];
+    if (empath == null) return results;
+
+    // 对合法性：存在夜 D ≤ maxNight，该对恰为作者当时的环邻座。
+    int? legalNight;
+    for (var d = 1; d <= maxNight; d++) {
+      final alive = aliveIdsOn(d)
+          .map((id) => playersById[id])
+          .whereType<Player>()
+          .toList();
+      final neighbors = _aliveNeighbors(empath, alive)
+          .map((n) => n.id)
+          .toSet();
+      if (neighbors.length == 2 &&
+          neighbors.containsAll(pair) &&
+          pair.toSet().containsAll(neighbors)) {
+        legalNight = d;
+        break;
+      }
+    }
+    if (legalNight == null) {
+      results.add(
+        Contradiction(
+          type: ContradictionType.empathIllegalPair,
+          severity: ContradictionSeverity.info,
+          playerIds: [empathId, ...pair],
+          description:
+              '${labelOf(empathId)} 的共情者记录把 ${pair.map(labelOf).join('、')} '
+              '记作邻座，但任何可能的读数夜（第 1-$maxNight 夜）其环邻座'
+              '都不是这两人——录入有误或谎报。',
+          dayNumber: maxNight,
+        ),
+      );
+      return results;
+    }
+
+    // 反向（#213）：报 0 但对内有人已确认严格邪恶。
+    if (value == 0) {
+      final evilMembers = pair.where((id) {
+        final c = confirmedRoles[id] ?? (id == myPlayerId ? myRole : null);
+        return c != null && _strictlyEvil(c);
+      }).toList();
+      if (evilMembers.isNotEmpty) {
+        results.add(
+          Contradiction(
+            type: ContradictionType.empathMismatch,
+            severity: ContradictionSeverity.warning,
+            playerIds: [empathId, ...evilMembers],
+            description:
+                '${labelOf(empathId)} 的 Empath 信息为 0，但邻座 '
+                '${evilMembers.map(labelOf).join('、')} 已确认邪恶'
+                '（死亡揭示/真实角色）。信息必假（醉/毒已滤）。',
+            dayNumber: legalNight,
+          ),
+        );
+      }
+      return results;
+    }
+
+    // 正向补强：报 >0 但对内全部确认善良（非可登记者）→ 必假。
+    final allConfirmedGoodNonRecluse = pair.every((id) {
+      final c = confirmedRoles[id] ?? (id == myPlayerId ? myRole : null);
+      return c != null && c.team.isGood && !c.mayRegisterAsEvil;
+    });
+    if (allConfirmedGoodNonRecluse) {
+      results.add(
+        Contradiction(
+          type: ContradictionType.empathMismatch,
+          severity: ContradictionSeverity.warning,
+          playerIds: [empathId, ...pair],
+          description:
+              '${labelOf(empathId)} 的 Empath 信息为 $value，但邻座 '
+              '${pair.map(labelOf).join('、')} 均已确认善良（非隐士）——'
+              '无人可登记为邪恶，读数必假（醉/毒已滤）。',
+          dayNumber: legalNight,
+        ),
+      );
+      return results;
+    }
+
+    // 正向（声明级，info）：报 >0 但对内全部声明好人。
+    final allGoodClaims = pair.every((id) {
+      final claim = latestClaim[id];
+      return claim != null &&
+          (claim.character.team == Team.townsfolk ||
+              claim.character.team == Team.outsider);
+    });
+    final registrationExplains = pair.any((id) {
+      final c = confirmedRoles[id] ?? (id == myPlayerId ? myRole : null);
+      return c != null && (c.mayRegisterAsEvil || c.mayRegisterAsGood);
+    });
+    if (allGoodClaims && !registrationExplains) {
+      results.add(
+        Contradiction(
+          type: ContradictionType.empathMismatch,
+          severity: ContradictionSeverity.info,
+          playerIds: [empathId, ...pair],
+          description:
+              '${labelOf(empathId)} 的 Empath 信息为 $value，但邻座 '
+              '${pair.map(labelOf).join('、')} 都声明好人——'
+              '其一可能说谎（或作者醉/毒/谎报）。',
+          dayNumber: legalNight,
+        ),
+      );
+    }
+    return results;
   }
 
   /// 解析 payload 的显式玩家锚（掘墓人新 payload 的 playerId，#285）。

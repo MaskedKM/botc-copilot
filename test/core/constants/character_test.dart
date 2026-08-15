@@ -23,7 +23,8 @@ void main() {
 
     test('信息输入模板映射符合 AGENTS.md 角色表', () {
       expect(Character.chef.infoInputType, InfoInputType.numberRange);
-      expect(Character.empath.infoInputType, InfoInputType.numberZeroToTwo);
+      expect(Character.empath.infoInputType,
+          InfoInputType.twoPlayersNumber); // #284：+ 邻座对锚
       expect(
         Character.fortuneTeller.infoInputType,
         InfoInputType.twoPlayersYesNo,

@@ -16,6 +16,17 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// 不碰 DB 的假仓库（widget test 禁令：FakeAsync 区域不能跑真实数据库 IO）。
+Player other(int id, int seat) => Player(
+      id: id,
+      gameId: 1,
+      name: 'P\$id',
+      seatNumber: seat,
+      isAlive: true,
+      abilityUsed: false,
+      suspectedDrunk: false,
+      fakeDead: false,
+    );
+
 class _FakePlayerDetailRepository implements PlayerDetailRepository {
   Character? claimedRole;
   TrustLevel? trustLevel;
@@ -176,6 +187,7 @@ void main() {
   /// [claims] 覆盖全局声明（用于「下一位」候选计算，#134）。
   /// [enableChain] 启用「保存并下一位」按钮（#134）。
   Widget buildSheet({
+    List<Player>? others,
     int? myPlayerId,
     Character? myRole,
     GameStatus status = GameStatus.ongoing,
@@ -198,7 +210,9 @@ void main() {
       overrides: [
         gameByIdProvider(1).overrideWith((ref) => Stream.value(g)),
         gamePlayersProvider(1).overrideWith(
-          (ref) => Stream.value([player]),
+          (ref) => Stream.value(
+            others == null ? [player] : [player, ...others],
+          ),
         ),
         gameBoardProvider(1)
             .overrideWith((ref) => _FakeGameBoardNotifier(ref, 1, day: day)),
@@ -371,10 +385,13 @@ void main() {
 
   testWidgets('我座位录入信息传 isMine=true', (tester) async {
     useTallSurface(tester);
-    await tester.pumpWidget(buildSheet(myPlayerId: me.id));
+    await tester.pumpWidget(
+        buildSheet(myPlayerId: me.id, others: [other(2, 2), other(3, 3)]));
     await tester.pump();
 
-    // Empath 数字输入的「记录」按钮（默认值 0）
+    // 共情者新模板（#284）：邻座对预填（2/3 号）+ 数字默认未选
+    await tester.tap(find.text('0 人'));
+    await tester.pump();
     await tester.tap(find.text('记录'));
     await tester.pump(); // declareInfo async 间隙
     await tester.pump();
@@ -485,7 +502,8 @@ void main() {
   // 杜绝孤儿信息（不必先保存→关→重开）。
   testWidgets('声明+信息解耦：录信息自动落库声明（#134）', (tester) async {
     useTallSurface(tester);
-    await tester.pumpWidget(buildSheet()); // 非己、无声明
+    await tester.pumpWidget(
+        buildSheet(others: [other(2, 2), other(3, 3)])); // 非己、无声明
     await tester.pump();
 
     // 选角色（草稿）→ 信息录入区立刻出现
@@ -495,6 +513,8 @@ void main() {
     expect(detailRepo.claimCalls, 0); // 草稿阶段不写库
 
     // 录信息 → 先自动落库声明，再写信息（无孤儿）
+    await tester.tap(find.text('0 人'));
+    await tester.pump();
     await tester.tap(find.text('记录'));
     await tester.pump();
     await tester.pump();
