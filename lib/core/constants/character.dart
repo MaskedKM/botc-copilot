@@ -71,7 +71,7 @@ enum Character {
     nameEn: 'Undertaker',
     team: Team.townsfolk,
     ability: '每个夜晚（除首夜），你会得知今天白天被处决玩家的角色。',
-    infoInputType: InfoInputType.characterName,
+    infoInputType: InfoInputType.playerPlusCharacter,
   ),
 
   /// 僧侣：每晚选一名存活玩家保护其免受恶魔杀害（不能选自己）。

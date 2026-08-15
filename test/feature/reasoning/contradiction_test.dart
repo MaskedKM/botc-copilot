@@ -1722,4 +1722,87 @@ void main() {
       );
     });
   });
+  group('#285 掘墓人显式处决者锚', () {
+    DayRecord rec(int id, int day, {int? exec}) => DayRecord(
+          id: id,
+          gameId: 1,
+          dayNumber: day,
+          nightDeathPlayerIds: null,
+          nightConfirmed: true,
+          dayExecutionPlayerId: exec,
+          dayConfirmed: exec != null,
+          notes: '',
+        );
+    InfoDeclaration utDecl(String payload, {int dayRecordId = 30}) =>
+        InfoDeclaration(
+          id: 1,
+          playerId: 2,
+          dayRecordId: dayRecordId,
+          characterType: Character.undertaker,
+          payloadJson: payload,
+          reliability: Reliability.unverified,
+          isMine: false,
+        );
+
+    test('显式锚：掘墓人报告挂到指定处决者（confirmedRole 源）', () {
+      // 1 号 day1 被处决且声明洗衣妇；掘墓人 day2 报 1 号=僧侣 → 冲突
+      final result = ContradictionDetector.detect(
+        claims: [
+          _claim(1, Character.washerwoman),
+          _claim(2, Character.undertaker),
+        ],
+        declarations: [
+          utDecl('{"playerId": 1, "character": "monk"}'),
+        ],
+        days: [rec(10, 1, exec: 1), rec(30, 2)],
+        playersById: players,
+        dayRecordToDayNumber: {30: 2},
+        expectedOutsiders: 0,
+      );
+      // 与 1 号洗衣妇相关联——用 3 号声明洗衣妇制造 confirmedRoleConflict
+      expect(
+        result.where((c) => c.type == ContradictionType.confirmedRoleConflict),
+        isNotEmpty,
+      );
+      expect(
+        result
+            .where((c) => c.type == ContradictionType.undertakerTargetMismatch),
+        isEmpty, // 锚上了
+      );
+    });
+
+    test('锚不符：声明日前该玩家无处决 → info 疑点', () {
+      final result = ContradictionDetector.detect(
+        claims: [_claim(2, Character.undertaker)],
+        declarations: [
+          utDecl('{"playerId": 5, "character": "monk"}'), // 5 号未被处决
+        ],
+        days: [rec(10, 1, exec: 1), rec(30, 2)],
+        playersById: players,
+        dayRecordToDayNumber: {30: 2},
+        expectedOutsiders: 0,
+      );
+      expect(
+        result
+            .where((c) => c.type == ContradictionType.undertakerTargetMismatch),
+        hasLength(1),
+      );
+    });
+
+    test('旧 payload（仅角色）：推断兜底不误报', () {
+      final result = ContradictionDetector.detect(
+        claims: [_claim(2, Character.undertaker)],
+        declarations: [utDecl('{"character": "monk"}')],
+        days: [rec(10, 1, exec: 1), rec(30, 2)],
+        playersById: players,
+        dayRecordToDayNumber: {30: 2},
+        expectedOutsiders: 0,
+      );
+      expect(
+        result
+            .where((c) => c.type == ContradictionType.undertakerTargetMismatch),
+        isEmpty,
+      );
+    });
+  });
 }

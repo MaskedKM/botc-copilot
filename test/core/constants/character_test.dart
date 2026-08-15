@@ -40,7 +40,8 @@ void main() {
         Character.librarian.infoInputType,
         InfoInputType.outsiderPlusTwoPlayersOrNone,
       );
-      expect(Character.undertaker.infoInputType, InfoInputType.characterName);
+      expect(Character.undertaker.infoInputType,
+          InfoInputType.playerPlusCharacter); // #285：+ 处决者锚
       // Spy 看魔典 → 自由文本（#136，原误设 none 致角色不可用）
       expect(Character.spy.infoInputType, InfoInputType.freeText);
     });
