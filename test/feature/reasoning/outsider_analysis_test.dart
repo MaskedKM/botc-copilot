@@ -1,4 +1,5 @@
 import 'package:botc_copilot/core/constants/character.dart';
+import 'package:botc_copilot/core/constants/script.dart';
 import 'package:botc_copilot/core/database/app_database.dart';
 import 'package:botc_copilot/feature/reasoning/domain/outsider_analysis.dart';
 import 'package:botc_copilot/shared/models/enums.dart';
@@ -177,6 +178,73 @@ void main() {
     test('无 Baron 声明 → baronClaimed false', () {
       final a = analyze(9, [_claim(1, Character.butler)]);
       expect(a.baronClaimed, isFalse);
+    });
+  });
+
+  // #266②：修正角色集合数据驱动（不再只认男爵）。
+  group('修正角色泛化（#266②）', () {
+    test('modifierClaims：Baron 声明 → [男爵]', () {
+      final a = analyze(9, [_claim(5, Character.baron)]);
+      expect(a.modifierClaims, [Character.baron]);
+      expect(a.scriptModifiers, [Character.baron]); // TB 池
+    });
+
+    test('BMR：教父声明 → baronClaimed + 期望锚点 base+1', () {
+      // 9 人局 base=2；教父（[-1,1]）声明 → 期望 3
+      final a = analyzeOutsiderCount(
+        playerCount: 9,
+        claims: [_claim(5, Character.godfather)],
+        myRole: null,
+        script: Script.badMoonRising,
+      );
+      expect(a.baronClaimed, isTrue);
+      expect(a.modifierClaims, [Character.godfather]);
+      expect(a.expectedWithClaimed, 3);
+      expect(a.scriptModifiers, [Character.godfather]);
+      // 声明 2 外来者 + 教父 → 2 < 3 → under（此前被误判 partial）
+      final b = analyzeOutsiderCount(
+        playerCount: 9,
+        claims: [
+          _claim(5, Character.godfather),
+          _claim(1, Character.tinker),
+          _claim(2, Character.lunatic),
+        ],
+        myRole: null,
+        script: Script.badMoonRising,
+      );
+      expect(b.deviation, OutsiderDeviation.under);
+    });
+
+    test('S&V：亡骨魔声明 → 负增量锚点 base-1（#266② 修正）', () {
+      // 7 人局 base=0；亡骨魔（[-1]）声明 → 期望 -1 钳为「0 已满」：
+      // claimedOutsiderDelta 取最大候选 -1，期望 = base + (-1)。
+      final a = analyzeOutsiderCount(
+        playerCount: 7,
+        claims: [_claim(5, Character.vigormortis)],
+        myRole: null,
+        script: Script.sectsAndViolets,
+      );
+      expect(a.baronClaimed, isTrue);
+      expect(a.expectedWithClaimed, -1 + 0); // base 0 + (-1)
+      // 无外来者声明（0）> 期望（-1）→ over（多得的外来者必有假报）
+      expect(a.deviation, OutsiderDeviation.over);
+    });
+
+    test('S&V：方古声明 → 期望 base+1；声明吻合 → standard', () {
+      final a = analyzeOutsiderCount(
+        playerCount: 9,
+        claims: [
+          _claim(5, Character.fanggu),
+          _claim(1, Character.mutant),
+          _claim(2, Character.barber),
+          _claim(3, Character.klutz),
+        ],
+        myRole: null,
+        script: Script.sectsAndViolets,
+      );
+      // 9 人局 base=2；方古 +1 → 期望 3；声明 3 个外来者 → standard
+      expect(a.expectedWithClaimed, 3);
+      expect(a.deviation, OutsiderDeviation.standard);
     });
   });
 

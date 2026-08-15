@@ -47,7 +47,7 @@ class OutsiderClaimer {
   final bool confirmed;
 }
 
-/// 外来者计数分析结果（issue #59）。
+/// 外来者计数分析结果（issue #59；修正角色泛化 #266②）。
 class OutsiderCountAnalysis {
   /// 创建分析结果。
   const OutsiderCountAnalysis({
@@ -59,7 +59,9 @@ class OutsiderCountAnalysis {
     required this.claimedOutsiders,
     required this.deviation,
     required this.claimers,
-    required this.baronClaimed,
+    required this.modifierClaims,
+    required this.scriptModifiers,
+    required this.expectedWithClaimed,
     required this.maxOutsiderDelta,
   });
 
@@ -87,14 +89,22 @@ class OutsiderCountAnalysis {
   /// 声明外来者的玩家列表（含是否确认）。
   final List<OutsiderClaimer> claimers;
 
-  /// 是否检测到 Baron 声明（最新声明含 Baron 或我的角色是 Baron）。
-  ///
-  /// 推广语义（#231）：实为「setup 修正角色已声明」——TB 唯一修正角色即
-  /// Baron；BMR/S&V 为 Godfather/Balloonist 等（随 #217 录入）。
-  final bool baronClaimed;
+  /// 已声明的 setup 修正角色（最新声明含修正角色或我的角色是修正角色，
+  /// #266② 泛化：不再只认男爵）。空 = 无修正角色声明。
+  final List<Character> modifierClaims;
+
+  /// 本剧本池中的全部 setup 修正角色（文案命名用，#266②）。
+  final List<Character> scriptModifiers;
+
+  /// 已声明修正角色下的期望外来者数（base + [claimedOutsiderDelta]，
+  /// #266①：面板差额一律与此锚点或 base 比较，不再与 base+2 硬编码比）。
+  final int expectedWithClaimed;
 
   /// 剧本 setup 修正角色的外来者最大可能增量（TB：Baron → 2）。
   final int maxOutsiderDelta;
+
+  /// 是否检测到修正角色声明（UI 契约保留旧名；实为 modifierClaims 非空）。
+  bool get baronClaimed => modifierClaims.isNotEmpty;
 
   /// 修正角色在场时的外来者数（base + 剧本最大增量；字段名保留 UI 契约）。
   int get baronOutsiders => baseOutsiders + maxOutsiderDelta;
@@ -137,21 +147,26 @@ OutsiderCountAnalysis analyzeOutsiderCount({
   }
   final claimed = claimers.length;
 
-  final baronClaimed = myRole == Character.baron ||
-      latest.values.any((c) => c.character == Character.baron);
-  // 已声明修正角色（含 myRole）下的期望增量（「或」型取最大候选，#231）。
-  // TB 单一修正角色（Baron）下与 maxOutsiderDelta 等值，行为不变；
-  // BMR/S&V 多修正角色后：已声明的才是期望锚点，未声明的保持隐藏可能。
+  // #266②：修正角色集合数据驱动（TB=男爵，BMR=教父，S&V=方古/亡骨魔）。
+  final claimedCharacters = <Character>{
+    ...{for (final c in latest.values) c.character},
+    if (myRole != null) myRole,
+  };
+  final modifierClaims = [
+    for (final c in claimedCharacters)
+      if (c.setupOutsiderDeltas.isNotEmpty) c,
+  ]..sort((a, b) => Character.values.indexOf(a)
+      .compareTo(Character.values.indexOf(b)));
+  // 已声明修正角色（含 myRole）下的期望增量（「或」型取最大候选，#231；
+  // 仅负增量角色（亡骨魔）取其最大候选 -1，#266②）。
   final claimedAdj = base +
-      ScriptDefinition.claimedOutsiderDelta([
-        ...{for (final c in latest.values) c.character},
-        if (myRole != null) myRole,
-      ]);
+      ScriptDefinition.claimedOutsiderDelta(claimedCharacters);
+  final modifierInPlay = modifierClaims.isNotEmpty;
 
-  // #151 S3：Baron 在场时期望外来者数 = baronAdj（base+2），故 claimed==base 应判
-  // under（缺 2），而非 standard。原逻辑忽略 baronClaimed 致 Baron 已声明仍标 standard。
+  // #151 S3：修正角色在场时期望外来者数 = 修正后锚点，故 claimed==base 应判
+  // under（缺额），而非 standard。原逻辑忽略修正角色声明致已声明仍标 standard。
   final OutsiderDeviation deviation;
-  if (baronClaimed) {
+  if (modifierInPlay) {
     if (claimed == claimedAdj) {
       deviation = OutsiderDeviation.standard;
     } else if (claimed < claimedAdj) {
@@ -181,7 +196,9 @@ OutsiderCountAnalysis analyzeOutsiderCount({
     claimedOutsiders: claimed,
     deviation: deviation,
     claimers: claimers,
-    baronClaimed: baronClaimed,
+    modifierClaims: modifierClaims,
+    scriptModifiers: def.setupModifiers,
+    expectedWithClaimed: claimedAdj,
     maxOutsiderDelta: def.maxOutsiderDelta,
   );
 }

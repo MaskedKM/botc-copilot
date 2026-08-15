@@ -1,4 +1,5 @@
 import 'package:botc_copilot/core/constants/player_setup.dart';
+import 'package:botc_copilot/core/constants/script_definition.dart';
 import 'package:botc_copilot/core/theme/app_text_styles.dart';
 import 'package:botc_copilot/core/theme/game_colors.dart';
 import 'package:botc_copilot/feature/setup/presentation/providers/setup_provider.dart';
@@ -15,8 +16,15 @@ class PlayerCountStep extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final count = ref.watch(setupProvider.select((s) => s.playerCount));
+    final script = ref.watch(setupProvider.select((s) => s.script));
     final setup = PlayerSetup.forCount(count);
     final gameColors = context.gameColors;
+    // #266③：修正角色提示按剧本派生（TB=男爵 +2/-2，BMR=教父 ±1，
+    // S&V=方古 +1 / 亡骨魔 -1），不再硬编码男爵。
+    final modifiers = ScriptDefinition.of(script).setupModifiers;
+    final modifierNote = modifiers
+        .map((m) => '「${m.nameCn}」在场时 ${describeSetupModifier(m)}。')
+        .join();
 
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -50,7 +58,7 @@ class PlayerCountStep extends ConsumerWidget {
                   level: HelpLevel.normal,
                   icon: Icons.groups_outlined,
                   text: '阵营配置：镇民 + 外来者（好人方）对抗爪牙 + 恶魔（邪恶方）。'
-                      '男爵在场时 +2 外来者、-2 镇民。',
+                      '$modifierNote',
                 ),
                 const SizedBox(height: 12),
                 Row(
@@ -72,7 +80,7 @@ class PlayerCountStep extends ConsumerWidget {
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  '邪恶阵营共 ${setup.evilCount} 人。若 Baron 在场：+2 外来者、-2 镇民。',
+                  '邪恶阵营共 ${setup.evilCount} 人。$modifierNote',
                   style: AppTextStyles.caption,
                 ),
               ],

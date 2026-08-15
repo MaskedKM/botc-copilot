@@ -115,6 +115,43 @@ void main() {
       // 现有数据下以空列表模拟「无修正角色」侧断言基线行为。
       expect(ScriptDefinition.claimedOutsiderDelta(const []), 0);
     });
+
+    test('setup 修正角色集合与描述（#266②）', () {
+      // 剧本池修正角色
+      expect(
+        ScriptDefinition.of(Script.troubleBrewing).setupModifiers,
+        [Character.baron],
+      );
+      expect(
+        ScriptDefinition.of(Script.badMoonRising).setupModifiers,
+        [Character.godfather],
+      );
+      expect(
+        ScriptDefinition.of(Script.sectsAndViolets).setupModifiers,
+        containsAll([Character.fanggu, Character.vigormortis]),
+      );
+      // 描述：单增量 / 负增量 / 或型 ±
+      expect(describeSetupModifier(Character.baron), '+2 外来者、-2 镇民');
+      expect(describeSetupModifier(Character.fanggu), '+1 外来者、-1 镇民');
+      expect(describeSetupModifier(Character.vigormortis),
+          '-1 外来者、+1 镇民');
+      expect(describeSetupModifier(Character.godfather),
+          '±1 外来者（镇民反向增减）');
+    });
+
+    test('仅负增量修正角色声明 → 取其最大候选（#266② 修正，不再钳 0）', () {
+      // 亡骨魔 [-1]：官方在场时外来者 base-1；旧实现钳 0 会把「少于标准」
+      // 误判为偏差。
+      expect(
+        ScriptDefinition.claimedOutsiderDelta(const [Character.vigormortis]),
+        -1,
+      );
+      // 教父 [-1,1] 仍取 +1（同局多个候选取最大）
+      expect(
+        ScriptDefinition.claimedOutsiderDelta(const [Character.godfather]),
+        1,
+      );
+    });
   });
 
   group('夜序入 ScriptDefinition（#232）', () {

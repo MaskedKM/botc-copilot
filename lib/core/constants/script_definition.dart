@@ -54,6 +54,11 @@ class ScriptDefinition {
   List<Character> byTeam(Team team) =>
       characters.where((c) => c.team == team).toList();
 
+  /// 剧本池中的 setup 修正角色（#266②：TB=男爵，BMR=教父，
+  /// S&V=方古/亡骨魔——数据驱动，非硬编码）。
+  List<Character> get setupModifiers =>
+      characters.where((c) => c.setupOutsiderDeltas.isNotEmpty).toList();
+
   /// 剧本内外来者增量的**最大可能值**（TB：Baron → 2；无修正角色 → 0）。
   ///
   /// 「或」型角色（Godfather ±1）取其各候选的最大值。
@@ -61,21 +66,41 @@ class ScriptDefinition {
       .expand((c) => c.setupOutsiderDeltas)
       .fold(0, (a, b) => a > b ? a : b);
 
-  /// 已声明修正角色下的外来者最大可能增量（#231）。
+  /// 已声明修正角色下的外来者最大可能增量（#231；#266② 负增量修正）。
   ///
   /// [claimedCharacters] 为每玩家最新声明的角色集合（可含 myRole 注入项）。
   /// 未声明任何修正角色 → 0（基础配置）；声明了则取该角色增量候选的最大
-  /// 值（隐藏的真修正角色未声明时不可知，返回 0 保持保守——与原 Baron
-  /// 语义一致：只有 Baron 已声明才按 base+2 期望）。
+  /// 值。仅负增量的修正角色（S&V 亡骨魔 [-1]）声明后取其最大候选（-1）——
+  /// 官方：其在场时外来者 base-1，钳 0 会把「少于标准」误判为偏差。
+  /// 隐藏的真修正角色未声明时不可知，返回 0 保持保守。
   static int claimedOutsiderDelta(Iterable<Character> claimedCharacters) {
-    var max = 0;
+    int? best;
     for (final c in claimedCharacters) {
       for (final d in c.setupOutsiderDeltas) {
-        if (d > max) max = d;
+        if (best == null || d > best) best = d;
       }
     }
-    return max;
+    return best ?? 0;
   }
+}
+
+/// 修正角色的单行可读描述（#266②，配置分析/setup 提示共用）。
+///
+/// 单增量：「男爵」→ `+2 外来者、-2 镇民`；负增量方向相反。
+/// 「或」型 ±：「教父」（[-1, 1]）→ `±1 外来者（镇民反向增减）`。
+String describeSetupModifier(Character c) {
+  final ds = c.setupOutsiderDeltas;
+  if (ds.length == 1) {
+    final d = ds.single;
+    final outsider = d >= 0 ? '+$d' : '$d';
+    final town = d >= 0 ? '-$d' : '+${-d}';
+    return '$outsider 外来者、$town 镇民';
+  }
+  final max = ds.reduce((a, b) => a > b ? a : b);
+  final min = ds.reduce((a, b) => a < b ? a : b);
+  if (min == -max) return '±$max 外来者（镇民反向增减）';
+  return '外来者 ${ds.map((d) => d >= 0 ? '+$d' : '$d').join(' 或 ')}'
+      '（镇民反向增减）';
 }
 
 /// 剧本注册表（剧本级数据唯一入口，#230）。
