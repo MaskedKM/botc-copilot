@@ -6,7 +6,9 @@ import 'package:botc_copilot/core/theme/game_colors.dart';
 import 'package:botc_copilot/feature/game_board/domain/game_end.dart';
 import 'package:botc_copilot/feature/game_board/presentation/succession_handler.dart';
 import 'package:botc_copilot/feature/player_detail/data/ability_repository.dart';
+import 'package:botc_copilot/feature/player_detail/data/player_detail_repository.dart';
 import 'package:botc_copilot/feature/game_board/presentation/providers/game_board_provider.dart';
+import 'package:botc_copilot/feature/reasoning/data/contradictions_provider.dart';
 import 'package:botc_copilot/shared/models/enums.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -58,6 +60,9 @@ class AbilitySectionState extends ConsumerState<AbilitySection> {
           Character.virgin => _buildVirgin(used, gameColors),
           Character.slayer => _buildSlayer(used, gameColors),
           Character.saint => _buildSaint(gameColors),
+          // #269②：一次性/限频能力追踪补缺（此前仅 TB 三角色）。
+          Character.courtier => _buildCourtier(used, gameColors),
+          Character.gambler => _buildGambler(gameColors),
           _ => const SizedBox.shrink(),
         },
       ],
@@ -109,6 +114,81 @@ class AbilitySectionState extends ConsumerState<AbilitySection> {
     return Text(
       '圣徒被处决时，善良方立即战败。处决此人时 App 会提示「邪恶获胜」。',
       style: AppTextStyles.caption.copyWith(color: gameColors.bloodBright),
+    );
+  }
+
+  /// Courtier（#269②）：每局限一次——追踪能力消耗，手动开关（同 Virgin
+  /// 先例，历史记录而非「发动能力」按钮）。醉/毒时使用也永久消耗（公理4）。
+  Widget _buildCourtier(bool used, GameColors gameColors) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SwitchListTile(
+          title: const Text('能力已消耗（每局限一次）'),
+          value: used,
+          activeTrackColor: gameColors.inkViolet,
+          onChanged: (v) async {
+            await ref
+                .read(abilityRepositoryProvider)
+                .setAbilityUsed(widget.playerId, used: v);
+            if (!mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(v ? '侍臣能力已标记消耗' : '侍臣能力已恢复'),
+                duration: const Duration(seconds: 1),
+              ),
+            );
+          },
+        ),
+        Text(
+          '官方规则：每局限一次，夜晚选择一个角色——该角色醉 3 夜 3 天'
+          '（固定时长，无时长选择）。信息录入区记录所选角色时会自动标记'
+          '消耗；被毒/醉时使用同样永久消耗，不因清醒返还。',
+          style: AppTextStyles.caption
+              .copyWith(color: gameColors.inkViolet),
+        ),
+      ],
+    );
+  }
+
+  /// Gambler（#269②）：每晚限一次（非一次性，无 abilityUsed）——展示当晚
+  /// 已录赌注数，多次记录时录入区会二次确认。
+  Widget _buildGambler(GameColors gameColors) {
+    final decls =
+        ref.watch(gameAllDeclarationsProvider(widget.gameId)).valueOrNull ??
+            const <InfoDeclaration>[];
+    final days =
+        ref.watch(gameDayRecordsProvider(widget.gameId)).valueOrNull ??
+            const <DayRecord>[];
+    final dayIds = {
+      for (final d in days.where((d) => d.dayNumber == widget.day)) d.id,
+    };
+    final count = decls
+        .where(
+          (d) =>
+              d.playerId == widget.playerId &&
+              d.characterType == Character.gambler &&
+              dayIds.contains(d.dayRecordId),
+        )
+        .length;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          count == 0
+              ? '今晚尚未记录赌注（每个夜晚*限一次）'
+              : '今晚已记录 $count 次赌注（每个夜晚*限一次，再次记录会二次确认）',
+          style: AppTextStyles.body,
+        ),
+        const SizedBox(height: 4),
+        Text(
+          '官方规则：每个夜晚*选择一名玩家并猜测其角色，猜错则你死亡'
+          '（死亡标记请走座位死亡入口）。信息录入区记录目标与猜测，'
+          '同一晚重复记录会弹出确认。',
+          style: AppTextStyles.caption
+              .copyWith(color: gameColors.inkViolet),
+        ),
+      ],
     );
   }
 

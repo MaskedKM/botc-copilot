@@ -42,6 +42,14 @@ enum InfoInputType {
   /// payload: {"playerIds": [a, b]}
   twoPlayersTarget,
 
+  /// 是/否（S&V 卖花女孩/城镇公告员）。
+  /// payload: {"answer": true}
+  yesNo,
+
+  /// 选 1 名玩家 + 1 个善良角色 + 1 个邪恶角色（S&V 筑梦师）。
+  /// payload: {"playerId": 3, "goodCharacter": "empath", "evilCharacter": "poisoner"}
+  playerPlusGoodEvilCharacters,
+
   /// 自由文本（其余角色的通用兜底）。
   freeText,
 }

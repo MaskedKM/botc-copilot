@@ -534,7 +534,7 @@ enum Character {
     nameEn: 'Clockmaker',
     team: Team.townsfolk,
     ability: '在你的首个夜晚，你会得知恶魔与爪牙之间最近的距离（邻座距离为 1）。',
-    infoInputType: InfoInputType.freeText,
+    infoInputType: InfoInputType.numberRange,
     script: Script.sectsAndViolets,
   ),
   /// 筑梦师（S&V 镇民）。
@@ -545,7 +545,9 @@ enum Character {
     ability: '每个夜晚，'
         '选择一名玩家（不能是自己或旅行者）：你得知一个善良角色和一个邪恶角色，'
         '该玩家是其中一个角色。',
-    infoInputType: InfoInputType.freeText,
+    infoInputType: InfoInputType.playerPlusGoodEvilCharacters,
+    // 官方：choose ... (not yourself)。
+    canTargetSelf: false,
     script: Script.sectsAndViolets,
   ),
   /// 舞蛇人（S&V 镇民）。
@@ -564,7 +566,7 @@ enum Character {
     team: Team.townsfolk,
     ability: '每个夜晚，'
         '你得知自上个黎明以来有多少玩家的能力因其他角色的能力而未能正常生效。',
-    infoInputType: InfoInputType.freeText,
+    infoInputType: InfoInputType.numberRange,
     script: Script.sectsAndViolets,
   ),
   /// 卖花女孩（S&V 镇民）。
@@ -573,7 +575,7 @@ enum Character {
     nameEn: 'Flowergirl',
     team: Team.townsfolk,
     ability: '每个夜晚*，你得知今天白天是否有恶魔投过票。',
-    infoInputType: InfoInputType.freeText,
+    infoInputType: InfoInputType.yesNo,
     script: Script.sectsAndViolets,
   ),
   /// 城镇公告员（S&V 镇民）。
@@ -582,7 +584,7 @@ enum Character {
     nameEn: 'Town Crier',
     team: Team.townsfolk,
     ability: '每个夜晚*，你得知今天白天是否有爪牙发起过提名。',
-    infoInputType: InfoInputType.freeText,
+    infoInputType: InfoInputType.yesNo,
     script: Script.sectsAndViolets,
   ),
   /// 神谕者（S&V 镇民）。
@@ -591,7 +593,7 @@ enum Character {
     nameEn: 'Oracle',
     team: Team.townsfolk,
     ability: '每个夜晚*，你得知有多少名死亡的玩家是邪恶的。',
-    infoInputType: InfoInputType.freeText,
+    infoInputType: InfoInputType.numberRange,
     script: Script.sectsAndViolets,
   ),
   /// 博学者（S&V 镇民）。
@@ -609,7 +611,9 @@ enum Character {
     nameEn: 'Seamstress',
     team: Team.townsfolk,
     ability: '每局限一次，在夜晚选择除你以外的两名玩家：你得知他们是否为同一阵营。',
-    infoInputType: InfoInputType.freeText,
+    infoInputType: InfoInputType.twoPlayersYesNo,
+    // 官方：choose ... (not yourself)。
+    canTargetSelf: false,
     script: Script.sectsAndViolets,
   ),
   /// 哲学家（S&V 镇民）。

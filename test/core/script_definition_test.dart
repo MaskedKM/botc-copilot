@@ -48,8 +48,17 @@ void main() {
     expect(Character.butler.canTargetSelf, isFalse);
     // 官方：choose 2 alive players (not yourself)
     expect(Character.chambermaid.canTargetSelf, isFalse);
+    // 官方（#269①）：choose ... (not yourself)
+    expect(Character.seamstress.canTargetSelf, isFalse);
+    expect(Character.dreamer.canTargetSelf, isFalse);
     // 抽样其余角色默认 true（含 Poisoner 可选任何人）
-    const noSelf = {Character.monk, Character.butler, Character.chambermaid};
+    const noSelf = {
+      Character.monk,
+      Character.butler,
+      Character.chambermaid,
+      Character.seamstress,
+      Character.dreamer,
+    };
     for (final c in Character.values) {
       expect(c.canTargetSelf, !noSelf.contains(c), reason: c.name);
     }

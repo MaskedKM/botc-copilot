@@ -6,6 +6,7 @@ import 'package:botc_copilot/core/database/app_database.dart';
 import 'package:botc_copilot/core/constants/script.dart';
 import 'package:botc_copilot/core/constants/script_definition.dart';
 import 'package:botc_copilot/core/theme/app_text_styles.dart';
+import 'package:botc_copilot/core/theme/game_colors.dart';
 import 'package:botc_copilot/feature/player_detail/presentation/widgets/player_pair_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -32,17 +33,32 @@ abstract final class InfoInputFactory {
     final pool = ScriptDefinition.of(script);
     return switch (character.infoInputType) {
       InfoInputType.none => const _NoInput(),
-      // Chef：相邻邪恶对数。用 evilCount（容纳 Recluse 注册为邪恶的边缘——
-      // TB 唯一幻影邪恶来源，可能使相邻对 +1；基础 max=evilCount−1）。
-      // clamp 防御首帧 players 为空（forCount 对越界人数抛异常）。
+      // 数字输入（#269①：上界按角色定界）。Chef：相邻邪恶对数，用
+      // evilCount（容纳 Recluse 注册为邪恶的边缘——TB 唯一幻影邪恶来源，
+      // 可能使相邻对 +1；基础 max=evilCount−1）。Clockmaker：恶魔到最近
+      // 爪牙的环距，官方 1-7（恶魔非爪牙 → 距离 ≥1；≤15 人环距 ≤7）。
+      // Oracle/Mathematician：玩家数作防御上界。clamp 防御首帧 players
+      // 为空（forCount 对越界人数抛异常）。
       InfoInputType.numberRange => _NumberInput(
-          max: PlayerSetup.forCount(players.length.clamp(5, 15)).evilCount,
+          min: character == Character.clockmaker ? 1 : 0,
+          max: switch (character) {
+            Character.clockmaker => 7,
+            Character.oracle ||
+            Character.mathematician => players.length,
+            _ => PlayerSetup.forCount(players.length.clamp(5, 15)).evilCount,
+          },
           onSubmit: onSubmit,
         ),
       InfoInputType.numberZeroToTwo =>
         _NumberInput(max: 2, onSubmit: onSubmit),
-      InfoInputType.twoPlayersYesNo =>
-        _TwoPlayersYesNoInput(players: players, onSubmit: onSubmit),
+      // Seamstress（S&V）：官方「选择除你以外的两名玩家」——canTargetSelf
+      // 数据化排除；FT 可含自己（默认 true 不排除）。
+      InfoInputType.twoPlayersYesNo => _TwoPlayersYesNoInput(
+          players: players,
+          onSubmit: onSubmit,
+          excludePlayerId:
+              character.canTargetSelf ? null : actingPlayerId,
+        ),
       InfoInputType.minionPlusTwoPlayers => _CharacterPlusTwoPlayersInput(
           characters: pool.byTeam(Team.minion),
           players: players,
@@ -103,6 +119,18 @@ abstract final class InfoInputFactory {
           excludePlayerId:
               character.canTargetSelf ? null : actingPlayerId,
         ),
+      // Flowergirl/Town Crier（S&V）：夜间是非问题。
+      InfoInputType.yesNo => _YesNoInput(onSubmit: onSubmit),
+      // Dreamer（S&V）：官方「不能是自己」→ 排除；善良/邪恶各选其一。
+      InfoInputType.playerPlusGoodEvilCharacters =>
+        _PlayerPlusTwoCharactersInput(
+          players: players,
+          goodCharacters: pool.characters.where((c) => c.isGood).toList(),
+          evilCharacters: pool.characters.where((c) => !c.isGood).toList(),
+          onSubmit: onSubmit,
+          excludePlayerId:
+              character.canTargetSelf ? null : actingPlayerId,
+        ),
       InfoInputType.freeText => _FreeTextInput(onSubmit: onSubmit),
     };
   }
@@ -121,10 +149,16 @@ class _NoInput extends StatelessWidget {
   }
 }
 
-/// 数字输入（Chef 0-N / Empath 0-2）。payload: {"value": n}
+/// 数字输入（Chef/Oracle/Mathematician 0-N / Clockmaker 1-7 / Empath 0-2）。
+/// payload: {"value": n}
 class _NumberInput extends StatefulWidget {
-  const _NumberInput({required this.max, required this.onSubmit});
+  const _NumberInput({
+    required this.max,
+    required this.onSubmit,
+    this.min = 0,
+  });
 
+  final int min;
   final int max;
   final void Function(Map<String, Object?>) onSubmit;
 
@@ -133,7 +167,7 @@ class _NumberInput extends StatefulWidget {
 }
 
 class _NumberInputState extends State<_NumberInput> {
-  int _value = 0;
+  late int _value = widget.min;
 
   @override
   Widget build(BuildContext context) {
@@ -141,7 +175,8 @@ class _NumberInputState extends State<_NumberInput> {
       children: [
         IconButton(
           icon: const Icon(Icons.remove),
-          onPressed: _value > 0 ? () => setState(() => _value--) : null,
+          onPressed:
+              _value > widget.min ? () => setState(() => _value--) : null,
         ),
         Text('$_value', style: AppTextStyles.title),
         IconButton(
@@ -159,12 +194,20 @@ class _NumberInputState extends State<_NumberInput> {
   }
 }
 
-/// 双人选择 + 是/否（Fortune Teller）。
+/// 双人选择 + 是/否（Fortune Teller / S&V 女裁缝）。
 /// payload: {"playerIds": [a, b], "answer": true}
 class _TwoPlayersYesNoInput extends StatefulWidget {
-  const _TwoPlayersYesNoInput({required this.players, required this.onSubmit});
+  const _TwoPlayersYesNoInput({
+    required this.players,
+    required this.onSubmit,
+    this.excludePlayerId,
+  });
 
   final List<Player> players;
+
+  /// 排除的玩家 id（女裁缝「除你以外」；null = 不排除）。
+  final int? excludePlayerId;
+
   final void Function(Map<String, Object?>) onSubmit;
 
   @override
@@ -183,6 +226,7 @@ class _TwoPlayersYesNoInputState extends State<_TwoPlayersYesNoInput> {
         PlayerPairPicker(
           players: widget.players,
           selected: _selected,
+          excludePlayerId: widget.excludePlayerId,
           onChanged: (Set<int> s) => setState(() => _selected
             ..clear()
             ..addAll(s)),
@@ -327,17 +371,11 @@ class _CharacterNameInputState extends State<_CharacterNameInput> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Wrap(
-          spacing: 8,
-          runSpacing: 4,
-          children: [
-            for (final c in widget.characters)
-              ChoiceChip(
-                label: Text(c.nameCn),
-                selected: _character == c,
-                onSelected: (_) => setState(() => _character = c),
-              ),
-          ],
+        // #269③：Undertaker/Courtier/Philosopher 的角色选择按阵营分组。
+        _GroupedCharacterChips(
+          characters: widget.characters,
+          selected: _character,
+          onSelect: (c) => setState(() => _character = c),
         ),
         const SizedBox(height: 8),
         Align(
@@ -408,17 +446,12 @@ class _PlayerPlusCharacterInputState
           ],
         ),
         const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          runSpacing: 4,
-          children: [
-            for (final c in widget.characters)
-              ChoiceChip(
-                label: Text(c.nameCn),
-                selected: _character == c,
-                onSelected: (_) => setState(() => _character = c),
-              ),
-          ],
+        // #269③：RavenKeeper/Gambler/Grandmother/Cerenovus/Pit-Hag 的
+        // 角色选择按阵营分组（全池 22-25 角色平铺扫描 + 相邻误触）。
+        _GroupedCharacterChips(
+          characters: widget.characters,
+          selected: _character,
+          onSelect: (c) => setState(() => _character = c),
         ),
         const SizedBox(height: 8),
         Align(
@@ -683,6 +716,212 @@ class _TwoPlayersTargetInputState extends State<_TwoPlayersTargetInput> {
             child: const Text('记录'),
           ),
         ),
+      ],
+    );
+  }
+}
+
+/// 是/否（S&V 卖花女孩/城镇公告员）。
+/// payload: {"answer": true}
+class _YesNoInput extends StatefulWidget {
+  const _YesNoInput({required this.onSubmit});
+
+  final void Function(Map<String, Object?>) onSubmit;
+
+  @override
+  State<_YesNoInput> createState() => _YesNoInputState();
+}
+
+class _YesNoInputState extends State<_YesNoInput> {
+  bool _answer = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        ChoiceChip(
+          label: const Text('是'),
+          selected: _answer,
+          onSelected: (_) => setState(() => _answer = true),
+        ),
+        const SizedBox(width: 8),
+        ChoiceChip(
+          label: const Text('否'),
+          selected: !_answer,
+          onSelected: (_) => setState(() => _answer = false),
+        ),
+        const Spacer(),
+        FilledButton(
+          onPressed: () => widget.onSubmit({'answer': _answer}),
+          child: const Text('记录'),
+        ),
+      ],
+    );
+  }
+}
+
+/// 玩家 + 善良角色其一 + 邪恶角色其一（S&V 筑梦师）。
+/// payload: {"playerId": 3, "goodCharacter": "empath", "evilCharacter": "poisoner"}
+class _PlayerPlusTwoCharactersInput extends StatefulWidget {
+  const _PlayerPlusTwoCharactersInput({
+    required this.players,
+    required this.goodCharacters,
+    required this.evilCharacters,
+    required this.onSubmit,
+    this.excludePlayerId,
+  });
+
+  final List<Player> players;
+
+  /// 善良角色候选（剧本池）。
+  final List<Character> goodCharacters;
+
+  /// 邪恶角色候选（剧本池）。
+  final List<Character> evilCharacters;
+
+  /// 排除的玩家 id（筑梦师「不能是自己」；null = 不排除）。
+  final int? excludePlayerId;
+
+  final void Function(Map<String, Object?>) onSubmit;
+
+  @override
+  State<_PlayerPlusTwoCharactersInput>
+      createState() => _PlayerPlusTwoCharactersInputState();
+}
+
+class _PlayerPlusTwoCharactersInputState
+    extends State<_PlayerPlusTwoCharactersInput> {
+  int? _playerId;
+  Character? _goodCharacter;
+  Character? _evilCharacter;
+
+  @override
+  Widget build(BuildContext context) {
+    final ready =
+        _playerId != null && _goodCharacter != null && _evilCharacter != null;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Wrap(
+          spacing: 8,
+          runSpacing: 4,
+          children: [
+            for (final p in widget.players.where(
+              (p) => p.id != widget.excludePlayerId,
+            ))
+              ChoiceChip(
+                label: Text('${p.seatNumber}号 ${p.name}'),
+                selected: _playerId == p.id,
+                onSelected: (_) => setState(() => _playerId = p.id),
+              ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        _GroupedCharacterChips(
+          label: '善良角色其一',
+          characters: widget.goodCharacters,
+          selected: _goodCharacter,
+          onSelect: (c) => setState(() => _goodCharacter = c),
+        ),
+        const SizedBox(height: 8),
+        _GroupedCharacterChips(
+          label: '邪恶角色其一',
+          characters: widget.evilCharacters,
+          selected: _evilCharacter,
+          onSelect: (c) => setState(() => _evilCharacter = c),
+        ),
+        const SizedBox(height: 8),
+        Align(
+          alignment: Alignment.centerRight,
+          child: FilledButton(
+            onPressed: ready
+                ? () => widget.onSubmit({
+                      'playerId': _playerId,
+                      'goodCharacter': _goodCharacter!.name,
+                      'evilCharacter': _evilCharacter!.name,
+                    })
+                : null,
+            child: const Text('记录'),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// 角色 chips 按阵营分组（#269③：S&V 后全池 25 角色平铺线性扫描 + 相邻
+/// 误触——同 #160 P0 角色声明区的分组方案，组标签用阵营中文名着色）。
+class _GroupedCharacterChips extends StatelessWidget {
+  const _GroupedCharacterChips({
+    required this.characters,
+    required this.selected,
+    required this.onSelect,
+    this.label,
+  });
+
+  /// 候选角色（可能跨阵营；单阵营时只渲染一组）。
+  final List<Character> characters;
+
+  /// 当前选中（null = 未选）。
+  final Character? selected;
+
+  /// 选择回调。
+  final void Function(Character) onSelect;
+
+  /// 区域标签（如筑梦师的「善良角色其一」；null = 无标签）。
+  final String? label;
+
+  @override
+  Widget build(BuildContext context) {
+    final gameColors = context.gameColors;
+    final byTeam = <Team, List<Character>>{};
+    for (final c in characters) {
+      byTeam.putIfAbsent(c.team, () => []).add(c);
+    }
+    const teamOrder = [
+      Team.townsfolk,
+      Team.outsider,
+      Team.minion,
+      Team.demon,
+    ];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (label != null)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 4),
+            child: Text(
+              label!,
+              style: AppTextStyles.caption
+                  .copyWith(color: gameColors.inkViolet),
+            ),
+          ),
+        for (final team in teamOrder)
+          if (byTeam[team] case final chars?) ...[
+            Padding(
+              padding: const EdgeInsets.only(top: 6, bottom: 4),
+              child: Text(
+                team.nameCn,
+                style: AppTextStyles.caption.copyWith(
+                  color: team.isGood
+                      ? gameColors.goldBright
+                      : gameColors.bloodBright,
+                ),
+              ),
+            ),
+            Wrap(
+              spacing: 8,
+              runSpacing: 4,
+              children: [
+                for (final c in chars)
+                  ChoiceChip(
+                    label: Text(c.nameCn),
+                    selected: selected == c,
+                    onSelected: (_) => onSelect(c),
+                  ),
+              ],
+            ),
+          ],
       ],
     );
   }

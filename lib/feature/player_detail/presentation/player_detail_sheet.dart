@@ -475,12 +475,15 @@ class _PlayerDetailSheetState extends ConsumerState<PlayerDetailSheet> {
                       ? () => _undoLatestClaim(claims.last)
                       : null,
                 ),
-              // 一次性能力（仅进行中可记录动作）：我座位按真实角色，他人按声明角色
+              // 一次性/限频能力（仅进行中可记录动作）：我座位按真实角色，他人
+              // 按声明角色。#269② 补侍臣（每局一次）/赌徒（每晚一次）。
               if (!readOnly &&
                   effectiveRole != null &&
                   (effectiveRole == Character.virgin ||
                       effectiveRole == Character.slayer ||
-                      effectiveRole == Character.saint)) ...[
+                      effectiveRole == Character.saint ||
+                      effectiveRole == Character.courtier ||
+                      effectiveRole == Character.gambler)) ...[
                 const SizedBox(height: 16),
                 AbilitySection(
                   gameId: widget.gameId,
