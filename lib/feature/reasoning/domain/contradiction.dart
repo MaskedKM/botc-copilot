@@ -243,6 +243,7 @@ abstract final class ContradictionDetector {
         f.confirmedRoles,
         f.demonBluffs,
         (pid) => _labelOf(f.latestClaim, f.playersById, pid),
+        playersById: f.playersById,
         myPlayerId: f.myPlayerId,
         myRole: f.myRole,
       );
@@ -744,16 +745,18 @@ abstract final class ContradictionDetector {
   /// 规则 5（FT）：Fortune Teller 读数与已确认角色交叉验证（#159 G1）。
   ///
   /// 占卜师每夜选 2 人得知「其中是否有恶魔」。registration 语义：
-  /// - **Recluse 登记为邪恶** → FT 对含 Recluse 的 pair 读「是」（合法解释）。
+  /// - **Recluse 登记为邪恶** → FT 对含 Recluse 的 pair 读「是」（合法解释）；
+  ///   Recluse 官方是 **might** register（可选登记），读「**否**」也完全
+  ///   合法（#265②：「否」只由已知恶魔触发，Recluse 不再计入）。
   /// - **Spy 登记为好人** → 不触发 FT。
-  /// - 官方红鲱鱼机制：FT 信息**不一定准确**（外来者为 0 时有 1/3 概率取反），
-  ///   故所有 FT 矛盾均为 **info 级**，仅提示可能性，不输出身份结论。
+  /// - 官方红鲱鱼机制：仅外来者为 0 时 1/3 概率**取反**——只会造成假「是」，
+  ///   永远不可能造成假「否」（#265①：「否」文案不再甩锅红鲱鱼，与排除法
+  ///   棋盘口径一致）。读「是」仍保留红鲱鱼解释；所有 FT 矛盾均为 info 级。
   ///
   /// 公理4：醉/毒 FT 信息不可靠，跳过（reliability 已 overlay 降级）。
   ///
   /// 已知局限：仅用**死亡揭示 / 我座位真实角色**等「确认」信号交叉验证；
-  /// 不依赖公开声明（声称为好人的玩家可能是说谎的恶魔）。Recluse 未确认时
-  /// 仍是合法解释，故「是 + 两人确认好人」仅在两人都**确认非 Recluse** 时才提示。
+  /// 不依赖公开声明（声称为好人的玩家可能是说谎的恶魔）。
   static List<Contradiction> _fortuneTellerMismatch(
     List<InfoDeclaration> declarations,
     Map<int, Character> confirmedRoles,
@@ -765,6 +768,8 @@ abstract final class ContradictionDetector {
     final results = <Contradiction>[];
 
     // 是否「确认/已知为恶魔」：死亡揭示为恶魔，或我座位真实角色为恶魔。
+    // #265②：「否」读数只由**已知恶魔**触发——Recluse 是 might register
+    // （可选向邪恶登记），读到「否」完全合法，不再计入 hit。
     bool isKnownDemon(int pid) {
       final c = confirmedRoles[pid];
       if (c != null && c.team == Team.demon) return true;
@@ -775,12 +780,6 @@ abstract final class ContradictionDetector {
       }
       return false;
     }
-
-    // 是否「登记为恶魔」：真恶魔，或可向邪恶登记的修饰角色（TB=Recluse，
-    // #234 数据化）。FT 对二者均读「是」；Spy 向善良登记，不触发。
-    bool registersAsDemon(int pid) =>
-        isKnownDemon(pid) ||
-        (confirmedRoles[pid]?.mayRegisterAsEvil ?? false);
 
     for (final decl in declarations) {
       if (decl.characterType != Character.fortuneTeller) continue;
@@ -795,8 +794,9 @@ abstract final class ContradictionDetector {
       final day = dayRecordToDayNumber[decl.dayRecordId];
 
       if (!demonPresent) {
-        // 读「否」：pair 中不应有登记为恶魔者（Imp / Recluse）。
-        final hit = pair.where(registersAsDemon).toList();
+        // 读「否」：pair 中不应有已知恶魔。#265①：红鲱鱼只造成假「是」，
+        // 唯一剩余解释是醉/毒——文案不再列红鲱鱼（与排除法棋盘同口径）。
+        final hit = pair.where(isKnownDemon).toList();
         if (hit.isEmpty) continue;
         results.add(
           Contradiction(
@@ -804,9 +804,8 @@ abstract final class ContradictionDetector {
             playerIds: [decl.playerId, ...hit],
             description:
                 '${labelOf(decl.playerId)} 的占卜师读「否」（无恶魔），'
-                '但 ${hit.map(labelOf).join('、')} 登记为恶魔'
-                '（Imp 或 Recluse）。信息可能被污染（醉/毒）'
-                '或受官方红鲱鱼机制影响。',
+                '但 ${hit.map(labelOf).join('、')} 已确认是恶魔'
+                '——信息必假（红鲱鱼只造成假「是」，仅醉/毒可解释）。',
             severity: ContradictionSeverity.info,
             dayNumber: day,
           ),
@@ -855,6 +854,7 @@ abstract final class ContradictionDetector {
     Map<int, Character> confirmedRoles,
     Set<Character> demonBluffs,
     String Function(int) labelOf, {
+    Map<int, Player> playersById = const {},
     int? myPlayerId,
     Character? myRole,
   }) {
@@ -923,19 +923,47 @@ abstract final class ContradictionDetector {
       final isBluff = demonBluffs.contains(y);
       if (elsewhere.isEmpty && !isBluff) continue;
 
-      // 逃生舱数据化（#234）：善良 Y 仅「可向善良登记」者（TB=Spy）可冒充、
-      // 爪牙 Y 仅「可向邪恶登记」者（TB=Recluse）。文案名称从剧本池回查
-      // 首个具备该修饰的角色（TB 输出与硬编码时代逐字一致）。
+      // 逃生舱数据化（#234 + #265④）：善良 Y 的冒充来源 = 「可向善良登记」
+      // 者（TB=Spy）**与醉汉**（官方：Drunk 登记为其自以为的镇民角色，
+      // 洗衣妇指向醉汉完全合法）；爪牙/恶魔 Y 仅「可向邪恶登记」者
+      // （TB=Recluse）。疑似醉 overlay（玩家标「疑似醉汉」）同降级为 info
+      // ——该玩家可能就是真醉汉。文案名称从剧本池回查首个具备该修饰的角色。
       final escapeIsGood = y.team.isGood;
-      bool canEscape(Character? c) =>
-          c == null ||
-          (escapeIsGood ? c.mayRegisterAsGood : c.mayRegisterAsEvil);
-      final escapePossible = pair.any((pid) => canEscape(confirmedOf(pid)));
-      var escapeName = '登记型角色';
-      for (final c in ScriptDefinition.of(script).characters) {
-        if (escapeIsGood ? c.mayRegisterAsGood : c.mayRegisterAsEvil) {
-          escapeName = c.nameCn;
-          break;
+      final suspectedDrunk = <int>{
+        for (final e in playersById.entries)
+          if (e.value.suspectedDrunk) e.key,
+      };
+      bool canEscape(int pid) {
+        if (suspectedDrunk.contains(pid)) return true; // 可能是真醉汉
+        final c = confirmedOf(pid);
+        if (c == null) return true; // 未确认 → 可能是 Spy / Drunk
+        if (escapeIsGood) {
+          if (c.mayRegisterAsGood) return true; // Spy 登记为 Y
+          if (c == Character.drunk) return true; // 醉汉自以为是 Y
+          return false;
+        }
+        return c.mayRegisterAsEvil; // Recluse 登记为 Y
+      }
+      final escapePossible = pair.any(canEscape);
+      String escapeHint;
+      if (escapeIsGood) {
+        String? spyName;
+        for (final c in ScriptDefinition.of(script).characters) {
+          if (c.mayRegisterAsGood) {
+            spyName = c.nameCn;
+            break;
+          }
+        }
+        escapeHint = spyName == null
+            ? '醉汉（自以为是该镇民）'
+            : '$spyName（登记冒充）或醉汉（自以为是该镇民）';
+      } else {
+        escapeHint = '登记型角色';
+        for (final c in ScriptDefinition.of(script).characters) {
+          if (c.mayRegisterAsEvil) {
+            escapeHint = '${c.nameCn}（登记冒充）';
+            break;
+          }
         }
       }
 
@@ -949,7 +977,7 @@ abstract final class ContradictionDetector {
           description:
               '${labelOf(decl.playerId)} 的${type.nameCn}信息称 '
               '${pair.map(labelOf).join('、')} 中有一人是 ${y.nameCn}，'
-              '但 $evidence——信息为假，或其中有人是$escapeName（登记冒充）。',
+              '但 $evidence——信息为假，或其中有人是$escapeHint。',
           severity: escapePossible
               ? ContradictionSeverity.info
               : ContradictionSeverity.warning,
@@ -1131,8 +1159,10 @@ abstract final class ContradictionDetector {
     if (hasMonkProtect) {
       return '第 $dayNumber 天夜晚无人死亡。当晚有僧侣保护记录——很可能是保护成功。';
     }
+    // #265③：Imp 自杀本身就是一次夜死（死亡 +1），不能解释**零**死亡；
+    // 合法解释只剩保护/免疫/恶魔被毒。
     return '第 $dayNumber 天夜晚无人死亡。'
-        '可能：Monk 保护成功 / Soldier 免疫 / 恶魔自杀传位 / 恶魔被毒。';
+        '可能：Monk 保护成功 / Soldier 免疫 / 恶魔被毒。';
   }
 
   /// 座位收缩后的存活邻座（死亡玩家物理移除，两侧并拢）。

@@ -13,6 +13,7 @@ Player _player(
   int seat, {
   int? deathDay,
   DeathCause? deathCause,
+  bool suspectedDrunk = false,
 }) =>
     Player(
       id: id,
@@ -20,7 +21,7 @@ Player _player(
       name: 'P$id',
       seatNumber: seat,
       isAlive: deathDay == null,
-      abilityUsed: false, suspectedDrunk: false,
+      abilityUsed: false, suspectedDrunk: suspectedDrunk,
       fakeDead: false,
       deathDay: deathDay,
       deathCause: deathCause ??
@@ -582,6 +583,9 @@ void main() {
     expect(result[0].type, ContradictionType.noDeathNight);
     expect(result[0].severity, ContradictionSeverity.info);
     expect(result[0].description, contains('Monk'));
+    // #265③：Imp 自杀本身是一次夜死（死亡 +1），不能解释零死亡——
+    // 合法解释只剩保护/免疫/恶魔被毒。
+    expect(result[0].description, isNot(contains('恶魔自杀传位')));
   });
 
   test('规则5：未确认的夜晚（预建记录）不报警（issue #77）', () {
@@ -817,6 +821,42 @@ void main() {
     expect(result, hasLength(1));
     expect(result[0].type, ContradictionType.fortuneTellerMismatch);
     expect(result[0].playerIds, containsAll([1, 2]));
+  });
+
+  // #265①：红鲱鱼只造成假「是」——「否」命中的唯一剩余解释是醉/毒，
+  // 文案不得再甩锅红鲱鱼（与排除法棋盘口径一致）。
+  test('规则5(FT)：读「否」命中 → 文案不提红鲱鱼影响（#265①）', () {
+    final result = ContradictionDetector.detect(
+      claims: [_claim(2, Character.imp, type: ClaimType.revealedOnDeath)],
+      declarations: [_ftDecl(1, 10, [2, 3], false)],
+      days: [],
+      playersById: players,
+      dayRecordToDayNumber: {10: 2},
+      expectedOutsiders: 0,
+    );
+    final hit = result
+        .where((c) => c.type == ContradictionType.fortuneTellerMismatch)
+        .single;
+    expect(hit.description, contains('红鲱鱼只造成假「是」'));
+    expect(hit.description, isNot(contains('或受官方红鲱鱼机制影响')));
+    expect(hit.description, contains('已确认是恶魔'));
+  });
+
+  // #265②：Recluse 官方 might register（可选登记）——读「否」完全合法，
+  // 不再被误报 mismatch。
+  test('规则5(FT)：读「否」+ pair 含已确认 Recluse → 不报（#265②）', () {
+    final result = ContradictionDetector.detect(
+      claims: [_claim(2, Character.recluse, type: ClaimType.revealedOnDeath)],
+      declarations: [_ftDecl(1, 10, [2, 3], false)],
+      days: [],
+      playersById: players,
+      dayRecordToDayNumber: {10: 2},
+      expectedOutsiders: 0,
+    );
+    expect(
+      result.where((c) => c.type == ContradictionType.fortuneTellerMismatch),
+      isEmpty,
+    );
   });
 
   group('规则3b：阵营人数硬约束（#212）', () {
@@ -1130,6 +1170,57 @@ void main() {
       // 爪牙 Y 的登记冒充者只能是 Recluse
       expect(ping.first.description, contains('隐士'));
       expect(ping.first.description, isNot(contains('间谍')));
+    });
+
+    // #265④：官方 Drunk 登记为其自以为的镇民角色——洗衣妇指向醉汉合法。
+    test('pair 含已确认 Drunk → 逃脱舱生效，不升级 warning（#265④）', () {
+      final result = ContradictionDetector.detect(
+        claims: [
+          _claim(4, Character.chef, type: ClaimType.revealedOnDeath),
+          _claim(1, Character.monk, type: ClaimType.revealedOnDeath),
+          _claim(2, Character.drunk, type: ClaimType.revealedOnDeath),
+        ],
+        declarations: [
+          _pingDecl(7, Character.washerwoman, 'chef', [1, 2]),
+        ],
+        days: [],
+        playersById: players,
+        dayRecordToDayNumber: {},
+        expectedOutsiders: 0,
+      );
+      final ping = result.where(
+        (c) => c.type == ContradictionType.startInfoPingConflict,
+      );
+      expect(ping, hasLength(1));
+      // 2 号确认是 Drunk → 可能登记为伪装镇民 chef → info 不 warning
+      expect(ping.first.severity, ContradictionSeverity.info);
+      expect(ping.first.description, contains('醉汉'));
+    });
+
+    // #265④：疑似醉 overlay（玩家被标「疑似醉汉」）同样降级——可能是真醉汉。
+    test('pair 含疑似醉汉玩家 → info 不 warning（#265④ overlay）', () {
+      final result = ContradictionDetector.detect(
+        claims: [
+          _claim(4, Character.chef, type: ClaimType.revealedOnDeath),
+          _claim(1, Character.monk, type: ClaimType.revealedOnDeath),
+          _claim(2, Character.empath, type: ClaimType.revealedOnDeath),
+        ],
+        declarations: [
+          _pingDecl(7, Character.washerwoman, 'chef', [1, 2]),
+        ],
+        days: [],
+        playersById: {
+          for (var i = 1; i <= 7; i++)
+            i: _player(i, i, suspectedDrunk: i == 2),
+        },
+        dayRecordToDayNumber: {},
+        expectedOutsiders: 0,
+      );
+      final ping = result.where(
+        (c) => c.type == ContradictionType.startInfoPingConflict,
+      );
+      expect(ping, hasLength(1));
+      expect(ping.first.severity, ContradictionSeverity.info);
     });
 
     test('ping 角色 ∈ 恶魔 Bluff（确定性不在场）→ 冲突', () {
