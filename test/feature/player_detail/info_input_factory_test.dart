@@ -401,4 +401,115 @@ void main() {
       expect(find.text('投毒者'), findsOneWidget);
     });
   });
+
+  group('S&V 信息模板（#269①）', () {
+    test('模板映射（freeText → 结构化）', () {
+      expect(Character.clockmaker.infoInputType, InfoInputType.numberRange);
+      expect(Character.oracle.infoInputType, InfoInputType.numberRange);
+      expect(
+        Character.mathematician.infoInputType,
+        InfoInputType.numberRange,
+      );
+      expect(Character.flowergirl.infoInputType, InfoInputType.yesNo);
+      expect(Character.towncrier.infoInputType, InfoInputType.yesNo);
+      expect(
+        Character.seamstress.infoInputType,
+        InfoInputType.twoPlayersYesNo,
+      );
+      expect(
+        Character.dreamer.infoInputType,
+        InfoInputType.playerPlusGoodEvilCharacters,
+      );
+      // 开放式私聊问答保持自由文本
+      expect(Character.savant.infoInputType, InfoInputType.freeText);
+      expect(Character.artist.infoInputType, InfoInputType.freeText);
+    });
+
+    testWidgets('钟表匠：numberRange 下界 1（恶魔非爪牙，距离 ≥1）',
+        (tester) async {
+      Map<String, Object?>? submitted;
+      await tester.pumpWidget(buildInput(
+        Character.clockmaker,
+        (p) => submitted = p,
+        script: Script.sectsAndViolets,
+      ));
+      await tester.pump();
+      expect(find.text('1'), findsOneWidget); // 初始即 1，不可减到 0
+      await tester.tap(find.byIcon(Icons.remove));
+      await tester.pump();
+      expect(find.text('1'), findsOneWidget);
+      await tester.tap(find.text('记录'));
+      await tester.pump();
+      expect(submitted, {'value': 1});
+    });
+
+    testWidgets('卖花女孩：是/否 → answer payload', (tester) async {
+      Map<String, Object?>? submitted;
+      await tester.pumpWidget(buildInput(
+        Character.flowergirl,
+        (p) => submitted = p,
+        script: Script.sectsAndViolets,
+      ));
+      await tester.pump();
+      // 默认否，点「是」后提交
+      await tester.tap(find.text('是'));
+      await tester.pump();
+      await tester.tap(find.text('记录'));
+      await tester.pump();
+      expect(submitted, {'answer': true});
+    });
+
+    testWidgets('女裁缝：双人 + 是/否，不能选自己（官方 not yourself）',
+        (tester) async {
+      await tester.pumpWidget(buildInput(
+        Character.seamstress,
+        (_) {},
+        script: Script.sectsAndViolets,
+        actingPlayerId: 1,
+      ));
+      await tester.pump();
+      expect(find.text('1号 玩家1'), findsNothing);
+      expect(find.text('2号 玩家2'), findsOneWidget);
+    });
+
+    testWidgets('筑梦师：玩家 + 善良其一 + 邪恶其一 → payload', (tester) async {
+      Map<String, Object?>? submitted;
+      await tester.pumpWidget(buildInput(
+        Character.dreamer,
+        (p) => submitted = p,
+        script: Script.sectsAndViolets,
+        actingPlayerId: 1,
+      ));
+      await tester.pump();
+      // 不能选自己
+      expect(find.text('1号 玩家1'), findsNothing);
+      await tester.tap(find.text('2号 玩家2'));
+      await tester.pump();
+      // 善良其一选钟表匠（镇民组），邪恶其一选女巫（爪牙组）
+      await tester.tap(find.text('钟表匠'));
+      await tester.pump();
+      await tester.tap(find.text('女巫'));
+      await tester.pump();
+      await tester.tap(find.text('记录'));
+      await tester.pump();
+      expect(submitted, {
+        'playerId': 2,
+        'goodCharacter': 'clockmaker',
+        'evilCharacter': 'witch',
+      });
+    });
+
+    testWidgets('角色选择按阵营分组（#269③：组标签可见）', (tester) async {
+      await tester.pumpWidget(buildInput(
+        Character.ravenkeeper,
+        (_) {},
+      ));
+      await tester.pump();
+      // 全池角色 chips 按镇民/外来者/爪牙/恶魔分组
+      expect(find.text('镇民'), findsOneWidget);
+      expect(find.text('外来者'), findsOneWidget);
+      expect(find.text('爪牙'), findsOneWidget);
+      expect(find.text('恶魔'), findsOneWidget);
+    });
+  });
 }

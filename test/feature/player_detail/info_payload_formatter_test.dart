@@ -65,6 +65,37 @@ void main() {
       );
     });
 
+    test('纯是/否（S&V 卖花女孩，#269①）', () {
+      expect(
+        InfoPayloadFormatter.summarize(
+          decl(Character.flowergirl, '{"answer": true}'),
+          labelFor: labelFor,
+        ),
+        '卖花女孩：是',
+      );
+      expect(
+        InfoPayloadFormatter.summarize(
+          decl(Character.towncrier, '{"answer": false}'),
+          labelFor: labelFor,
+        ),
+        '城镇公告员：否',
+      );
+    });
+
+    test('筑梦师：玩家 + 善恶双角色（#269①）', () {
+      expect(
+        InfoPayloadFormatter.summarize(
+          decl(
+            Character.dreamer,
+            '{"playerId": 3, "goodCharacter": "clockmaker",'
+            ' "evilCharacter": "witch"}',
+          ),
+          labelFor: labelFor,
+        ),
+        '筑梦师：3 号 是 钟表匠 或 女巫（其一为真）',
+      );
+    });
+
     test('角色 + 双人（角色名转中文）', () {
       expect(
         InfoPayloadFormatter.summarize(

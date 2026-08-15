@@ -229,6 +229,9 @@ void main() {
             .overrideWith((ref) => Stream.value(const <RoleClaim>[])),
         playerDeclarationsProvider(1)
             .overrideWith((ref) => Stream.value(declarations)),
+        // #269②：赌徒能力区读取全局信息声明（当晚计数）。
+        gameAllDeclarationsProvider(1)
+            .overrideWith((ref) => Stream.value(declarations)),
         gameClaimsProvider(1).overrideWith((ref) => Stream.value(claims)),
         latestTrustLevelsProvider(1)
             .overrideWith((ref) => Stream.value(const <int, TrustLevel>{})),
@@ -309,6 +312,26 @@ void main() {
     expect(detailRepo.trustCalls, 1);
     expect(poisonRepo.setCalls, 1);
     expect(find.text('已保存'), findsOneWidget);
+  });
+
+  // #269②：侍臣/赌徒能力追踪在 AbilitySection 可见。
+  testWidgets('侍臣：每局限一次的消耗开关可见（#269②）', (tester) async {
+    useTallSurface(tester);
+    await tester.pumpWidget(
+      buildSheet(myPlayerId: me.id, myRole: Character.courtier),
+    );
+    await tester.pump();
+    expect(find.text('能力已消耗（每局限一次）'), findsOneWidget);
+    expect(find.textContaining('醉 3 夜 3 天'), findsOneWidget); // 官方固定时长
+  });
+
+  testWidgets('赌徒：当晚赌注计数提示（#269②）', (tester) async {
+    useTallSurface(tester);
+    await tester.pumpWidget(
+      buildSheet(myPlayerId: me.id, myRole: Character.gambler),
+    );
+    await tester.pump();
+    expect(find.text('今晚尚未记录赌注（每个夜晚*限一次）'), findsOneWidget);
   });
 
   // #270②：乐观 toggle 写库失败 → 显示回滚 + SnackBar，界面不停在假状态。

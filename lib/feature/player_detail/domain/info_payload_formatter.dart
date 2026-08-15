@@ -41,7 +41,11 @@ abstract final class InfoPayloadFormatter {
           '${character.nameCn}：'
               '${(payload['playerIds'] as List).map((id) => playerLabel(id as int)).join(' + ')}'
               ' → ${payload['value']}${character == Character.empath ? '' : ' 人醒来'}',
-        // {"playerIds": [a,b], "answer": bool}
+        // {"answer": bool}（S&V 卖花女孩/城镇公告员，无目标玩家）
+        _ when payload.containsKey('answer') &&
+                !payload.containsKey('playerIds') =>
+          '${character.nameCn}：${payload['answer'] == true ? '是' : '否'}',
+        // {"playerIds": [a,b], "answer": bool}（FT / S&V 女裁缝）
         _ when payload.containsKey('answer') =>
           '${character.nameCn}：${(payload['playerIds'] as List).map((id) => playerLabel(id as int)).join(' + ')}'
               ' → ${payload['answer'] == true ? '是' : '否'}',
@@ -57,6 +61,13 @@ abstract final class InfoPayloadFormatter {
         // {"value": n}（Chef / Empath）
         _ when payload.containsKey('value') =>
           '${character.nameCn}：${payload['value']}',
+        // {"playerId": n, "goodCharacter": "...", "evilCharacter": "..."}
+        //（S&V 筑梦师：X号 是 善良其一 或 邪恶其一，其一为真）
+        _ when payload.containsKey('playerId') &&
+                payload.containsKey('goodCharacter') &&
+                payload.containsKey('evilCharacter') =>
+          '${character.nameCn}：${playerLabel(payload['playerId'] as int)} '
+              '是 ${charLabel(payload['goodCharacter'])} 或 ${charLabel(payload['evilCharacter'])}（其一为真）',
         // {"playerId": n, "character": "..."}（Ravenkeeper：X号 是 Y）
         _ when payload.containsKey('playerId') &&
                 payload.containsKey('character') =>

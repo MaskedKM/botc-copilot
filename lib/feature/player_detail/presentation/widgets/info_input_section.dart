@@ -9,6 +9,7 @@ import 'package:botc_copilot/feature/player_detail/data/ability_repository.dart'
 import 'package:botc_copilot/feature/game_board/presentation/providers/game_board_provider.dart';
 import 'package:botc_copilot/feature/player_detail/data/player_detail_repository.dart';
 import 'package:botc_copilot/feature/player_detail/presentation/widgets/info_input_factory.dart';
+import 'package:botc_copilot/feature/reasoning/data/contradictions_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -107,6 +108,44 @@ class InfoInputSection extends ConsumerWidget {
             // 声明写失败则中止——避免信息无对应声明成孤儿（#164 B9 review）。
             final claimOk = await onEnsureClaim();
             if (!claimOk) return;
+            // #269② 防重复（二次确认，不硬阻断——保留误记补录通道）：
+            // 侍臣已消耗仍要记录 / 赌徒当晚已录过赌注。
+            final me =
+                players.where((p) => p.id == playerId).firstOrNull;
+            final courtierUsedUp = character == Character.courtier &&
+                (me?.abilityUsed ?? false);
+            final gamblerAgain = character == Character.gambler &&
+                _hasDeclarationToday(
+                  ref,
+                  gameId,
+                  playerId,
+                  character,
+                  day,
+                );
+            if ((courtierUsedUp || gamblerAgain) && context.mounted) {
+              final proceed = await showDialog<bool>(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  title: const Text('重复记录确认'),
+                  content: Text(
+                    courtierUsedUp
+                        ? '侍臣能力已消耗（每局限一次）。仍要记录？'
+                        : '今晚已记录过一次赌注（每个夜晚*限一次）。仍要记录？',
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx, false),
+                      child: const Text('取消'),
+                    ),
+                    FilledButton(
+                      onPressed: () => Navigator.pop(ctx, true),
+                      child: const Text('仍要记录'),
+                    ),
+                  ],
+                ),
+              );
+              if (proceed != true) return;
+            }
             final notifier = ref.read(gameBoardProvider(gameId).notifier);
             final dayRecordId = await notifier.ensureCurrentDayRecord();
             await ref.read(playerDetailRepositoryProvider).declareInfo(
@@ -118,6 +157,14 @@ class InfoInputSection extends ConsumerWidget {
                   gameId: gameId,
                   dayNumber: ref.read(gameBoardProvider(gameId)).currentDay,
                 );
+            // #269②：侍臣记录所选角色即消耗能力（每局限一次；醉/毒时
+            // 使用也不返还，公理4——同 Slayer/教授先例自动落 abilityUsed）。
+            if (character == Character.courtier &&
+                !(me?.abilityUsed ?? false)) {
+              await ref
+                  .read(abilityRepositoryProvider)
+                  .setAbilityUsed(playerId, used: true);
+            }
             if (context.mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(content: Text(isMine ? '我的信息已记录' : '信息已记录')),
@@ -180,6 +227,33 @@ int? _latestExecutedPlayerId(WidgetRef ref, int gameId, int day) {
     if (d.dayExecutionPlayerId != null) latest = d;
   }
   return latest?.dayExecutionPlayerId;
+}
+
+/// 当天是否已有该玩家该角色的信息声明（#269② 赌徒防重复，一次性
+/// 读取——submit 回调在 build 外执行，用 read 不 watch）。
+bool _hasDeclarationToday(
+  WidgetRef ref,
+  int gameId,
+  int playerId,
+  Character character,
+  int day,
+) {
+  final decls = ref
+          .read(gameAllDeclarationsProvider(gameId))
+          .valueOrNull ??
+      const <InfoDeclaration>[];
+  final days =
+      ref.read(gameDayRecordsProvider(gameId)).valueOrNull ??
+          const <DayRecord>[];
+  final dayIds = {
+    for (final d in days.where((d) => d.dayNumber == day)) d.id,
+  };
+  return decls.any(
+    (d) =>
+        d.playerId == playerId &&
+        d.characterType == character &&
+        dayIds.contains(d.dayRecordId),
+  );
 }
 
 
