@@ -42,7 +42,8 @@ class PlayersDao extends DatabaseAccessor<AppDatabase>
         ),
       );
 
-  /// 复活（撤销误标的死亡；同步清僵怖假死标记，#217 增量4B）。
+  /// 复活（撤销误标的死亡；同步清僵怖假死/复活标记——撤销语义 = 死亡
+  /// 从未发生，#217 增量4B / #264）。
   Future<int> revive(int id) =>
       (update(players)..where((p) => p.id.equals(id))).write(
         const PlayersCompanion(
@@ -50,6 +51,23 @@ class PlayersDao extends DatabaseAccessor<AppDatabase>
           deathDay: Value(null),
           deathCause: Value(null),
           fakeDead: Value(false),
+          revivedDay: Value(null),
+        ),
+      );
+
+  /// 复活（死而复生，#264：Professor / Shabaloth 反流）。区别于 [revive]
+  /// （撤销误标）：盖章 [revivedDay] 锚点 + **清 abilityUsed**——官方
+  /// （Wiki Abilities / Shabaloth）：复活者重获能力，已消耗的一次性能力
+  /// 可再次使用。死票消耗按周期重置（revivedDay 之后的死票才计入）。
+  Future<int> resurrect(int id, int day) =>
+      (update(players)..where((p) => p.id.equals(id))).write(
+        PlayersCompanion(
+          isAlive: const Value(true),
+          deathDay: const Value(null),
+          deathCause: const Value(null),
+          fakeDead: const Value(false),
+          revivedDay: Value(day),
+          abilityUsed: const Value(false),
         ),
       );
 
@@ -70,11 +88,37 @@ class PlayersDao extends DatabaseAccessor<AppDatabase>
       );
 
   /// 手动标记/清除僵怖假死（详情页入口，#217 增量4B）。
-  /// 与 [markFakeDead]（写 deathDay/Cause 的首次死亡路径）不同：只拨旗标，
-  /// 供用户表达「我认为此人假死」的推测（官方登记语义由调用方解释）。
-  Future<int> setFakeDeadFlag(int id, {required bool fake}) =>
-      (update(players)..where((p) => p.id.equals(id)))
-          .write(PlayersCompanion(fakeDead: Value(fake)));
+  /// 开 = 同时 stamp deathDay/Cause（other）——圆环与推理/Empath 两处
+  /// 真相源一致（#264 ③：只拨旗标会让邻座收缩按「活邻居」回溯算错）；
+  /// 关 = 仅当玩家存活时清 stamp（真死者不动）。
+  Future<int> setFakeDeadFlag(
+    int id, {
+    required bool fake,
+    required int day,
+  }) async {
+    if (fake) {
+      return (update(players)
+            ..where((p) =>
+                p.id.equals(id) & p.isAlive.equals(true) & p.fakeDead.equals(false)))
+          .write(
+        PlayersCompanion(
+          fakeDead: const Value(true),
+          deathDay: Value(day),
+          deathCause: const Value(DeathCause.other),
+        ),
+      );
+    }
+    return (update(players)
+          ..where((p) =>
+              p.id.equals(id) & p.isAlive.equals(true) & p.fakeDead.equals(true)))
+        .write(
+      const PlayersCompanion(
+        fakeDead: Value(false),
+        deathDay: Value(null),
+        deathCause: Value(null),
+      ),
+    );
+  }
 
   /// 标记一次性能力消耗状态（issue #54：Virgin / Slayer）。
   Future<int> markAbilityUsed(int id, {required bool used}) =>

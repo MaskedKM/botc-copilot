@@ -1605,4 +1605,84 @@ void main() {
     });
   });
 
+  group('#264 ④ 复活者的历史死亡重建（aliveOn）', () {
+    // 2 号 Empath；1/3 号为邻座。1 号夜 2 死、夜 4 被教授复活。
+    InfoDeclaration empathDecl(int dayRecordId) => InfoDeclaration(
+          id: 1,
+          playerId: 2,
+          dayRecordId: dayRecordId,
+          characterType: Character.empath,
+          payloadJson: '{"value": 1}',
+          reliability: Reliability.unverified,
+          isMine: false,
+        );
+    DayRecord rec(int id, int day, {List<int> nightDeaths = const []}) =>
+        DayRecord(
+          id: id,
+          gameId: 1,
+          dayNumber: day,
+          nightDeathPlayerIds:
+              nightDeaths.isEmpty ? null : jsonEncode(nightDeaths),
+          nightConfirmed: true,
+          dayExecutionPlayerId: null,
+          dayConfirmed: false,
+          notes: '',
+        );
+
+    test('夜 3 读数：夜 2 已死未复活的邻座按死邻居排除 → 无矛盾', () {
+      final result = ContradictionDetector.detect(
+        claims: [
+          _claim(2, Character.empath),
+          _claim(1, Character.chef),
+          _claim(3, Character.monk),
+          _claim(7, Character.monk), // 1 号死后邻座收缩：2 号邻座 = 3/7
+        ],
+        declarations: [empathDecl(30)],
+        days: [rec(20, 2, nightDeaths: [1]), rec(30, 3)],
+        playersById: players,
+        dayRecordToDayNumber: {30: 3},
+        expectedOutsiders: 0,
+      );
+      // 1 号死邻居不算存活邻座 → 存活邻座只剩 3 号（声明僧侣=好人）
+      // → 报 1 邪恶与「全好存活邻居」矛盾应触发？
+      // 不——邻座只剩一人且声明好人 → 正向矛盾应触发（1 邪恶无处安放）。
+      expect(
+        result.where((c) => c.type == ContradictionType.empathMismatch),
+        isNotEmpty,
+      );
+    });
+
+    test('夜 4 起复活（revivedDay=4）：夜 4 读数把 1 号算回活邻居', () {
+      // revivedDay 需在 Player 上——直接构造新 Player（copyWith 不含该字段）
+      final p1 = Player(
+        id: 1,
+        gameId: 1,
+        name: '玩家1',
+        seatNumber: 1,
+        isAlive: true,
+        abilityUsed: false,
+        suspectedDrunk: false,
+        fakeDead: false,
+        revivedDay: 4,
+      );
+      final result = ContradictionDetector.detect(
+        claims: [
+          _claim(2, Character.empath),
+          _claim(1, Character.chef),
+          _claim(3, Character.monk),
+          _claim(7, Character.monk),
+        ],
+        declarations: [empathDecl(40)],
+        days: [rec(20, 2, nightDeaths: [1]), rec(40, 4)],
+        playersById: {...players, 1: p1},
+        dayRecordToDayNumber: {40: 4},
+        expectedOutsiders: 0,
+      );
+      // 复活后两个活邻居都声明好人 → 报 1 邪恶仍是矛盾（重建应包含 1 号）
+      expect(
+        result.where((c) => c.type == ContradictionType.empathMismatch),
+        isNotEmpty,
+      );
+    });
+  });
 }

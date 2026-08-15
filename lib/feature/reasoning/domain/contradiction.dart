@@ -244,6 +244,7 @@ abstract final class ContradictionDetector {
         (pid) => _labelOf(f.latestClaim, f.playersById, pid),
         myPlayerId: f.myPlayerId,
         myRole: f.myRole,
+        days: f.days,
       );
 
   static List<Contradiction> _ruleFortuneTeller(ContradictionFacts f) =>
@@ -550,6 +551,7 @@ abstract final class ContradictionDetector {
     String Function(int) labelOf, {
     int? myPlayerId,
     Character? myRole,
+    List<DayRecord> days = const [],
   }) {
     final results = <Contradiction>[];
     for (final decl in declarations) {
@@ -571,15 +573,37 @@ abstract final class ContradictionDetector {
       // Empath 在当夜读取（早于该日所有白天事件）：同日**非夜杀**死亡者
       // （处决 / Slayer 击杀 / 长按标死，均为白天）读取时仍存活，算邻居；
       // 同日夜杀者读取前已死，不算——issue #78 / #151 C1。
-      final aliveThen = playersById.values
-          .where(
-            (p) =>
-                p.deathDay == null ||
-                p.deathDay! > day ||
-                (p.deathDay == day &&
-                    p.deathCause != DeathCause.nightKill),
-          )
-          .toList();
+      //
+      // 复活者（#264 ④）：resurrect 会清 deathDay，但其历史死亡保留在
+      // day-record（夜死名单/处决字段）——夜 D 死、夜 D' 复活者在
+      // D ≤ day < D' 期间仍是死邻居。aliveOn 交叉核对 day-record 标记
+      // 与 revivedDay 周期。假死者（fakeDead）deathDay 已 stamp，
+      // 天然被排除。
+      bool aliveOn(Player p) {
+        // 复活周期内：revivedDay ≤ day 起按存活重算（历史死亡标记失效）。
+        if (p.revivedDay != null && day >= p.revivedDay!) {
+          return true;
+        }
+        // 历史死亡标记（复活/撤销不清 day-record）：夜死当晚不算存活。
+        for (final d in days) {
+          if (d.dayNumber > day) continue;
+          final nightDead = nightDeathIdsOf(d).contains(p.id);
+          final executed = d.dayExecutionPlayerId == p.id;
+          if (d.dayNumber == day) {
+            if (nightDead) return false; // 当夜读取前已死
+            // 当日处决 = 白天事件，读取时仍存活
+          } else if (nightDead || executed) {
+            return false; // 此前已死且未见复活
+          }
+        }
+        // 当前 deathDay（未复活/未撤销）
+        return p.deathDay == null ||
+            p.deathDay! > day ||
+            (p.deathDay == day && p.deathCause != DeathCause.nightKill);
+      }
+
+      final aliveThen =
+          playersById.values.where(aliveOn).toList();
       final neighbors = _aliveNeighbors(empath, aliveThen);
       if (neighbors.isEmpty) continue;
 

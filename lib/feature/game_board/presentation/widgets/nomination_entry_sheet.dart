@@ -5,6 +5,7 @@ import 'package:botc_copilot/core/theme/app_colors.dart';
 import 'package:botc_copilot/core/theme/game_colors.dart';
 import 'package:botc_copilot/feature/game_board/data/nomination_repository.dart';
 import 'package:botc_copilot/feature/game_board/domain/nomination_rules.dart';
+import 'package:botc_copilot/feature/player_detail/data/player_detail_repository.dart';
 import 'package:botc_copilot/feature/game_board/presentation/providers/game_board_provider.dart';
 import 'package:botc_copilot/feature/game_board/presentation/widgets/day_panels.dart';
 import 'package:botc_copilot/feature/player_detail/data/ability_repository.dart';
@@ -114,6 +115,12 @@ class _NominationEntrySheetState extends ConsumerState<NominationEntrySheet> {
         [];
     final allNominations =
         ref.watch(gameNominationsProvider(widget.gameId)).valueOrNull ?? [];
+    // 死票周期判定用：提名行 → 天数（#264 ①）。
+    final dayRecords =
+        ref.watch(gameDayRecordsProvider(widget.gameId)).valueOrNull ?? [];
+    final dayRecordToDay = {
+      for (final d in dayRecords) d.id: d.dayNumber,
+    };
     final claims =
         ref.watch(gameClaimsProvider(widget.gameId)).valueOrNull ?? [];
     final game = ref.watch(gameByIdProvider(widget.gameId)).valueOrNull;
@@ -298,6 +305,8 @@ class _NominationEntrySheetState extends ConsumerState<NominationEntrySheet> {
                       deadVoteUsed: NominationRules.deadVoteUsed(
                         allNominations,
                         p.id,
+                        deadVoteResetAfterDay: p.revivedDay,
+                        dayRecordToDayNumber: dayRecordToDay,
                       ),
                       butlerInfo: butlerInfo[p.id],
                       onChanged: (v) => setState(() {

@@ -104,6 +104,7 @@ void main() {
         professorId: players[0].id,
         targetId: players[1].id,
         resurrected: true,
+        day: 4,
       );
       expect(result, ProfessorResurrectResult.resurrected);
       final updated = await db.playersDao.watchByGame(gameId).first;
@@ -118,6 +119,7 @@ void main() {
         professorId: players[0].id,
         targetId: players[1].id,
         resurrected: false,
+        day: 4,
       );
       expect(result, ProfessorResurrectResult.notResurrected);
       final updated = await db.playersDao.watchByGame(gameId).first;
@@ -141,9 +143,85 @@ void main() {
         professorId: players[0].id,
         targetId: players[1].id,
         resurrected: true,
+        day: 4,
       );
       final day = await db.dayRecordsDao.getByGameAndDay(gameId, 2);
       expect(nightDeathIdsOf(day), isNotEmpty); // 死亡史保留
+    });
+  });
+  group('#264 死亡真相源一致性', () {
+    test('resurrect：盖章周期 + 清 abilityUsed（复活重获能力）', () async {
+      await db.playersDao.markDead(players[1].id, 2, DeathCause.nightKill);
+      await db.playersDao.markAbilityUsed(players[1].id, used: true);
+      await db.playersDao.resurrect(players[1].id, 4);
+      final u = await db.playersDao.watchByGame(gameId).first;
+      expect(u[1].isAlive, isTrue);
+      expect(u[1].revivedDay, 4);
+      expect(u[1].abilityUsed, isFalse); // 官方：复活者重获一次性能力
+      expect(u[1].deathDay, isNull);
+    });
+
+    test('revive（撤销误标）：不盖章、清复活标记——死亡视为未发生', () async {
+      await db.playersDao.markDead(players[1].id, 2, DeathCause.nightKill);
+      await db.playersDao.resurrect(players[1].id, 4);
+      await db.playersDao.markDead(players[1].id, 5, DeathCause.nightKill);
+      await db.playersDao.revive(players[1].id);
+      final u = await db.playersDao.watchByGame(gameId).first;
+      expect(u[1].isAlive, isTrue);
+      expect(u[1].revivedDay, isNull); // 撤销 ≠ 复活
+      expect(u[1].deathDay, isNull);
+    });
+
+    test('教授复活走 resurrect：目标获得周期锚点', () async {
+      await db.playersDao.markDead(players[1].id, 2, DeathCause.nightKill);
+      await db.playersDao.markAbilityUsed(players[1].id, used: true);
+      await repo.recordProfessorResurrect(
+        professorId: players[0].id,
+        targetId: players[1].id,
+        resurrected: true,
+        day: 4,
+      );
+      final u = await db.playersDao.watchByGame(gameId).first;
+      expect(u[1].revivedDay, 4);
+      expect(u[1].abilityUsed, isFalse);
+    });
+
+    test('Slayer 击中僵怖假死：目标存活 + fakeDead + 能力消耗', () async {
+      final result = await repo.recordSlayerGuess(
+        slayerId: players[0].id,
+        targetId: players[1].id,
+        targetIsDemon: true,
+        wasPoisoned: false,
+        day: 3,
+        targetFakeDied: true,
+      );
+      expect(result, SlayerGuessResult.killed);
+      final u = await db.playersDao.watchByGame(gameId).first;
+      expect(u[1].isAlive, isTrue); // 登记为死但活着
+      expect(u[1].fakeDead, isTrue);
+      expect(u[1].deathDay, 3);
+      expect(u[0].abilityUsed, isTrue);
+    });
+
+    test('手动假死 stamp deathDay（两真相源一致，#264 ③）', () async {
+      await db.playersDao.setFakeDeadFlag(players[1].id, fake: true, day: 3);
+      var u = await db.playersDao.watchByGame(gameId).first;
+      expect(u[1].fakeDead, isTrue);
+      expect(u[1].deathDay, 3); // 推理/Empath 按死亡重建 → 一致
+      expect(u[1].isAlive, isTrue);
+      // 清除（存活态）→ stamp 同步清
+      await db.playersDao.setFakeDeadFlag(players[1].id, fake: false, day: 3);
+      u = await db.playersDao.watchByGame(gameId).first;
+      expect(u[1].fakeDead, isFalse);
+      expect(u[1].deathDay, isNull);
+    });
+
+    test('手动假死不覆盖真死者', () async {
+      await db.playersDao.markDead(players[1].id, 2, DeathCause.nightKill);
+      await db.playersDao.setFakeDeadFlag(players[1].id, fake: true, day: 3);
+      final u = await db.playersDao.watchByGame(gameId).first;
+      expect(u[1].fakeDead, isFalse); // isAlive=false 守卫
+      expect(u[1].deathDay, 2); // 原死亡信息不动
     });
   });
 }

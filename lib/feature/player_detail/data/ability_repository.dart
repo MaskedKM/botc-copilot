@@ -49,17 +49,28 @@ class AbilityRepository {
     required bool targetIsDemon,
     required bool wasPoisoned,
     required int day,
+    bool targetFakeDied = false,
   }) async {
     // 整体包事务（#150 R4）：markAbilityUsed 与 markDead 须原子——markDead
     // 失败则能力消耗回滚，保一次性能力语义（否则能力已消耗却未击杀）。
     return _db.transaction(() async {
       await _db.playersDao.markAbilityUsed(slayerId, used: true);
       if (targetIsDemon && !wasPoisoned) {
-        await _db.playersDao.markDead(
-          targetId,
-          day,
-          DeathCause.other,
-        );
+        // 僵怖首次死亡无论来源（处决/能力击杀）都「登记为死但活着」
+        // （#264 ②）：用户裁决 targetFakeDied → 假死登记而非真死。
+        if (targetFakeDied) {
+          await _db.playersDao.markFakeDead(
+            targetId,
+            day,
+            DeathCause.other,
+          );
+        } else {
+          await _db.playersDao.markDead(
+            targetId,
+            day,
+            DeathCause.other,
+          );
+        }
         return SlayerGuessResult.killed;
       }
       return SlayerGuessResult.missed;
@@ -79,11 +90,13 @@ class AbilityRepository {
     required int professorId,
     required int targetId,
     required bool resurrected,
+    required int day,
   }) async {
     return _db.transaction(() async {
       await _db.playersDao.markAbilityUsed(professorId, used: true);
       if (resurrected) {
-        await _db.playersDao.revive(targetId);
+        // resurrect（≠撤销 revive）：盖章周期 + 重获一次性能力（#264 ①）。
+        await _db.playersDao.resurrect(targetId, day);
         return ProfessorResurrectResult.resurrected;
       }
       return ProfessorResurrectResult.notResurrected;

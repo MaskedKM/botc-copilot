@@ -787,6 +787,17 @@ class $PlayersTable extends Players with TableInfo<$PlayersTable, Player> {
     ),
     defaultValue: const Constant(false),
   );
+  static const VerificationMeta _revivedDayMeta = const VerificationMeta(
+    'revivedDay',
+  );
+  @override
+  late final GeneratedColumn<int> revivedDay = GeneratedColumn<int>(
+    'revived_day',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _fakeDeadMeta = const VerificationMeta(
     'fakeDead',
   );
@@ -813,6 +824,7 @@ class $PlayersTable extends Players with TableInfo<$PlayersTable, Player> {
     deathCause,
     abilityUsed,
     suspectedDrunk,
+    revivedDay,
     fakeDead,
   ];
   @override
@@ -884,6 +896,12 @@ class $PlayersTable extends Players with TableInfo<$PlayersTable, Player> {
         ),
       );
     }
+    if (data.containsKey('revived_day')) {
+      context.handle(
+        _revivedDayMeta,
+        revivedDay.isAcceptableOrUnknown(data['revived_day']!, _revivedDayMeta),
+      );
+    }
     if (data.containsKey('fake_dead')) {
       context.handle(
         _fakeDeadMeta,
@@ -941,6 +959,10 @@ class $PlayersTable extends Players with TableInfo<$PlayersTable, Player> {
         DriftSqlType.bool,
         data['${effectivePrefix}suspected_drunk'],
       )!,
+      revivedDay: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}revived_day'],
+      ),
       fakeDead: attachedDatabase.typeMapping.read(
         DriftSqlType.bool,
         data['${effectivePrefix}fake_dead'],
@@ -995,6 +1017,11 @@ class Player extends DataClass implements Insertable<Player> {
   /// 上作整局标记。标记后该玩家全部信息（历史+未来）按可能不可靠处理。
   final bool suspectedDrunk;
 
+  /// 最近一次复活发生的天数（#264：官方「复活者重获能力 + 新死票」的
+  /// 周期锚点；null = 未复活过）。撤销误标（revive）不盖章——撤销语义
+  /// = 死亡从未发生，而非死而复生。
+  final int? revivedDay;
+
   /// 僵怖假死（BMR，#217 增量4B）：该玩家首次「死亡」登记为死但活着——
   /// `isAlive` 保持 true（存活计数/投票/终局按存活算），`deathDay/Cause`
   /// 照常落库（邻座收缩/Empath 按死亡重建时自动排除）。再死一次为真死。
@@ -1009,6 +1036,7 @@ class Player extends DataClass implements Insertable<Player> {
     this.deathCause,
     required this.abilityUsed,
     required this.suspectedDrunk,
+    this.revivedDay,
     required this.fakeDead,
   });
   @override
@@ -1029,6 +1057,9 @@ class Player extends DataClass implements Insertable<Player> {
     }
     map['ability_used'] = Variable<bool>(abilityUsed);
     map['suspected_drunk'] = Variable<bool>(suspectedDrunk);
+    if (!nullToAbsent || revivedDay != null) {
+      map['revived_day'] = Variable<int>(revivedDay);
+    }
     map['fake_dead'] = Variable<bool>(fakeDead);
     return map;
   }
@@ -1048,6 +1079,9 @@ class Player extends DataClass implements Insertable<Player> {
           : Value(deathCause),
       abilityUsed: Value(abilityUsed),
       suspectedDrunk: Value(suspectedDrunk),
+      revivedDay: revivedDay == null && nullToAbsent
+          ? const Value.absent()
+          : Value(revivedDay),
       fakeDead: Value(fakeDead),
     );
   }
@@ -1069,6 +1103,7 @@ class Player extends DataClass implements Insertable<Player> {
       ),
       abilityUsed: serializer.fromJson<bool>(json['abilityUsed']),
       suspectedDrunk: serializer.fromJson<bool>(json['suspectedDrunk']),
+      revivedDay: serializer.fromJson<int?>(json['revivedDay']),
       fakeDead: serializer.fromJson<bool>(json['fakeDead']),
     );
   }
@@ -1087,6 +1122,7 @@ class Player extends DataClass implements Insertable<Player> {
       ),
       'abilityUsed': serializer.toJson<bool>(abilityUsed),
       'suspectedDrunk': serializer.toJson<bool>(suspectedDrunk),
+      'revivedDay': serializer.toJson<int?>(revivedDay),
       'fakeDead': serializer.toJson<bool>(fakeDead),
     };
   }
@@ -1101,6 +1137,7 @@ class Player extends DataClass implements Insertable<Player> {
     Value<DeathCause?> deathCause = const Value.absent(),
     bool? abilityUsed,
     bool? suspectedDrunk,
+    Value<int?> revivedDay = const Value.absent(),
     bool? fakeDead,
   }) => Player(
     id: id ?? this.id,
@@ -1112,6 +1149,7 @@ class Player extends DataClass implements Insertable<Player> {
     deathCause: deathCause.present ? deathCause.value : this.deathCause,
     abilityUsed: abilityUsed ?? this.abilityUsed,
     suspectedDrunk: suspectedDrunk ?? this.suspectedDrunk,
+    revivedDay: revivedDay.present ? revivedDay.value : this.revivedDay,
     fakeDead: fakeDead ?? this.fakeDead,
   );
   Player copyWithCompanion(PlayersCompanion data) {
@@ -1133,6 +1171,9 @@ class Player extends DataClass implements Insertable<Player> {
       suspectedDrunk: data.suspectedDrunk.present
           ? data.suspectedDrunk.value
           : this.suspectedDrunk,
+      revivedDay: data.revivedDay.present
+          ? data.revivedDay.value
+          : this.revivedDay,
       fakeDead: data.fakeDead.present ? data.fakeDead.value : this.fakeDead,
     );
   }
@@ -1149,6 +1190,7 @@ class Player extends DataClass implements Insertable<Player> {
           ..write('deathCause: $deathCause, ')
           ..write('abilityUsed: $abilityUsed, ')
           ..write('suspectedDrunk: $suspectedDrunk, ')
+          ..write('revivedDay: $revivedDay, ')
           ..write('fakeDead: $fakeDead')
           ..write(')'))
         .toString();
@@ -1165,6 +1207,7 @@ class Player extends DataClass implements Insertable<Player> {
     deathCause,
     abilityUsed,
     suspectedDrunk,
+    revivedDay,
     fakeDead,
   );
   @override
@@ -1180,6 +1223,7 @@ class Player extends DataClass implements Insertable<Player> {
           other.deathCause == this.deathCause &&
           other.abilityUsed == this.abilityUsed &&
           other.suspectedDrunk == this.suspectedDrunk &&
+          other.revivedDay == this.revivedDay &&
           other.fakeDead == this.fakeDead);
 }
 
@@ -1193,6 +1237,7 @@ class PlayersCompanion extends UpdateCompanion<Player> {
   final Value<DeathCause?> deathCause;
   final Value<bool> abilityUsed;
   final Value<bool> suspectedDrunk;
+  final Value<int?> revivedDay;
   final Value<bool> fakeDead;
   const PlayersCompanion({
     this.id = const Value.absent(),
@@ -1204,6 +1249,7 @@ class PlayersCompanion extends UpdateCompanion<Player> {
     this.deathCause = const Value.absent(),
     this.abilityUsed = const Value.absent(),
     this.suspectedDrunk = const Value.absent(),
+    this.revivedDay = const Value.absent(),
     this.fakeDead = const Value.absent(),
   });
   PlayersCompanion.insert({
@@ -1216,6 +1262,7 @@ class PlayersCompanion extends UpdateCompanion<Player> {
     this.deathCause = const Value.absent(),
     this.abilityUsed = const Value.absent(),
     this.suspectedDrunk = const Value.absent(),
+    this.revivedDay = const Value.absent(),
     this.fakeDead = const Value.absent(),
   }) : gameId = Value(gameId),
        name = Value(name),
@@ -1230,6 +1277,7 @@ class PlayersCompanion extends UpdateCompanion<Player> {
     Expression<String>? deathCause,
     Expression<bool>? abilityUsed,
     Expression<bool>? suspectedDrunk,
+    Expression<int>? revivedDay,
     Expression<bool>? fakeDead,
   }) {
     return RawValuesInsertable({
@@ -1242,6 +1290,7 @@ class PlayersCompanion extends UpdateCompanion<Player> {
       if (deathCause != null) 'death_cause': deathCause,
       if (abilityUsed != null) 'ability_used': abilityUsed,
       if (suspectedDrunk != null) 'suspected_drunk': suspectedDrunk,
+      if (revivedDay != null) 'revived_day': revivedDay,
       if (fakeDead != null) 'fake_dead': fakeDead,
     });
   }
@@ -1256,6 +1305,7 @@ class PlayersCompanion extends UpdateCompanion<Player> {
     Value<DeathCause?>? deathCause,
     Value<bool>? abilityUsed,
     Value<bool>? suspectedDrunk,
+    Value<int?>? revivedDay,
     Value<bool>? fakeDead,
   }) {
     return PlayersCompanion(
@@ -1268,6 +1318,7 @@ class PlayersCompanion extends UpdateCompanion<Player> {
       deathCause: deathCause ?? this.deathCause,
       abilityUsed: abilityUsed ?? this.abilityUsed,
       suspectedDrunk: suspectedDrunk ?? this.suspectedDrunk,
+      revivedDay: revivedDay ?? this.revivedDay,
       fakeDead: fakeDead ?? this.fakeDead,
     );
   }
@@ -1304,6 +1355,9 @@ class PlayersCompanion extends UpdateCompanion<Player> {
     if (suspectedDrunk.present) {
       map['suspected_drunk'] = Variable<bool>(suspectedDrunk.value);
     }
+    if (revivedDay.present) {
+      map['revived_day'] = Variable<int>(revivedDay.value);
+    }
     if (fakeDead.present) {
       map['fake_dead'] = Variable<bool>(fakeDead.value);
     }
@@ -1322,6 +1376,7 @@ class PlayersCompanion extends UpdateCompanion<Player> {
           ..write('deathCause: $deathCause, ')
           ..write('abilityUsed: $abilityUsed, ')
           ..write('suspectedDrunk: $suspectedDrunk, ')
+          ..write('revivedDay: $revivedDay, ')
           ..write('fakeDead: $fakeDead')
           ..write(')'))
         .toString();
@@ -6259,6 +6314,7 @@ typedef $$PlayersTableCreateCompanionBuilder =
       Value<DeathCause?> deathCause,
       Value<bool> abilityUsed,
       Value<bool> suspectedDrunk,
+      Value<int?> revivedDay,
       Value<bool> fakeDead,
     });
 typedef $$PlayersTableUpdateCompanionBuilder =
@@ -6272,6 +6328,7 @@ typedef $$PlayersTableUpdateCompanionBuilder =
       Value<DeathCause?> deathCause,
       Value<bool> abilityUsed,
       Value<bool> suspectedDrunk,
+      Value<int?> revivedDay,
       Value<bool> fakeDead,
     });
 
@@ -6494,6 +6551,11 @@ class $$PlayersTableFilterComposer
 
   ColumnFilters<bool> get suspectedDrunk => $composableBuilder(
     column: $table.suspectedDrunk,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get revivedDay => $composableBuilder(
+    column: $table.revivedDay,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -6775,6 +6837,11 @@ class $$PlayersTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get revivedDay => $composableBuilder(
+    column: $table.revivedDay,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<bool> get fakeDead => $composableBuilder(
     column: $table.fakeDead,
     builder: (column) => ColumnOrderings(column),
@@ -6843,6 +6910,11 @@ class $$PlayersTableAnnotationComposer
 
   GeneratedColumn<bool> get suspectedDrunk => $composableBuilder(
     column: $table.suspectedDrunk,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get revivedDay => $composableBuilder(
+    column: $table.revivedDay,
     builder: (column) => column,
   );
 
@@ -7122,6 +7194,7 @@ class $$PlayersTableTableManager
                 Value<DeathCause?> deathCause = const Value.absent(),
                 Value<bool> abilityUsed = const Value.absent(),
                 Value<bool> suspectedDrunk = const Value.absent(),
+                Value<int?> revivedDay = const Value.absent(),
                 Value<bool> fakeDead = const Value.absent(),
               }) => PlayersCompanion(
                 id: id,
@@ -7133,6 +7206,7 @@ class $$PlayersTableTableManager
                 deathCause: deathCause,
                 abilityUsed: abilityUsed,
                 suspectedDrunk: suspectedDrunk,
+                revivedDay: revivedDay,
                 fakeDead: fakeDead,
               ),
           createCompanionCallback:
@@ -7146,6 +7220,7 @@ class $$PlayersTableTableManager
                 Value<DeathCause?> deathCause = const Value.absent(),
                 Value<bool> abilityUsed = const Value.absent(),
                 Value<bool> suspectedDrunk = const Value.absent(),
+                Value<int?> revivedDay = const Value.absent(),
                 Value<bool> fakeDead = const Value.absent(),
               }) => PlayersCompanion.insert(
                 id: id,
@@ -7157,6 +7232,7 @@ class $$PlayersTableTableManager
                 deathCause: deathCause,
                 abilityUsed: abilityUsed,
                 suspectedDrunk: suspectedDrunk,
+                revivedDay: revivedDay,
                 fakeDead: fakeDead,
               ),
           withReferenceMapper: (p0) => p0

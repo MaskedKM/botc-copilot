@@ -813,4 +813,45 @@ void main() {
       expect(id, isNull);
     });
   });
+  group('#264 ① 死票周期重置', () {
+    Nomination nom(int id, int dayRecordId, String votes) => Nomination(
+          id: id,
+          gameId: 1,
+          dayRecordId: dayRecordId,
+          nominatorPlayerId: 1,
+          nomineePlayerId: 2,
+          passed: true,
+          voteResultJson: votes,
+        );
+
+    test('未复活：历史死票始终占用', () {
+      final used = NominationRules.deadVoteUsed(
+        [nom(1, 10, '[{"playerId":3,"vote":"forVote","isDeadVote":true}]')],
+        3,
+        dayRecordToDayNumber: {10: 2},
+      );
+      expect(used, isTrue);
+    });
+
+    test('复活后（day 4）：早于复活日（day 2）的死票不占用', () {
+      final used = NominationRules.deadVoteUsed(
+        [nom(1, 10, '[{"playerId":3,"vote":"forVote","isDeadVote":true}]')],
+        3,
+        deadVoteResetAfterDay: 4,
+        dayRecordToDayNumber: {10: 2},
+      );
+      expect(used, isFalse); // 官方：复活者再死获得全新死票
+    });
+
+    test('复活后再次用票（day 5 ≥ 复活日）→ 占用', () {
+      final used = NominationRules.deadVoteUsed(
+        [nom(1, 11, '[{"playerId":3,"vote":"forVote","isDeadVote":true}]')],
+        3,
+        deadVoteResetAfterDay: 4,
+        dayRecordToDayNumber: {11: 5},
+      );
+      expect(used, isTrue);
+    });
+  });
+
 }
